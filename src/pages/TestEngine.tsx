@@ -126,6 +126,10 @@ export default function TestEngine() {
 
   const summary = result ? summarize(result) : null;
 
+  const budgetInsufficient = (result as any)?.warnings?.budgetInsufficient;
+  const overrideAdjusted = (result as any)?.warnings?.overrideAdjusted;
+  const unfulfilledDaysTotal = (result as any)?.unfulfilledDaysTotal;
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mb-6">
@@ -141,6 +145,17 @@ export default function TestEngine() {
 
       <div className="mb-6 rounded-md border bg-muted p-4">
         <h2 className="mb-2 text-sm font-semibold">Quick check</h2>
+        <div className="mb-4 text-sm">
+          <div>
+            <b>budgetInsufficient:</b> {String(budgetInsufficient)}
+          </div>
+          <div>
+            <b>overrideAdjusted:</b> {String(overrideAdjusted)}
+          </div>
+          <div>
+            <b>unfulfilledDaysTotal:</b> {String(unfulfilledDaysTotal)}
+          </div>
+        </div>
         {summary ? (
           <pre className="text-xs overflow-auto whitespace-pre-wrap">{JSON.stringify(summary, null, 2)}</pre>
         ) : (
