@@ -91,6 +91,7 @@ const PlanBuilder = () => {
       {result && (
         <div className="border border-border rounded-lg p-4 bg-card space-y-1">
           <h2 className="text-sm font-semibold mb-2">Simulation summary</h2>
+          <p className="text-sm">blocksSimulated: {blocks.filter((b) => !blockErrors.get(b.id)).length}</p>
           <p className="text-sm">
             budgetInsufficient:{" "}
             <span className={result.warnings?.budgetInsufficient ? "text-destructive font-medium" : ""}>
@@ -105,10 +106,27 @@ const PlanBuilder = () => {
           </p>
           <p className="text-sm">
             unfulfilledDaysTotal:{" "}
-            <span className={result.unfulfilledDaysTotal > 0 ? "text-destructive font-medium" : ""}>
-              {result.unfulfilledDaysTotal ?? 0}
+            <span className={(result.unfulfilledDaysTotal ?? 0) >= 0.01 ? "text-destructive font-medium" : ""}>
+              {(result.unfulfilledDaysTotal ?? 0) < 0.01 ? 0 : Math.round(result.unfulfilledDaysTotal * 100) / 100}
             </span>
           </p>
+          {result.parentsResult.map((pr) => {
+            const validBlocks = blocks.filter((b) => !blockErrors.get(b.id) && b.parentId === pr.parentId);
+            const requestedDays = validBlocks.reduce((sum, b) => {
+              const start = new Date(b.startDate + "T00:00:00Z").getTime();
+              const end = new Date(b.endDate + "T00:00:00Z").getTime();
+              const calDays = Math.floor((end - start) / 86400000) + 1;
+              return sum + calDays * (b.daysPerWeek / 7);
+            }, 0);
+            const taken = pr.taken.sickness + pr.taken.lowest;
+            return (
+              <div key={pr.parentId} className="text-sm pl-2 border-l-2 border-border mt-1">
+                <span className="font-medium">{pr.name}:</span>{" "}
+                requestedDaysTotal: {Math.round(requestedDays * 100) / 100},{" "}
+                takenDaysTotal: {Math.round(taken * 100) / 100}
+              </div>
+            );
+          })}
         </div>
       )}
 
