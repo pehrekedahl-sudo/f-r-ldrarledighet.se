@@ -41,8 +41,10 @@ function buildPlan(testCase: number): Plan {
       return {
         ...base,
         blocks: [
-          { id: "b1", parentId: "p1", startDate: "2025-03-01", endDate: "2025-08-31", daysPerWeek: 7 },
-          { id: "b2", parentId: "p2", startDate: "2025-09-01", endDate: "2026-02-28", daysPerWeek: 7 },
+          // 306 dagar (spränger 240)
+          { id: "b1", parentId: "p1", startDate: "2025-03-01", endDate: "2025-12-31", daysPerWeek: 7 },
+          // 365 dagar (spränger 240)
+          { id: "b2", parentId: "p2", startDate: "2025-01-01", endDate: "2025-12-31", daysPerWeek: 7 },
         ],
       };
 
