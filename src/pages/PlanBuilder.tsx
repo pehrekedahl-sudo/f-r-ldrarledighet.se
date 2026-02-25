@@ -96,6 +96,7 @@ const PlanBuilder = () => {
         const unfulfilledDisplay = Math.abs(unfulfilled) < 0.01 ? 0 : unfulfilled.toFixed(2);
 
         return (
+        <>
         <div className="border border-border rounded-lg p-4 bg-card space-y-1">
           <h2 className="text-sm font-semibold mb-2">Simulation summary</h2>
           <p className="text-sm">blocksSimulated: {blocks.filter((b) => !blockErrors.get(b.id)).length}</p>
@@ -123,24 +124,39 @@ const PlanBuilder = () => {
               {unfulfilledDisplay}
             </span>
           </p>
-          {result.parentsResult.map((pr) => {
-            const validBlocks = blocks.filter((b) => !blockErrors.get(b.id) && b.parentId === pr.parentId);
-            const requestedDays = validBlocks.reduce((sum, b) => {
-              const start = new Date(b.startDate + "T00:00:00Z").getTime();
-              const end = new Date(b.endDate + "T00:00:00Z").getTime();
-              const calDays = Math.floor((end - start) / 86400000) + 1;
-              return sum + calDays * (b.daysPerWeek / 7);
-            }, 0);
-            const taken = pr.taken.sickness + pr.taken.lowest;
-            return (
-              <div key={pr.parentId} className="text-sm pl-2 border-l-2 border-border mt-1">
-                <span className="font-medium">{pr.name}:</span>{" "}
-                requestedDaysTotal: {Math.round(requestedDays * 100) / 100},{" "}
-                takenDaysTotal: {Math.round(taken * 100) / 100}
-              </div>
-            );
-          })}
+
+          <table className="w-full text-sm mt-3 border-collapse">
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="py-1 font-medium">Förälder</th>
+                <th className="py-1 font-medium">Tagna (sjuk)</th>
+                <th className="py-1 font-medium">Tagna (lägst)</th>
+                <th className="py-1 font-medium">Kvar (överförbar)</th>
+                <th className="py-1 font-medium">Kvar (reserverad)</th>
+                <th className="py-1 font-medium">Kvar (lägst)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.parentsResult.map((pr) => (
+                <tr key={pr.parentId} className="border-b border-border">
+                  <td className="py-1 font-medium">{pr.name}</td>
+                  <td className="py-1">{Math.round(pr.taken.sickness * 100) / 100}</td>
+                  <td className="py-1">{Math.round(pr.taken.lowest * 100) / 100}</td>
+                  <td className="py-1">{Math.round(pr.remaining.sicknessTransferable * 100) / 100}</td>
+                  <td className="py-1">{Math.round(pr.remaining.sicknessReserved * 100) / 100}</td>
+                  <td className="py-1">{Math.round(pr.remaining.lowest * 100) / 100}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {budgetInsufficient && (
+          <div className="border border-destructive rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
+            Planen kräver fler dagar än ni har kvar. Saknas totalt: {Math.abs(unfulfilled) < 0.05 ? 0 : unfulfilled.toFixed(1)} dagar.
+          </div>
+        )}
+        </>
         );
       })()}
 
