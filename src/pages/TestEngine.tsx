@@ -114,7 +114,7 @@ function summarize(res: any) {
 export default function TestEngine() {
   const [result, setResult] = useState<any>(null);
 
-  const plan = useMemo(() => buildPlan(TEST_CASE), []);
+  const plan = useMemo(() => buildPlan(TEST_CASE), [TEST_CASE]);
 
   useEffect(() => {
     const res = simulatePlan(plan);
