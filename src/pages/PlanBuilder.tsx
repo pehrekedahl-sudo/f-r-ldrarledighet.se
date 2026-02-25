@@ -88,26 +88,39 @@ const PlanBuilder = () => {
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <p className="text-sm text-muted-foreground">Plan Builder – live simulation</p>
 
-      {result && (
+      {result && (() => {
+        const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
+        const overrideAdjusted = Boolean(result.warnings?.overrideAdjusted);
+        const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
+        const budgetInsufficientDerived = unfulfilled > 0.0001;
+        const unfulfilledDisplay = Math.abs(unfulfilled) < 0.01 ? 0 : unfulfilled.toFixed(2);
+
+        return (
         <div className="border border-border rounded-lg p-4 bg-card space-y-1">
           <h2 className="text-sm font-semibold mb-2">Simulation summary</h2>
           <p className="text-sm">blocksSimulated: {blocks.filter((b) => !blockErrors.get(b.id)).length}</p>
           <p className="text-sm">
             budgetInsufficient:{" "}
-            <span className={result.warnings?.budgetInsufficient ? "text-destructive font-medium" : ""}>
-              {String(result.warnings?.budgetInsufficient ?? false)}
+            <span className={budgetInsufficient ? "text-destructive font-medium" : ""}>
+              {String(budgetInsufficient)}
+            </span>
+          </p>
+          <p className="text-sm">
+            budgetInsufficientDerived (sanity):{" "}
+            <span className={budgetInsufficientDerived !== budgetInsufficient ? "text-destructive font-medium" : "text-muted-foreground"}>
+              {String(budgetInsufficientDerived)}{budgetInsufficientDerived !== budgetInsufficient ? " ⚠️ MISMATCH" : " ✓"}
             </span>
           </p>
           <p className="text-sm">
             overrideAdjusted:{" "}
-            <span className={result.warnings?.overrideAdjusted ? "text-destructive font-medium" : ""}>
-              {String(result.warnings?.overrideAdjusted ?? false)}
+            <span className={overrideAdjusted ? "text-destructive font-medium" : ""}>
+              {String(overrideAdjusted)}
             </span>
           </p>
           <p className="text-sm">
             unfulfilledDaysTotal:{" "}
-            <span className={Math.abs(result.unfulfilledDaysTotal ?? 0) >= 0.01 ? "text-destructive font-medium" : ""}>
-              {Math.abs(result.unfulfilledDaysTotal ?? 0) < 0.01 ? 0 : (result.unfulfilledDaysTotal).toFixed(2)}
+            <span className={Math.abs(unfulfilled) >= 0.01 ? "text-destructive font-medium" : ""}>
+              {unfulfilledDisplay}
             </span>
           </p>
           {result.parentsResult.map((pr) => {
@@ -128,7 +141,8 @@ const PlanBuilder = () => {
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       <div className="space-y-4">
         {blocks.map((b) => {
