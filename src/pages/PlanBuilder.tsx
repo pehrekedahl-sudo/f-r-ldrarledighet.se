@@ -3,6 +3,7 @@ import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -58,6 +59,7 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
+  const [transferDays, setTransferDays] = useState(0);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const updateBlock = (id: string, patch: Partial<Block>) =>
@@ -75,14 +77,17 @@ const PlanBuilder = () => {
       .filter((b) => !blockErrors.get(b.id))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
     if (valid.length === 0) return null;
+    const transfers = transferDays > 0
+      ? [{ fromParentId: "p2", toParentId: "p1", sicknessDays: transferDays }]
+      : [];
     try {
-      const r = simulatePlan({ parents: PARENTS, blocks: valid, constants: CONSTANTS });
+      const r = simulatePlan({ parents: PARENTS, blocks: valid, transfers, constants: CONSTANTS });
       console.log("simulatePlan result:", r);
       return r;
     } catch {
       return null;
     }
-  }, [blocks, blockErrors]);
+  }, [blocks, blockErrors, transferDays]);
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -159,6 +164,21 @@ const PlanBuilder = () => {
         </>
         );
       })()}
+
+      <div className="border border-border rounded-lg p-4 bg-card space-y-3">
+        <h2 className="text-sm font-semibold">Överföringar</h2>
+        <div className="space-y-2">
+          <Label className="text-sm">Flytta sjukpenningdagar från Erik till Anna: {transferDays}</Label>
+          <Slider
+            min={0}
+            max={105}
+            step={1}
+            value={[transferDays]}
+            onValueChange={([v]) => setTransferDays(v)}
+          />
+          <p className="text-xs text-muted-foreground">0 – 105 dagar</p>
+        </div>
+      </div>
 
       <div className="space-y-4">
         {blocks.map((b) => {
