@@ -4,7 +4,7 @@ import { simulatePlan } from "@/lib/simulatePlan";
 /**
  * Change this number (1..5) to run different test cases.
  */
-const TEST_CASE = 2;
+const TEST_CASE = 3;
 
 type Plan = any;
 
