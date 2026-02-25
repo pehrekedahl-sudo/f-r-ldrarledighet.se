@@ -106,8 +106,8 @@ const PlanBuilder = () => {
           </p>
           <p className="text-sm">
             unfulfilledDaysTotal:{" "}
-            <span className={(result.unfulfilledDaysTotal ?? 0) >= 0.01 ? "text-destructive font-medium" : ""}>
-              {(result.unfulfilledDaysTotal ?? 0) < 0.01 ? 0 : Math.round(result.unfulfilledDaysTotal * 100) / 100}
+            <span className={Math.abs(result.unfulfilledDaysTotal ?? 0) >= 0.01 ? "text-destructive font-medium" : ""}>
+              {Math.abs(result.unfulfilledDaysTotal ?? 0) < 0.01 ? 0 : (result.unfulfilledDaysTotal).toFixed(2)}
             </span>
           </p>
           {result.parentsResult.map((pr) => {
