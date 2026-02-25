@@ -71,7 +71,9 @@ const PlanBuilder = () => {
   );
 
   const result = useMemo(() => {
-    const valid = blocks.filter((b) => !blockErrors.get(b.id));
+    const valid = blocks
+      .filter((b) => !blockErrors.get(b.id))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
     if (valid.length === 0) return null;
     try {
       const r = simulatePlan({ parents: PARENTS, blocks: valid, constants: CONSTANTS });
@@ -116,7 +118,7 @@ const PlanBuilder = () => {
           return (
             <div key={b.id} className={`border rounded-lg p-4 space-y-3 bg-card ${err ? "border-destructive" : "border-border"}`}>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Block {b.id}</span>
+                <span className="text-sm font-medium">{PARENTS.find((p) => p.id === b.parentId)?.name ?? "?"} – Block {b.id}</span>
                 <Button variant="ghost" size="sm" onClick={() => removeBlock(b.id)}>Remove</Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
