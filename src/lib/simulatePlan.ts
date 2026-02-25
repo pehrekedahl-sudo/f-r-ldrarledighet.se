@@ -125,6 +125,8 @@ function splitIntoMonthSegments(
 }
 
 // ---------- math helpers ----------
+const EPS = 1e-6;
+
 function fractionTaken(calendarDays: number, daysPerWeek: number): number {
   return calendarDays * (daysPerWeek / 7);
 }
@@ -337,8 +339,9 @@ export function simulatePlan(plan: PlanInput): SimResult {
 
     // If still needS > 0 => budget insufficient (unfulfilled)
     const totalActual = actualSickness + actualLowest;
-    const unfulfilled = Math.max(0, totalRequested - totalActual);
-    if (unfulfilled > 0) {
+    const rawUnfulfilled = Math.max(0, totalRequested - totalActual);
+    const unfulfilled = rawUnfulfilled < EPS ? 0 : rawUnfulfilled;
+    if (unfulfilled > EPS) {
       result.warnings.budgetInsufficient = true;
       result.unfulfilledDaysTotal += unfulfilled;
     }
