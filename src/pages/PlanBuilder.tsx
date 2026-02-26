@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,7 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
   const [transferAmount, setTransferAmount] = useState(0);
@@ -68,6 +70,30 @@ const PlanBuilder = () => {
   const [dueDate, setDueDate] = useState("");
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
+  const [isSharedPlan, setIsSharedPlan] = useState(false);
+
+  useEffect(() => {
+    const planParam = searchParams.get("plan");
+    if (!planParam) return;
+    try {
+      const decoded = JSON.parse(atob(planParam));
+      if (decoded.blocks) setBlocks(decoded.blocks);
+      if (decoded.transfer) setTransfer(decoded.transfer);
+      if (decoded.dueDate) setDueDate(decoded.dueDate);
+      if (decoded.months1 !== undefined) setMonths1(decoded.months1);
+      if (decoded.months2 !== undefined) setMonths2(decoded.months2);
+      setIsSharedPlan(true);
+    } catch { /* ignore invalid plan param */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sharePlan = useCallback(() => {
+    const payload = { blocks, transfer, dueDate, months1, months2 };
+    const encoded = btoa(JSON.stringify(payload));
+    setSearchParams({ plan: encoded }, { replace: true });
+    const url = `${window.location.origin}${window.location.pathname}?plan=${encoded}`;
+    navigator.clipboard.writeText(url);
+    toast({ description: "Länk kopierad" });
+  }, [blocks, transfer, dueDate, months1, months2, setSearchParams, toast]);
 
   const generateQuickStart = () => {
     if (!dueDate) return;
@@ -154,6 +180,11 @@ const PlanBuilder = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-10">
+      {isSharedPlan && (
+        <div className="border border-border rounded-lg p-3 bg-muted text-sm text-muted-foreground text-center">
+          Du tittar på en delad plan
+        </div>
+      )}
       {/* Hero */}
       <div className="space-y-3 text-center">
         <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
@@ -389,7 +420,10 @@ const PlanBuilder = () => {
           );
         })()}
 
-        <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
+        <div className="flex gap-3">
+          <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
+          <Button disabled={!result} onClick={sharePlan}>Dela med din partner</Button>
+        </div>
       </section>
     </div>
   );
