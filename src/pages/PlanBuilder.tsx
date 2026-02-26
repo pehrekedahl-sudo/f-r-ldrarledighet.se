@@ -110,7 +110,6 @@ const PlanBuilder = () => {
         const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
         const overrideAdjusted = Boolean(result.warnings?.overrideAdjusted);
         const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
-        const budgetInsufficientDerived = unfulfilled > 0.0001;
         const unfulfilledDisplay = Math.abs(unfulfilled) < 0.01 ? 0 : unfulfilled.toFixed(2);
 
         return (
@@ -122,12 +121,6 @@ const PlanBuilder = () => {
             budgetInsufficient:{" "}
             <span className={budgetInsufficient ? "text-destructive font-medium" : ""}>
               {String(budgetInsufficient)}
-            </span>
-          </p>
-          <p className="text-sm">
-            budgetInsufficientDerived (sanity):{" "}
-            <span className={budgetInsufficientDerived !== budgetInsufficient ? "text-destructive font-medium" : "text-muted-foreground"}>
-              {String(budgetInsufficientDerived)}{budgetInsufficientDerived !== budgetInsufficient ? " ⚠️ MISMATCH" : " ✓"}
             </span>
           </p>
           <p className="text-sm">
