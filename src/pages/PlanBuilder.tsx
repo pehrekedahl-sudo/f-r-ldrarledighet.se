@@ -660,22 +660,34 @@ const PlanBuilder = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="flex items-end gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-sm">Antal dagar</Label>
-                          <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
-                        </div>
-                        <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
-                          Ge till {parents[0].name}
-                        </Button>
-                        <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
-                          Ge till {parents[1].name}
-                        </Button>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-y-0.5">
-                        <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                        <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                      </div>
+                      {(() => {
+                        const p1Transferable = Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0);
+                        const p2Transferable = Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0);
+                        const anyTransferable = p1Transferable > 0 || p2Transferable > 0;
+                        return (
+                          <>
+                            <div className="flex items-end gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-sm">Antal dagar</Label>
+                                <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} disabled={!anyTransferable} />
+                              </div>
+                              <Button variant="outline" size="sm" disabled={transferAmount === 0 || p2Transferable === 0} onClick={() => handleTransfer("p1")}>
+                                Ge till {parents[0].name}
+                              </Button>
+                              <Button variant="outline" size="sm" disabled={transferAmount === 0 || p1Transferable === 0} onClick={() => handleTransfer("p2")}>
+                                Ge till {parents[1].name}
+                              </Button>
+                            </div>
+                            <div className="text-xs text-muted-foreground space-y-0.5">
+                              <p>Max att ge från {parents[1].name}: {p2Transferable} dagar</p>
+                              <p>Max att ge från {parents[0].name}: {p1Transferable} dagar</p>
+                            </div>
+                            {!anyTransferable && (
+                              <p className="text-xs text-muted-foreground italic">Inga överförbara dagar kvar att flytta (reserverade dagar kan inte överföras).</p>
+                            )}
+                          </>
+                        );
+                      })()}
                       {transferError && <p className="text-xs text-destructive">{transferError}</p>}
                       {transfer && (
                         <div className="text-xs text-muted-foreground space-y-0.5">
@@ -719,6 +731,9 @@ const PlanBuilder = () => {
                         <div>
                           <p className="text-xs text-muted-foreground">Kvar totalt</p>
                           <p className="font-medium">{parentDaysLeft} dagar</p>
+                          <p className="text-xs text-muted-foreground">Överförbar {Math.round(pr.remaining.sicknessTransferable)}</p>
+                          <p className="text-xs text-muted-foreground">Reserverad {Math.round(pr.remaining.sicknessReserved)}</p>
+                          <p className="text-xs text-muted-foreground">Lägstanivå {Math.round(pr.remaining.lowest)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Snitt / mån</p>
