@@ -400,7 +400,12 @@ const PlanBuilder = () => {
                   </div>
                 );
               })()}
-              <p className="text-sm">Ni sparar totalt <span className="font-medium">{r2(totalAll)}</span> dagar.</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Dagar kvar efter denna plan: <span className="text-lg font-bold">{r2(totalAll)}</span></p>
+                {totalAll > 0 && (
+                  <p className="text-sm text-muted-foreground">Ni kan använda dessa senare, t.ex. vid inskolning eller lov.</p>
+                )}
+              </div>
               {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
               {allTransferableUsed && (
                 <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
