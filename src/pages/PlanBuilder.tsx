@@ -204,18 +204,22 @@ const PlanBuilder = () => {
     [blocks]
   );
 
-  const result = useMemo(() => {
+  const planInput = useMemo(() => {
     const valid = blocks
       .filter((b) => !blockErrors.get(b.id))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
-    if (valid.length === 0) return null;
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    return { parents, blocks: valid, transfers, constants: CONSTANTS };
+  }, [blocks, blockErrors, transfer, parents]);
+
+  const result = useMemo(() => {
+    if (planInput.blocks.length === 0) return null;
     try {
-      return simulatePlan({ parents, blocks: valid, transfers, constants: CONSTANTS });
+      return simulatePlan(planInput);
     } catch {
       return null;
     }
-  }, [blocks, blockErrors, transfer, parents]);
+  }, [planInput]);
 
   const handleTransfer = (toParentId: string) => {
     const fromParentId = toParentId === "p1" ? "p2" : "p1";
@@ -421,9 +425,26 @@ const PlanBuilder = () => {
             ← Tillbaka och ändra plan
           </Button>
 
-          {/* Strategisk översikt + Planöversikt */}
+           {/* Strategisk översikt + Planöversikt */}
           <section className="space-y-4">
             <h2 className="text-lg font-semibold border-b border-border pb-2">Resultat & justering</h2>
+
+            {/* DEBUG: validation errors */}
+            {result && (result as any).validationErrors?.length > 0 && (
+              <div className="border border-destructive rounded-lg p-4 bg-destructive/10 space-y-2">
+                <p className="text-destructive font-medium">Planen kunde inte beräknas – kontrollera fälten.</p>
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-destructive/80">Visa valideringsfel</summary>
+                  <pre className="mt-2 text-xs overflow-auto max-h-40 bg-background p-2 rounded">{JSON.stringify((result as any).validationErrors, null, 2)}</pre>
+                </details>
+              </div>
+            )}
+
+            {/* DEBUG: plan input JSON */}
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">Debug: visa plan-input JSON</summary>
+              <pre className="mt-2 text-xs overflow-auto max-h-60 bg-muted p-3 rounded">{JSON.stringify(planInput, null, 2)}</pre>
+            </details>
 
             {result ? (() => {
               const r2 = (v: number) => Math.round(v * 100) / 100;
