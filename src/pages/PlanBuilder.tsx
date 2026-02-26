@@ -366,20 +366,40 @@ const PlanBuilder = () => {
           <div className="space-y-4">
             <div className="border border-border rounded-lg p-4 bg-card space-y-2">
               <h3 className="text-sm font-semibold">Strategisk översikt</h3>
-              <div className="grid grid-cols-3 gap-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
-                  <p className="font-medium">{r2(totalSickness)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Lägstanivådagar kvar</p>
-                  <p className="font-medium">{r2(totalLowest)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Totalt kvar</p>
-                  <p className="font-medium">{r2(totalAll)}</p>
-                </div>
-              </div>
+              {(() => {
+                const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
+                const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
+                const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
+                const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-muted-foreground text-sm">Total ersättning under hela planen</p>
+                        <p className="text-2xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-sm">Hushållets genomsnittliga månadsersättning</p>
+                        <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr/mån</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
+                        <p className="font-medium">{r2(totalSickness)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Lägstanivådagar kvar</p>
+                        <p className="font-medium">{r2(totalLowest)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Totalt kvar</p>
+                        <p className="font-medium">{r2(totalAll)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <p className="text-sm">Ni sparar totalt <span className="font-medium">{r2(totalAll)}</span> dagar.</p>
               {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
               {allTransferableUsed && (
