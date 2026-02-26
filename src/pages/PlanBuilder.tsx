@@ -437,13 +437,22 @@ const PlanBuilder = () => {
             </div>
 
             {result && (() => {
-              const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
-              const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
-              return budgetInsufficient ? (
-                <div className="border border-destructive rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
-                  Planen kräver fler dagar än ni har kvar. Saknas totalt: {Math.abs(unfulfilled) < 0.05 ? 0 : unfulfilled.toFixed(1)} dagar.
+              const unfulfilled = result.unfulfilledDaysTotal ?? 0;
+              if (unfulfilled <= 0) return null;
+              const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+              if (householdTransferableRemaining > 0) {
+                return (
+                  <div className="border border-warning/50 rounded-lg p-4 bg-warning/10 text-warning-foreground text-sm space-y-1">
+                    <p className="font-medium">Planen kräver att ni omfördelar dagar mellan er för att gå ihop.</p>
+                    <p className="text-xs">Testa att flytta överförbara sjukpenningdagar under &quot;Omfördela dagar&quot;.</p>
+                  </div>
+                );
+              }
+              return (
+                <div className="border border-destructive/50 rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
+                  Planen saknar totalt {unfulfilled} dagar för att gå ihop.
                 </div>
-              ) : null;
+              );
             })()}
           </section>
 
@@ -484,8 +493,13 @@ const PlanBuilder = () => {
               const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
               const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
 
-              const insightText = result.warnings.budgetInsufficient
-                ? "Planen kräver fler dagar än ni har. Justera eller omfördela."
+              const unfulfilled = result.unfulfilledDaysTotal ?? 0;
+              const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+
+              const insightText = unfulfilled > 0
+                ? (householdTransferableRemaining > 0
+                    ? "Planen kräver omfördelning av dagar mellan er."
+                    : `Planen saknar ${unfulfilled} dagar. Justera perioder eller dagar/vecka.`)
                 : r2(totalAll) > 50
                   ? "Ni har gott om marginal och kan spara dagar till senare."
                   : r2(totalAll) > 0
@@ -511,8 +525,14 @@ const PlanBuilder = () => {
                       <p className="text-xl font-bold mt-1">{r2(totalAll)}</p>
                     </div>
                   </div>
-                  {result.warnings.budgetInsufficient && (
-                    <p className="text-sm text-destructive font-medium">Planen kräver fler dagar än ni har kvar.</p>
+                  {unfulfilled > 0 && householdTransferableRemaining > 0 && (
+                    <div className="text-sm space-y-1 p-3 rounded-md bg-warning/10 border border-warning/30">
+                      <p className="font-medium text-warning-foreground">Planen kräver att ni omfördelar dagar mellan er för att gå ihop.</p>
+                      <p className="text-xs text-warning-foreground/80">Testa att flytta överförbara sjukpenningdagar under &quot;Omfördela dagar&quot;.</p>
+                    </div>
+                  )}
+                  {unfulfilled > 0 && householdTransferableRemaining <= 0 && (
+                    <p className="text-sm text-destructive font-medium">Planen saknar totalt {unfulfilled} dagar för att gå ihop.</p>
                   )}
                   <Button variant="outline" size="sm" onClick={() => { setAdjustOpen(true); setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100); }}>
                     Justera planen
