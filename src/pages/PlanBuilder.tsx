@@ -133,7 +133,7 @@ const PlanBuilder = () => {
           parentId: wr.preBirthParent,
           startDate: fmt(preStart),
           endDate: fmt(preEnd),
-          daysPerWeek: 5,
+      daysPerWeek: wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2,
         });
       }
     }
@@ -144,23 +144,10 @@ const PlanBuilder = () => {
     const end2 = new Date(end1);
     end2.setMonth(end2.getMonth() + wr.months2);
 
-    // Adjust daysPerWeek to accommodate saved days
-    let dpw = 5;
-    if (wr.savedDays > 0) {
-      const totalMonths = wr.months1 + wr.months2;
-      const totalCalendarDays = totalMonths * 30;
-      const totalAvailable = 480;
-      const targetUsage = totalAvailable - wr.savedDays;
-      if (totalCalendarDays > 0) {
-        const neededRate = targetUsage / totalCalendarDays;
-        dpw = Math.max(1, Math.min(7, Math.round(neededRate)));
-      }
-    }
-
     const maybeBlock = (b: Block) => b.startDate < b.endDate ? b : null;
     [
-      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: dpw }),
-      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: dpw }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: wr.daysPerWeek1 }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: wr.daysPerWeek2 }),
     ].forEach(b => b && generatedBlocks.push(b));
 
     setBlocks(generatedBlocks);
