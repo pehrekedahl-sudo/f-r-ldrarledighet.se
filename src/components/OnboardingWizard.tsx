@@ -5,7 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronDown, CalendarIcon } from "lucide-react";
+import { format, differenceInCalendarDays, subWeeks } from "date-fns";
+import { sv } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 type SavingPreset = "none" | "lite" | "buffert" | "unknown";
 
@@ -50,7 +55,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [dueDate, setDueDate] = useState("");
   // Step 4
   const [preBirthChoice, setPreBirthChoice] = useState<"no" | "p1" | "p2" | null>(null);
-  const [preBirthWeeks, setPreBirthWeeks] = useState(2);
+  const [preBirthDate, setPreBirthDate] = useState<Date | undefined>(undefined);
   // Step 5 & 6
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
@@ -66,7 +71,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
       case 2: return wantIncome !== null;
       case 3: return dueDate.length > 0;
-      case 4: return preBirthChoice !== null;
+      case 4: return preBirthChoice === "no" || (preBirthChoice !== null && preBirthDate !== undefined);
       case 5: return months1 >= 0;
       case 6: return months2 >= 0;
       case 7: return savingPreset !== null;
@@ -90,7 +95,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         has240Days1: wantIncome ? has240Days1 : true,
         has240Days2: wantIncome ? has240Days2 : true,
         preBirthParent: preBirthChoice === "p1" ? "p1" : preBirthChoice === "p2" ? "p2" : null,
-        preBirthWeeks: preBirthChoice !== "no" && preBirthChoice !== null ? preBirthWeeks : 0,
+        preBirthWeeks: preBirthChoice !== "no" && preBirthChoice !== null && preBirthDate && dueDate
+          ? Math.max(1, Math.ceil(differenceInCalendarDays(new Date(dueDate), preBirthDate) / 7))
+          : 0,
       });
     }
   };
@@ -194,17 +201,36 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </button>
               ))}
             </div>
-            {preBirthChoice && preBirthChoice !== "no" && (
+            {preBirthChoice && preBirthChoice !== "no" && dueDate && (
               <div className="space-y-2 animate-in fade-in duration-200">
-                <Label className="text-base">Antal veckor före BF</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={8}
-                  className="text-lg h-12"
-                  value={preBirthWeeks}
-                  onChange={(e) => setPreBirthWeeks(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
-                />
+                <Label className="text-base">När börjar ledigheten?</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full h-12 justify-start text-left text-lg font-normal",
+                        !preBirthDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {preBirthDate ? format(preBirthDate, "d MMMM yyyy", { locale: sv }) : "Välj datum"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={preBirthDate}
+                      onSelect={setPreBirthDate}
+                      defaultMonth={subWeeks(new Date(dueDate), 4)}
+                      disabled={(date) =>
+                        date < subWeeks(new Date(dueDate), 8) || date > new Date(dueDate)
+                      }
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
