@@ -123,18 +123,21 @@ const PlanBuilder = () => {
     const generatedBlocks: Block[] = [];
 
     if (wr.preBirthParent && wr.preBirthWeeks > 0) {
-      const preStart = new Date(due);
-      preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
-      const preEnd = new Date(due);
-      preEnd.setDate(preEnd.getDate() - 1);
-      if (preStart < preEnd) {
-        generatedBlocks.push({
-          id: `b${nextId++}`,
-          parentId: wr.preBirthParent,
-          startDate: fmt(preStart),
-          endDate: fmt(preEnd),
-      daysPerWeek: wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2,
-        });
+      const preDpw = wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2;
+      if (preDpw > 0) {
+        const preStart = new Date(due);
+        preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
+        const preEnd = new Date(due);
+        preEnd.setDate(preEnd.getDate() - 1);
+        if (preStart < preEnd) {
+          generatedBlocks.push({
+            id: `b${nextId++}`,
+            parentId: wr.preBirthParent,
+            startDate: fmt(preStart),
+            endDate: fmt(preEnd),
+            daysPerWeek: preDpw,
+          });
+        }
       }
     }
 
@@ -144,10 +147,10 @@ const PlanBuilder = () => {
     const end2 = new Date(end1);
     end2.setMonth(end2.getMonth() + wr.months2);
 
-    const maybeBlock = (b: Block) => b.startDate < b.endDate ? b : null;
+    const maybeBlock = (b: Block) => b.startDate < b.endDate && b.daysPerWeek > 0 ? b : null;
     [
-      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: wr.daysPerWeek1 }),
-      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: wr.daysPerWeek2 }),
+      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: wr.daysPerWeek1 }) : null,
+      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: wr.daysPerWeek2 }) : null,
     ].forEach(b => b && generatedBlocks.push(b));
 
     setBlocks(generatedBlocks);
@@ -161,11 +164,18 @@ const PlanBuilder = () => {
 
   // Defer switching to result mode until plan state is ready
   useEffect(() => {
-    if (pendingResult && blocks.length > 0) {
-      const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
-      console.log("FINAL PLAN (wizard -> result):", finalPlan);
-      setPendingResult(false);
-      setViewMode("result");
+    if (pendingResult) {
+      if (blocks.length > 0) {
+        const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
+        console.log("FINAL PLAN (wizard -> result):", finalPlan);
+        setPendingResult(false);
+        setViewMode("result");
+      } else {
+        // No valid blocks generated
+        setPendingResult(false);
+        setViewMode("wizard");
+        alert("Planen innehåller ingen aktiv ledighet ännu.");
+      }
     }
   }, [pendingResult, blocks, parents, transfer]);
 
