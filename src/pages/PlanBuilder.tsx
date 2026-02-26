@@ -402,6 +402,11 @@ const PlanBuilder = () => {
                     <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
                   </div>
                   <div className="space-y-1 text-sm">
+                    <p className="font-medium">Beräknad ersättning (simulerad)</p>
+                    <p className="text-muted-foreground pl-2">Dagersättning sjukpenningnivå: {Math.round(pr.rates.dailySickness)} kr/dag</p>
+                    <p className="text-muted-foreground pl-2">Exempel månadsutbetalning (5 d/v): {Math.round(pr.rates.dailySickness * 5 * 4.33).toLocaleString()} kr brutto</p>
+                  </div>
+                  <div className="space-y-1 text-sm">
                     <p className="font-medium">Beräknad månadsutbetalning (brutto)</p>
                     {pr.monthlyBreakdown.length > 0 ? (
                       <div className="pl-2 space-y-0.5">
