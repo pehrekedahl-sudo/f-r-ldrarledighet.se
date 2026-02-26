@@ -40,6 +40,7 @@ type MonthlyRow = {
 type ParentResult = {
   parentId: string;
   name: string;
+  rates: { dailySickness: number; dailyLowest: number };
   remaining: {
     sicknessTransferable: number;
     sicknessReserved: number;
@@ -410,6 +411,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
     result.parentsResult.push({
       parentId: p.parentId,
       name: p.name,
+      rates: p.rates,
       remaining: p.remaining,
       taken: p.taken,
       monthlyBreakdown,
