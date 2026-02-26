@@ -110,7 +110,7 @@ const PlanBuilder = () => {
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
     try {
       const r = simulatePlan({ parents: PARENTS, blocks: valid, transfers, constants: CONSTANTS });
-      console.log("simulatePlan result:", r);
+      
       return r;
     } catch {
       return null;
@@ -153,11 +153,20 @@ const PlanBuilder = () => {
   }, [result, blocks, blockErrors, toast]);
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <p className="text-sm text-muted-foreground">Plan Builder – live simulation</p>
+    <div className="max-w-3xl mx-auto p-6 space-y-10">
+      {/* Hero */}
+      <div className="space-y-3 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
+        <p className="text-muted-foreground">Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.</p>
+        <Button variant="outline" size="sm" onClick={() => document.getElementById("snabbstart")?.scrollIntoView({ behavior: "smooth" })}>Börja med snabbstart</Button>
+      </div>
 
-      <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-        <h2 className="text-sm font-semibold">Snabbstart</h2>
+      {/* Steg 1 */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 1 – Skapa grundplan</h2>
+
+        <div id="snabbstart" className="border border-border rounded-lg p-4 bg-card space-y-3">
+          <h3 className="text-sm font-semibold">Snabbstart</h3>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
             <Label>Beräknat datum (BF)</Label>
@@ -177,142 +186,19 @@ const PlanBuilder = () => {
 
       {result && (() => {
         const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
-        const overrideAdjusted = Boolean(result.warnings?.overrideAdjusted);
         const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
-        const unfulfilledDisplay = Math.abs(unfulfilled) < 0.01 ? 0 : unfulfilled.toFixed(2);
-
-        return (
-        <>
-        <div className="border border-border rounded-lg p-4 bg-card space-y-1">
-          <h2 className="text-sm font-semibold mb-2">Simulation summary</h2>
-          <p className="text-sm">blocksSimulated: {blocks.filter((b) => !blockErrors.get(b.id)).length}</p>
-          <p className="text-sm">
-            budgetInsufficient:{" "}
-            <span className={budgetInsufficient ? "text-destructive font-medium" : ""}>
-              {String(budgetInsufficient)}
-            </span>
-          </p>
-          <p className="text-sm">
-            overrideAdjusted:{" "}
-            <span className={overrideAdjusted ? "text-destructive font-medium" : ""}>
-              {String(overrideAdjusted)}
-            </span>
-          </p>
-          <p className="text-sm">
-            unfulfilledDaysTotal:{" "}
-            <span className={Math.abs(unfulfilled) >= 0.01 ? "text-destructive font-medium" : ""}>
-              {unfulfilledDisplay}
-            </span>
-          </p>
-
-          <table className="w-full text-sm mt-3 border-collapse">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="py-1 font-medium">Förälder</th>
-                <th className="py-1 font-medium">Tagna (sjuk)</th>
-                <th className="py-1 font-medium">Tagna (lägst)</th>
-                <th className="py-1 font-medium">Kvar (överförbar)</th>
-                <th className="py-1 font-medium">Kvar (reserverad)</th>
-                <th className="py-1 font-medium">Kvar (lägst)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.parentsResult.map((pr) => (
-                <tr key={pr.parentId} className="border-b border-border">
-                  <td className="py-1 font-medium">{pr.name}</td>
-                  <td className="py-1">{Math.round(pr.taken.sickness * 100) / 100}</td>
-                  <td className="py-1">{Math.round(pr.taken.lowest * 100) / 100}</td>
-                  <td className="py-1">{Math.round(pr.remaining.sicknessTransferable * 100) / 100}</td>
-                  <td className="py-1">{Math.round(pr.remaining.sicknessReserved * 100) / 100}</td>
-                  <td className="py-1">{Math.round(pr.remaining.lowest * 100) / 100}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {budgetInsufficient && (
+        return budgetInsufficient ? (
           <div className="border border-destructive rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
             Planen kräver fler dagar än ni har kvar. Saknas totalt: {Math.abs(unfulfilled) < 0.05 ? 0 : unfulfilled.toFixed(1)} dagar.
           </div>
-        )}
-        </>
-        );
+        ) : null;
       })()}
 
-      {result && (() => {
-        const r2 = (v: number) => Math.round(v * 100) / 100;
-        const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
-        const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
-        const totalAll = totalSickness + totalLowest;
-        const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
-        const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
-        const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
+      </section>
 
-        return (
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold">Planöversikt</h2>
-
-          <div className="border border-border rounded-lg p-4 bg-card space-y-2">
-            <h3 className="text-sm font-semibold">Strategisk översikt</h3>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
-                <p className="font-medium">{r2(totalSickness)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Lägstanivådagar kvar</p>
-                <p className="font-medium">{r2(totalLowest)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Totalt kvar</p>
-                <p className="font-medium">{r2(totalAll)}</p>
-              </div>
-            </div>
-            <p className="text-sm">Ni sparar totalt <span className="font-medium">{r2(totalAll)}</span> dagar.</p>
-            {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
-            {allTransferableUsed && (
-              <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {result.parentsResult.map((pr) => (
-              <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
-                <h3 className="text-sm font-semibold">{pr.name}</h3>
-
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">Totalt uttagna dagar</p>
-                  <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
-                  <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
-                </div>
-
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">Kvarvarande dagar</p>
-                  <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
-                  <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
-                </div>
-
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">Estimated monthly gross payout</p>
-                  {pr.monthlyBreakdown.length > 0 ? (
-                    <div className="pl-2 space-y-0.5">
-                      {pr.monthlyBreakdown.map((m) => (
-                        <p key={m.monthKey} className="text-muted-foreground">
-                          {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground pl-2">—</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        );
-      })()}
+      {/* Steg 2 */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 2 – Justera & omfördela</h2>
 
       <div className="border border-border rounded-lg p-4 bg-card space-y-3">
         <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
@@ -423,19 +309,88 @@ const PlanBuilder = () => {
           });
         })()}
       </div>
-
       <div className="flex gap-3">
-        <Button onClick={addBlock}>Add block</Button>
+        <Button onClick={addBlock}>Lägg till block</Button>
         <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
-        <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
       </div>
 
-      {result && (
-        <details className="bg-muted rounded-lg">
-          <summary className="cursor-pointer p-3 text-sm font-medium">Full result JSON</summary>
-          <pre className="p-4 pt-0 text-xs overflow-auto max-h-[500px]">{JSON.stringify(result, null, 2)}</pre>
-        </details>
-      )}
+      </section>
+
+      {/* Steg 3 */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 3 – Förstå utfallet</h2>
+
+        {result && (() => {
+          const r2 = (v: number) => Math.round(v * 100) / 100;
+          const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
+          const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
+          const totalAll = totalSickness + totalLowest;
+          const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
+          const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
+          const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
+
+          return (
+          <div className="space-y-4">
+            <div className="border border-border rounded-lg p-4 bg-card space-y-2">
+              <h3 className="text-sm font-semibold">Strategisk översikt</h3>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
+                  <p className="font-medium">{r2(totalSickness)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Lägstanivådagar kvar</p>
+                  <p className="font-medium">{r2(totalLowest)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Totalt kvar</p>
+                  <p className="font-medium">{r2(totalAll)}</p>
+                </div>
+              </div>
+              <p className="text-sm">Ni sparar totalt <span className="font-medium">{r2(totalAll)}</span> dagar.</p>
+              {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
+              {allTransferableUsed && (
+                <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {result.parentsResult.map((pr) => (
+                <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
+                  <h3 className="text-sm font-semibold">{pr.name}</h3>
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">Totalt uttagna dagar</p>
+                    <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
+                    <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">Kvarvarande dagar</p>
+                    <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
+                    <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">Beräknad månadsutbetalning (brutto)</p>
+                    {pr.monthlyBreakdown.length > 0 ? (
+                      <div className="pl-2 space-y-0.5">
+                        {pr.monthlyBreakdown.map((m) => (
+                          <p key={m.monthKey} className="text-muted-foreground">
+                            {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground pl-2">—</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          );
+        })()}
+
+        <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
+      </section>
     </div>
   );
 };
