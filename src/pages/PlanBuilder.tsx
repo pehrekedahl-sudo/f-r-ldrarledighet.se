@@ -526,9 +526,39 @@ const PlanBuilder = () => {
                     </div>
                   </div>
                   {unfulfilled > 0 && householdTransferableRemaining > 0 && (
-                    <div className="text-sm space-y-1 p-3 rounded-md bg-warning/10 border border-warning/30">
+                    <div className="text-sm space-y-2 p-3 rounded-md bg-warning/10 border border-warning/30">
                       <p className="font-medium text-warning-foreground">Planen kräver att ni omfördelar dagar mellan er för att gå ihop.</p>
                       <p className="text-xs text-warning-foreground/80">Testa att flytta överförbara sjukpenningdagar under &quot;Omfördela dagar&quot;.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-warning/50 text-warning-foreground hover:bg-warning/10"
+                        onClick={() => {
+                          setAdjustOpen(true);
+                          setTimeout(() => {
+                            document.getElementById("transfer-section")?.scrollIntoView({ behavior: "smooth" });
+                            // Trigger suggestion
+                            const scored = result.parentsResult.map(pr => ({
+                              ...pr,
+                              totalRemaining: pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
+                              totalTaken: pr.taken.sickness + pr.taken.lowest,
+                            }));
+                            scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.totalTaken - a.totalTaken);
+                            const needs = scored[0];
+                            const gives = scored[scored.length - 1];
+                            const suggested = Math.max(1, Math.min(
+                              Math.floor(unfulfilled),
+                              Math.floor(gives.remaining.sicknessTransferable)
+                            ));
+                            setTransferAmount(suggested);
+                            setTransferError(null);
+                            const needsName = parents.find(p => p.id === needs.parentId)?.name ?? "";
+                            toast({ description: `Förslag: ge ${suggested} dagar till ${needsName}` });
+                          }, 150);
+                        }}
+                      >
+                        Föreslå omfördelning
+                      </Button>
                     </div>
                   )}
                   {unfulfilled > 0 && householdTransferableRemaining <= 0 && (
@@ -579,8 +609,47 @@ const PlanBuilder = () => {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="border border-t-0 border-border rounded-b-lg p-4 bg-card space-y-6">
                     {/* Transfer */}
-                    <div className="space-y-3">
+                    <div id="transfer-section" className="space-y-3">
                       <h4 className="text-sm font-semibold">Omfördela dagar</h4>
+                      {(() => {
+                        const unfulfilled = result.unfulfilledDaysTotal ?? 0;
+                        const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+                        if (unfulfilled <= 0 || householdTransferableRemaining <= 0) return null;
+                        return (
+                          <div className="space-y-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-warning/50 text-warning-foreground hover:bg-warning/10"
+                              onClick={() => {
+                                // Identify NEEDS: parent with lowest remaining AND most taken days
+                                const scored = result.parentsResult.map(pr => ({
+                                  ...pr,
+                                  totalRemaining: pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
+                                  totalTaken: pr.taken.sickness + pr.taken.lowest,
+                                }));
+                                scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.totalTaken - a.totalTaken);
+                                const needs = scored[0];
+                                const gives = scored[scored.length - 1];
+                                const suggested = Math.max(1, Math.min(
+                                  Math.floor(unfulfilled),
+                                  Math.floor(gives.remaining.sicknessTransferable)
+                                ));
+                                setTransferAmount(suggested);
+                                setTransferError(null);
+                                // Highlight direction by scrolling to buttons
+                                const needsName = parents.find(p => p.id === needs.parentId)?.name ?? "";
+                                toast({ description: `Förslag: ge ${suggested} dagar till ${needsName}` });
+                              }}
+                            >
+                              Föreslå omfördelning
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              Förslag baserat på att planen inte går ihop utan omfördelning. Du kan justera innan du genomför.
+                            </p>
+                          </div>
+                        );
+                      })()}
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         {result.parentsResult.map((pr) => (
                           <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
