@@ -33,6 +33,7 @@ type Block = {
   endDate: string;
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
+  overlapGroupId?: string;
 };
 
 let nextId = 2;
@@ -66,6 +67,12 @@ const PlanBuilder = () => {
   const [transferError, setTransferError] = useState<string | null>(null);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
+  const addDoubleDays = () => {
+    const groupId = `overlap-${nextId}`;
+    const b1: Block = { ...makeBlock(), parentId: "p1", overlapGroupId: groupId };
+    const b2: Block = { ...makeBlock(), parentId: "p2", overlapGroupId: groupId };
+    setBlocks((prev) => [...prev, b1, b2]);
+  };
   const updateBlock = (id: string, patch: Partial<Block>) =>
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   const removeBlock = (id: string) =>
@@ -277,49 +284,77 @@ const PlanBuilder = () => {
       </div>
 
       <div className="space-y-4">
-        {blocks.map((b) => {
-          const err = blockErrors.get(b.id);
-          return (
-            <div key={b.id} className={`border rounded-lg p-4 space-y-3 bg-card ${err ? "border-destructive" : "border-border"}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{PARENTS.find((p) => p.id === b.parentId)?.name ?? "?"} – Block {b.id}</span>
-                <Button variant="ghost" size="sm" onClick={() => removeBlock(b.id)}>Remove</Button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Parent</Label>
-                  <Select value={b.parentId} onValueChange={(v) => updateBlock(b.id, { parentId: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PARENTS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
+        {(() => {
+          const rendered = new Set<string>();
+          return blocks.map((b) => {
+            if (rendered.has(b.id)) return null;
+            rendered.add(b.id);
+
+            const partner = b.overlapGroupId
+              ? blocks.find((o) => o.id !== b.id && o.overlapGroupId === b.overlapGroupId)
+              : null;
+            if (partner) rendered.add(partner.id);
+
+            const renderBlock = (block: Block) => {
+              const err = blockErrors.get(block.id);
+              return (
+                <div key={block.id} className={`border rounded-lg p-4 space-y-3 bg-card ${err ? "border-destructive" : "border-border"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{PARENTS.find((p) => p.id === block.parentId)?.name ?? "?"} – Block {block.id}</span>
+                    <Button variant="ghost" size="sm" onClick={() => removeBlock(block.id)}>Remove</Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Parent</Label>
+                      <Select value={block.parentId} onValueChange={(v) => updateBlock(block.id, { parentId: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {PARENTS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Days / week</Label>
+                      <Input type="number" min={0} max={7} value={block.daysPerWeek} onChange={(e) => updateBlock(block.id, { daysPerWeek: Number(e.target.value) })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Start date</Label>
+                      <Input type="date" value={block.startDate} onChange={(e) => updateBlock(block.id, { startDate: e.target.value })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>End date</Label>
+                      <Input type="date" value={block.endDate} onChange={(e) => updateBlock(block.id, { endDate: e.target.value })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Lowest days / week (optional)</Label>
+                      <Input type="number" min={0} max={7} placeholder="—" value={block.lowestDaysPerWeek ?? ""} onChange={(e) => updateBlock(block.id, { lowestDaysPerWeek: e.target.value === "" ? undefined : Number(e.target.value) })} />
+                    </div>
+                  </div>
+                  {err && <p className="text-xs text-destructive">{err}</p>}
                 </div>
-                <div className="space-y-1">
-                  <Label>Days / week</Label>
-                  <Input type="number" min={0} max={7} value={b.daysPerWeek} onChange={(e) => updateBlock(b.id, { daysPerWeek: Number(e.target.value) })} />
+              );
+            };
+
+            if (partner) {
+              return (
+                <div key={b.overlapGroupId} className="border-2 border-dashed border-accent rounded-lg p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">⬡ Dubbeldagar (överlapp)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {renderBlock(b)}
+                    {renderBlock(partner)}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label>Start date</Label>
-                  <Input type="date" value={b.startDate} onChange={(e) => updateBlock(b.id, { startDate: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>End date</Label>
-                  <Input type="date" value={b.endDate} onChange={(e) => updateBlock(b.id, { endDate: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Lowest days / week (optional)</Label>
-                  <Input type="number" min={0} max={7} placeholder="—" value={b.lowestDaysPerWeek ?? ""} onChange={(e) => updateBlock(b.id, { lowestDaysPerWeek: e.target.value === "" ? undefined : Number(e.target.value) })} />
-                </div>
-              </div>
-              {err && <p className="text-xs text-destructive">{err}</p>}
-            </div>
-          );
-        })}
+              );
+            }
+
+            return renderBlock(b);
+          });
+        })()}
       </div>
 
       <div className="flex gap-3">
         <Button onClick={addBlock}>Add block</Button>
+        <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
         <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
       </div>
 
