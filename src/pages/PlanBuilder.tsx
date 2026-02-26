@@ -77,6 +77,7 @@ const PlanBuilder = () => {
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
   const [viewMode, setViewMode] = useState<"wizard" | "edit" | "result">("wizard");
+  const [pendingResult, setPendingResult] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -163,9 +164,19 @@ const PlanBuilder = () => {
     setTransferAmount(0);
     setTransferError(null);
     setShowAdvanced(false);
-    setViewMode("result");
+    setPendingResult(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  // Defer switching to result mode until plan state is ready
+  useEffect(() => {
+    if (pendingResult && blocks.length > 0) {
+      const planState = { parents, blocks, transfer, constants: CONSTANTS };
+      console.log("Generated plan:", planState);
+      setPendingResult(false);
+      setViewMode("result");
+    }
+  }, [pendingResult, blocks, parents, transfer]);
 
   const sharePlan = useCallback(() => {
     const payload = { blocks, transfer, dueDate, months1, months2, parents };
@@ -241,8 +252,15 @@ const PlanBuilder = () => {
     toast({ description: "Plan kopierad" });
   }, [result, blocks, blockErrors, toast]);
 
-  // Wizard mode
-  if (viewMode === "wizard") {
+  // Wizard mode or pending result (show wizard/loading until plan is ready)
+  if (viewMode === "wizard" || pendingResult) {
+    if (pendingResult) {
+      return (
+        <div className="max-w-lg mx-auto px-6 py-24 text-center space-y-4">
+          <p className="text-lg text-muted-foreground">Genererar din plan…</p>
+        </div>
+      );
+    }
     return <OnboardingWizard onComplete={handleWizardComplete} />;
   }
 
@@ -407,7 +425,7 @@ const PlanBuilder = () => {
           <section className="space-y-4">
             <h2 className="text-lg font-semibold border-b border-border pb-2">Resultat & justering</h2>
 
-            {result && (() => {
+            {result ? (() => {
               const r2 = (v: number) => Math.round(v * 100) / 100;
               const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
               const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
@@ -543,7 +561,11 @@ const PlanBuilder = () => {
                 </div>
               </div>
               );
-            })()}
+            })() : (
+              <div className="border border-border rounded-lg p-4 bg-card text-center">
+                <p className="text-muted-foreground">Laddar simulering…</p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
