@@ -458,94 +458,116 @@ const PlanBuilder = () => {
               const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
               const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
               const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
+              const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
+              const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
+              const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
+              const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
+
+              const insightText = result.warnings.budgetInsufficient
+                ? "Planen kräver fler dagar än ni har. Justera eller omfördela."
+                : r2(totalAll) > 50
+                  ? "Ni har gott om marginal och kan spara dagar till senare."
+                  : r2(totalAll) > 0
+                    ? "Det finns dagar kvar – de kan användas vid inskolning eller lov."
+                    : "Alla dagar är förbrukade i denna plan.";
 
               return (
               <div className="space-y-4">
-                <div className="border border-border rounded-lg p-4 bg-card space-y-2">
-                  <h3 className="text-sm font-semibold">Strategisk översikt</h3>
-                  {(() => {
-                    const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
-                    const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
-                    const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
-                    const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
-                    return (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-muted-foreground text-sm">Total ersättning under hela planen</p>
-                            <p className="text-2xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground text-sm">Hushållets genomsnittliga månadsersättning</p>
-                            <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr/mån</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
-                            <p className="font-medium">{r2(totalSickness)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Lägstanivådagar kvar</p>
-                            <p className="font-medium">{r2(totalLowest)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Totalt kvar</p>
-                            <p className="font-medium">{r2(totalAll)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Dagar kvar efter denna plan: <span className="text-lg font-bold">{r2(totalAll)}</span></p>
-                    {totalAll > 0 && (
-                      <p className="text-sm text-muted-foreground">Ni kan använda dessa senare, t.ex. vid inskolning eller lov.</p>
-                    )}
+                {/* KPI row */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="border border-border rounded-lg p-4 bg-card text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
+                    <p className="text-xl font-bold mt-1">{latestEnd ?? "—"}</p>
                   </div>
-                  {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
+                  <div className="border border-border rounded-lg p-4 bg-card text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar</p>
+                    <p className="text-xl font-bold mt-1">{r2(totalAll)}</p>
+                  </div>
+                  <div className="border border-border rounded-lg p-4 bg-card text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Hushållets snitt / mån</p>
+                    <p className="text-xl font-bold mt-1">{Math.round(avgMonthly).toLocaleString()} kr</p>
+                  </div>
+                </div>
+
+                {/* Insight sentence */}
+                <p className={`text-sm px-1 ${result.warnings.budgetInsufficient ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {insightText}
+                </p>
+
+                {/* Strategic overview */}
+                <div className="border border-border rounded-lg p-4 bg-card space-y-3">
+                  <h3 className="text-sm font-semibold">Strategisk översikt</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-muted-foreground text-sm">Total ersättning</p>
+                      <p className="text-2xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-sm">Genomsnitt / månad</p>
+                      <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
+                      <p className="font-medium">{r2(totalSickness)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Lägstanivådagar kvar</p>
+                      <p className="font-medium">{r2(totalLowest)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Totalt kvar</p>
+                      <p className="font-medium">{r2(totalAll)}</p>
+                    </div>
+                  </div>
                   {allTransferableUsed && (
                     <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
                   )}
                 </div>
 
-                {/* Transfer section */}
-                <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-                  <h3 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h3>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {result.parentsResult.map((pr) => (
-                      <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
-                        <p className="font-medium text-foreground">{pr.name}</p>
-                        <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
-                        <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
-                        <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
+                {/* Transfer section – collapsible */}
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full border border-border rounded-lg p-3 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
+                    Omfördela dagar
+                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="border border-t-0 border-border rounded-b-lg p-4 bg-card space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      {result.parentsResult.map((pr) => (
+                        <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
+                          <p className="font-medium text-foreground">{pr.name}</p>
+                          <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                          <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
+                          <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-sm">Antal dagar</Label>
+                        <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex items-end gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Antal dagar</Label>
-                      <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
+                      <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
+                        Ge till {parents[0].name}
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
+                        Ge till {parents[1].name}
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
-                      Ge till {parents[0].name}
-                    </Button>
-                    <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
-                      Ge till {parents[1].name}
-                    </Button>
-                  </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                    <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                  </div>
-                  {transferError && <p className="text-xs text-destructive">{transferError}</p>}
-                  {transfer && (
                     <div className="text-xs text-muted-foreground space-y-0.5">
-                      <p>Aktiv överföring: {transfer.sicknessDays} dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} till {parents.find(p => p.id === transfer.toParentId)?.name}</p>
-                      <p>Detta tar dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} och ger till {parents.find(p => p.id === transfer.toParentId)?.name}.</p>
+                      <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                      <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
                     </div>
-                  )}
-                </div>
+                    {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+                    {transfer && (
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <p>Aktiv överföring: {transfer.sicknessDays} dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} till {parents.find(p => p.id === transfer.toParentId)?.name}</p>
+                        <p>Detta tar dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} och ger till {parents.find(p => p.id === transfer.toParentId)?.name}.</p>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
 
                 {/* Parent cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
