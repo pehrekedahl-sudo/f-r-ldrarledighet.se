@@ -231,7 +231,7 @@ const PlanBuilder = () => {
     const available = senderResult?.remaining.sicknessTransferable ?? 0;
     if (transferAmount > available) {
       const senderName = parents.find((p) => p.id === fromParentId)?.name ?? "?";
-      setTransferError(`${senderName} har bara ${Math.floor(available)} överförbara dagar kvar.`);
+      setTransferError(`${senderName} har bara ${Math.round(available)} överförbara dagar kvar.`);
       return;
     }
     setTransferError(null);
@@ -252,7 +252,7 @@ const PlanBuilder = () => {
         if (b.lowestDaysPerWeek !== undefined) line += `, lägstanivå ${b.lowestDaysPerWeek} d/v`;
         lines.push(line);
       }
-      lines.push(`  Kvar: överförbar ${Math.round(pr.remaining.sicknessTransferable * 100) / 100}, reserverad ${Math.round(pr.remaining.sicknessReserved * 100) / 100}, lägstanivå ${Math.round(pr.remaining.lowest * 100) / 100}`);
+      lines.push(`  Kvar: överförbar ${Math.round(pr.remaining.sicknessTransferable)}, reserverad ${Math.round(pr.remaining.sicknessReserved)}, lägstanivå ${Math.round(pr.remaining.lowest)}`);
       lines.push("");
     }
     lines.push("Simulering – kontrollera alltid i Försäkringskassan.");
@@ -451,7 +451,7 @@ const PlanBuilder = () => {
             </details>
 
             {result ? (() => {
-              const r2 = (v: number) => Math.round(v * 100) / 100;
+              const r2 = (v: number) => Math.round(v);
               const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
               const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
               const totalAll = totalSickness + totalLowest;
@@ -516,9 +516,9 @@ const PlanBuilder = () => {
                     {result.parentsResult.map((pr) => (
                       <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
                         <p className="font-medium text-foreground">{pr.name}</p>
-                        <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable * 100) / 100}</p>
-                        <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved * 100) / 100}</p>
-                        <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                        <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                        <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
+                        <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
                       </div>
                     ))}
                   </div>
@@ -535,8 +535,8 @@ const PlanBuilder = () => {
                     </Button>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p>Max att ge till {parents[0].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                    <p>Max att ge till {parents[1].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                    <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                    <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
                   </div>
                   {transferError && <p className="text-xs text-destructive">{transferError}</p>}
                   {transfer && (
@@ -554,13 +554,13 @@ const PlanBuilder = () => {
                       <h3 className="text-sm font-semibold">{pr.name}</h3>
                       <div className="space-y-1 text-sm">
                         <p className="font-medium">Totalt uttagna dagar</p>
-                        <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
-                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
+                        <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness)}</p>
+                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest)}</p>
                       </div>
                       <div className="space-y-1 text-sm">
                         <p className="font-medium">Kvarvarande dagar</p>
-                        <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
-                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                        <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved)}</p>
+                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest)}</p>
                       </div>
                       <div className="space-y-1 text-sm">
                         <p className="font-medium">Beräknad ersättning (simulerad)</p>
