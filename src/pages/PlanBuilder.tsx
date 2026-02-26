@@ -121,18 +121,21 @@ const PlanBuilder = () => {
 
     // Pre-birth block
     const generatedBlocks: Block[] = [];
-    let p1Start = new Date(due);
 
     if (wr.preBirthParent && wr.preBirthWeeks > 0) {
       const preStart = new Date(due);
       preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
-      generatedBlocks.push({
-        id: `b${nextId++}`,
-        parentId: wr.preBirthParent,
-        startDate: fmt(preStart),
-        endDate: fmt(due),
-        daysPerWeek: 5,
-      });
+      const preEnd = new Date(due);
+      preEnd.setDate(preEnd.getDate() - 1);
+      if (preStart < preEnd) {
+        generatedBlocks.push({
+          id: `b${nextId++}`,
+          parentId: wr.preBirthParent,
+          startDate: fmt(preStart),
+          endDate: fmt(preEnd),
+          daysPerWeek: 5,
+        });
+      }
     }
 
     // Main blocks
@@ -154,10 +157,11 @@ const PlanBuilder = () => {
       }
     }
 
-    generatedBlocks.push(
-      { id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: dpw },
-      { id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: dpw },
-    );
+    const maybeBlock = (b: Block) => b.startDate < b.endDate ? b : null;
+    [
+      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: dpw }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: dpw }),
+    ].forEach(b => b && generatedBlocks.push(b));
 
     setBlocks(generatedBlocks);
     setTransfer(null);
