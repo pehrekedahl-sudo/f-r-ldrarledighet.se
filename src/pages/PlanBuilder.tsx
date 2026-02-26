@@ -55,11 +55,11 @@ function validateBlock(b: Block): string | null {
   if (!b.startDate) return "Start date is required.";
   if (!b.endDate) return "End date is required.";
   if (b.endDate < b.startDate) return "End date must be ≥ start date.";
-  if (b.daysPerWeek < 0 || b.daysPerWeek > 7 || isNaN(b.daysPerWeek))
-    return "Days per week must be 0–7.";
+  if (b.daysPerWeek < 0 || b.daysPerWeek > 7 || isNaN(b.daysPerWeek) || !Number.isInteger(b.daysPerWeek))
+    return "Days per week must be an integer 0–7.";
   if (b.lowestDaysPerWeek !== undefined) {
-    if (isNaN(b.lowestDaysPerWeek) || b.lowestDaysPerWeek < 0 || b.lowestDaysPerWeek > b.daysPerWeek)
-      return `Lowest days/week must be 0–${b.daysPerWeek}.`;
+    if (isNaN(b.lowestDaysPerWeek) || b.lowestDaysPerWeek < 0 || b.lowestDaysPerWeek > b.daysPerWeek || !Number.isInteger(b.lowestDaysPerWeek))
+      return `Lowest days/week must be an integer 0–${b.daysPerWeek}.`;
   }
   return null;
 }
@@ -136,7 +136,7 @@ const PlanBuilder = () => {
             parentId: wr.preBirthParent,
             startDate: fmt(preStart),
             endDate: fmt(preEnd),
-            daysPerWeek: preDpw,
+            daysPerWeek: Math.round(preDpw),
           });
         }
       }
@@ -150,8 +150,8 @@ const PlanBuilder = () => {
 
     const maybeBlock = (b: Block) => b.startDate < b.endDate && b.daysPerWeek > 0 ? b : null;
     [
-      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: wr.daysPerWeek1 }) : null,
-      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: wr.daysPerWeek2 }) : null,
+      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: Math.round(wr.daysPerWeek1) }) : null,
+      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: Math.round(wr.daysPerWeek2) }) : null,
     ].forEach(b => b && generatedBlocks.push(b));
 
     setBlocks(generatedBlocks);
@@ -167,18 +167,52 @@ const PlanBuilder = () => {
   useEffect(() => {
     if (pendingResult) {
       if (blocks.length > 0) {
+        // Validate no overlap within same parent
+        const byParent = new Map<string, Block[]>();
+        for (const b of blocks) {
+          if (!byParent.has(b.parentId)) byParent.set(b.parentId, []);
+          byParent.get(b.parentId)!.push(b);
+        }
+        let hasOverlap = false;
+        for (const [, arr] of byParent.entries()) {
+          const sorted = [...arr].sort((a, b) => a.startDate.localeCompare(b.startDate));
+          for (let i = 0; i < sorted.length - 1; i++) {
+            if (sorted[i].endDate >= sorted[i + 1].startDate) {
+              hasOverlap = true;
+              break;
+            }
+          }
+          if (hasOverlap) break;
+        }
+        if (hasOverlap) {
+          setPendingResult(false);
+          setViewMode("wizard");
+          toast({ variant: "destructive", description: "Block överlappar inom samma förälder. Justera datumen." });
+          return;
+        }
+
+        // Validate all blocks have integer daysPerWeek
+        for (const b of blocks) {
+          const err = validateBlock(b);
+          if (err) {
+            setPendingResult(false);
+            setViewMode("wizard");
+            toast({ variant: "destructive", description: err });
+            return;
+          }
+        }
+
         const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
         console.log("FINAL PLAN (wizard -> result):", finalPlan);
         setPendingResult(false);
         setViewMode("result");
       } else {
-        // No valid blocks generated
         setPendingResult(false);
         setViewMode("wizard");
-        alert("Planen innehåller ingen aktiv ledighet ännu.");
+        toast({ variant: "destructive", description: "Planen innehåller ingen aktiv ledighet." });
       }
     }
-  }, [pendingResult, blocks, parents, transfer]);
+  }, [pendingResult, blocks, parents, transfer, toast]);
 
   const sharePlan = useCallback(() => {
     const payload = { blocks, transfer, dueDate, months1, months2, parents };
