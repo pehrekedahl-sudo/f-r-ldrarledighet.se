@@ -63,6 +63,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [months2, setMonths2] = useState(6);
   const [daysPerWeek1, setDaysPerWeek1] = useState(5);
   const [daysPerWeek2, setDaysPerWeek2] = useState(5);
+  const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
+  const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
   // Step 7
   const [savingPreset, setSavingPreset] = useState<SavingPreset | null>(null);
   const [savedDays, setSavedDays] = useState(30);
@@ -76,8 +78,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 2: return wantIncome !== null;
       case 3: return dueDate.length > 0;
       case 4: return preBirthChoice === "no" || (preBirthChoice !== null && preBirthDate !== undefined);
-      case 5: return months1 >= 1;
-      case 6: return months2 >= 1;
+      case 5: return months1 >= 1 && !(months1 > 0 && daysPerWeek1 === 0);
+      case 6: return months2 >= 1 && !(months2 > 0 && daysPerWeek2 === 0);
       case 7: return savingPreset !== null;
       default: return false;
     }
@@ -257,10 +259,12 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <span className="text-muted-foreground">Dagar/vecka</span>
                 <span className="font-medium text-lg">{daysPerWeek1} dagar/vecka</span>
               </div>
-              <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => setDaysPerWeek1(v)} />
+              <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => setDpw1(v)} />
+              {daysPerWeek1 === 0 && <p className="text-sm text-amber-600">Om du väljer 0 skapas ingen ledighet för perioden.</p>}
+              {months1 > 0 && daysPerWeek1 === 0 && <p className="text-sm text-destructive">Välj minst 1 dag/vecka eller sätt 0 månader.</p>}
               <div className="flex gap-2">
                 {[3, 5, 7].map((n) => (
-                  <button key={n} onClick={() => setDaysPerWeek1(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek1 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
+                  <button key={n} onClick={() => setDpw1(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek1 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
                     {n}
                   </button>
                 ))}
@@ -296,10 +300,12 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <span className="text-muted-foreground">Dagar/vecka</span>
                 <span className="font-medium text-lg">{daysPerWeek2} dagar/vecka</span>
               </div>
-              <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => setDaysPerWeek2(v)} />
+              <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => setDpw2(v)} />
+              {daysPerWeek2 === 0 && <p className="text-sm text-amber-600">Om du väljer 0 skapas ingen ledighet för perioden.</p>}
+              {months2 > 0 && daysPerWeek2 === 0 && <p className="text-sm text-destructive">Välj minst 1 dag/vecka eller sätt 0 månader.</p>}
               <div className="flex gap-2">
                 {[3, 5, 7].map((n) => (
-                  <button key={n} onClick={() => setDaysPerWeek2(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek2 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
+                  <button key={n} onClick={() => setDpw2(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek2 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
                     {n}
                   </button>
                 ))}
