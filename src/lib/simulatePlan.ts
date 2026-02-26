@@ -323,11 +323,11 @@ export function simulatePlan(plan: PlanInput): SimResult {
         // sickness allocation (or auto mode)
         let fulfilled = false;
 
-        if (p.remaining.sicknessTransferable > 0) {
-          p.remaining.sicknessTransferable -= 1;
-          fulfilled = true;
-        } else if (p.remaining.sicknessReserved > 0) {
+        if (p.remaining.sicknessReserved > 0) {
           p.remaining.sicknessReserved -= 1;
+          fulfilled = true;
+        } else if (p.remaining.sicknessTransferable > 0) {
+          p.remaining.sicknessTransferable -= 1;
           fulfilled = true;
         } else if (!hasManualLowest && p.remaining.lowest > 0) {
           // Auto mode: spill into lowest
