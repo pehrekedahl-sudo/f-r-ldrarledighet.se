@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import type { WizardResult } from "@/components/OnboardingWizard";
+import { savePlanInput } from "@/lib/persistence";
 
 import {
   Select,
@@ -204,6 +205,7 @@ const PlanBuilder = () => {
 
         const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
         console.log("FINAL PLAN (wizard -> result):", finalPlan);
+        savePlanInput(finalPlan);
         setPendingResult(false);
         setViewMode("result");
       } else {
