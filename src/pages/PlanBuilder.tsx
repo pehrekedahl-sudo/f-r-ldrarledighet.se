@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import OnboardingWizard from "@/components/OnboardingWizard";
+import type { WizardResult } from "@/components/OnboardingWizard";
 
 import {
   Select,
@@ -94,50 +95,70 @@ const PlanBuilder = () => {
     } catch { /* ignore invalid plan param */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleWizardComplete = useCallback((result: {
-    parent1Name: string;
-    parent2Name: string;
-    dueDate: string;
-    months1: number;
-    months2: number;
-    savedDays: number;
-  }) => {
+  const handleWizardComplete = useCallback((wr: WizardResult) => {
     const newParents = [
-      { ...DEFAULT_PARENTS[0], name: result.parent1Name },
-      { ...DEFAULT_PARENTS[1], name: result.parent2Name },
+      {
+        ...DEFAULT_PARENTS[0],
+        name: wr.parent1Name,
+        monthlyIncomeFixed: wr.income1 ?? DEFAULT_PARENTS[0].monthlyIncomeFixed,
+        has240Days: wr.has240Days1,
+      },
+      {
+        ...DEFAULT_PARENTS[1],
+        name: wr.parent2Name,
+        monthlyIncomeFixed: wr.income2 ?? DEFAULT_PARENTS[1].monthlyIncomeFixed,
+        has240Days: wr.has240Days2,
+      },
     ];
     setParents(newParents);
-    setDueDate(result.dueDate);
-    setMonths1(result.months1);
-    setMonths2(result.months2);
+    setDueDate(wr.dueDate);
+    setMonths1(wr.months1);
+    setMonths2(wr.months2);
 
-    // Generate blocks
-    const due = new Date(result.dueDate);
-    const end1 = new Date(due);
-    end1.setMonth(end1.getMonth() + result.months1);
-    const end2 = new Date(end1);
-    end2.setMonth(end2.getMonth() + result.months2);
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const due = new Date(wr.dueDate);
+
+    // Pre-birth block
+    const generatedBlocks: Block[] = [];
+    let p1Start = new Date(due);
+
+    if (wr.preBirthParent && wr.preBirthWeeks > 0) {
+      const preStart = new Date(due);
+      preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
+      generatedBlocks.push({
+        id: `b${nextId++}`,
+        parentId: wr.preBirthParent,
+        startDate: fmt(preStart),
+        endDate: fmt(due),
+        daysPerWeek: 5,
+      });
+    }
+
+    // Main blocks
+    const end1 = new Date(due);
+    end1.setMonth(end1.getMonth() + wr.months1);
+    const end2 = new Date(end1);
+    end2.setMonth(end2.getMonth() + wr.months2);
 
     // Adjust daysPerWeek to accommodate saved days
-    // Total available = 480 days (240 per parent). We want to leave savedDays unused.
-    // Each block uses daysPerWeek/7 days per calendar day.
-    // Simple approach: reduce daysPerWeek if saving is significant
     let dpw = 5;
-    if (result.savedDays > 0) {
-      const totalMonths = result.months1 + result.months2;
+    if (wr.savedDays > 0) {
+      const totalMonths = wr.months1 + wr.months2;
       const totalCalendarDays = totalMonths * 30;
       const totalAvailable = 480;
-      const targetUsage = totalAvailable - result.savedDays;
+      const targetUsage = totalAvailable - wr.savedDays;
       if (totalCalendarDays > 0) {
         const neededRate = targetUsage / totalCalendarDays;
         dpw = Math.max(1, Math.min(7, Math.round(neededRate)));
       }
     }
 
-    const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: dpw };
-    const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: dpw };
-    setBlocks([b1, b2]);
+    generatedBlocks.push(
+      { id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: dpw },
+      { id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: dpw },
+    );
+
+    setBlocks(generatedBlocks);
     setTransfer(null);
     setTransferAmount(0);
     setTransferError(null);
