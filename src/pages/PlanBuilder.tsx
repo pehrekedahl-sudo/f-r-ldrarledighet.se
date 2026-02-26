@@ -180,6 +180,18 @@ const PlanBuilder = () => {
 
       <div className="border border-border rounded-lg p-4 bg-card space-y-3">
         <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
+        {result && (
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {result.parentsResult.map((pr) => (
+              <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
+                <p className="font-medium text-foreground">{pr.name}</p>
+                <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable * 100) / 100}</p>
+                <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved * 100) / 100}</p>
+                <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-3">
           <div className="space-y-1">
             <Label className="text-sm">Antal dagar</Label>
