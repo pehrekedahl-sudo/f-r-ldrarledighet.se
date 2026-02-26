@@ -73,6 +73,7 @@ const PlanBuilder = () => {
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
+  const [viewMode, setViewMode] = useState<"edit" | "result">("edit");
 
   useEffect(() => {
     const planParam = searchParams.get("plan");
@@ -187,291 +188,304 @@ const PlanBuilder = () => {
           Du tittar på en delad plan
         </div>
       )}
-      {/* Hero */}
-      <div className="space-y-3 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
-        <p className="text-muted-foreground">Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.</p>
-        <Button variant="outline" size="sm" onClick={() => document.getElementById("snabbstart")?.scrollIntoView({ behavior: "smooth" })}>Börja med snabbstart</Button>
-      </div>
 
-      {/* Steg 1 */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 1 – Skapa grundplan</h2>
-
-        <div id="snabbstart" className="border border-border rounded-lg p-4 bg-card space-y-3">
-          <h3 className="text-sm font-semibold">Snabbstart</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <Label>Beräknat datum (BF)</Label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+      {viewMode === "edit" && (
+        <>
+          {/* Hero */}
+          <div className="space-y-3 text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
+            <p className="text-muted-foreground">Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.</p>
+            <Button variant="outline" size="sm" onClick={() => document.getElementById("snabbstart")?.scrollIntoView({ behavior: "smooth" })}>Börja med snabbstart</Button>
           </div>
-          <div className="space-y-1">
-            <Label>Månader {PARENTS[0].name}</Label>
-            <Input type="number" min={0} value={months1} onChange={(e) => setMonths1(Math.max(0, Number(e.target.value) || 0))} />
-          </div>
-          <div className="space-y-1">
-            <Label>Månader {PARENTS[1].name}</Label>
-            <Input type="number" min={0} value={months2} onChange={(e) => setMonths2(Math.max(0, Number(e.target.value) || 0))} />
-          </div>
-        </div>
-        <Button size="sm" disabled={!dueDate} onClick={generateQuickStart}>Generera startplan</Button>
-      </div>
 
-      {result && (() => {
-        const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
-        const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
-        return budgetInsufficient ? (
-          <div className="border border-destructive rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
-            Planen kräver fler dagar än ni har kvar. Saknas totalt: {Math.abs(unfulfilled) < 0.05 ? 0 : unfulfilled.toFixed(1)} dagar.
-          </div>
-        ) : null;
-      })()}
+          {/* Snabbstart */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold border-b border-border pb-2">Skapa grundplan</h2>
 
-      </section>
-
-      {/* Steg 2 */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 2 – Justera & omfördela</h2>
-
-      <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-        <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
-        {result && (
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {result.parentsResult.map((pr) => (
-              <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
-                <p className="font-medium text-foreground">{pr.name}</p>
-                <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable * 100) / 100}</p>
-                <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved * 100) / 100}</p>
-                <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest * 100) / 100}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex items-end gap-3">
-          <div className="space-y-1">
-            <Label className="text-sm">Antal dagar</Label>
-            <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
-          </div>
-          <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
-            Ge till {PARENTS[0].name}
-          </Button>
-          <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
-            Ge till {PARENTS[1].name}
-          </Button>
-        </div>
-        {result && (
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p>Max att ge till {PARENTS[0].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-            <p>Max att ge till {PARENTS[1].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-          </div>
-        )}
-        {transferError && <p className="text-xs text-destructive">{transferError}</p>}
-        {transfer && (
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p>Aktiv överföring: {transfer.sicknessDays} dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} till {PARENTS.find(p => p.id === transfer.toParentId)?.name}</p>
-            <p>Detta tar dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} och ger till {PARENTS.find(p => p.id === transfer.toParentId)?.name}.</p>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        {(() => {
-          const rendered = new Set<string>();
-          return blocks.map((b) => {
-            if (rendered.has(b.id)) return null;
-            rendered.add(b.id);
-
-            const partner = b.overlapGroupId
-              ? blocks.find((o) => o.id !== b.id && o.overlapGroupId === b.overlapGroupId)
-              : null;
-            if (partner) rendered.add(partner.id);
-
-            const renderBlock = (block: Block) => {
-              const err = blockErrors.get(block.id);
-              return (
-                <div key={block.id} className={`border rounded-lg p-4 space-y-3 bg-card ${err ? "border-destructive" : "border-border"}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{PARENTS.find((p) => p.id === block.parentId)?.name ?? "?"} – Block {block.id}</span>
-                    <Button variant="ghost" size="sm" onClick={() => removeBlock(block.id)}>Remove</Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label>Parent</Label>
-                      <Select value={block.parentId} onValueChange={(v) => updateBlock(block.id, { parentId: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {PARENTS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Days / week</Label>
-                      <Input type="number" min={0} max={7} value={block.daysPerWeek} onChange={(e) => updateBlock(block.id, { daysPerWeek: Number(e.target.value) })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Start date</Label>
-                      <Input type="date" value={block.startDate} onChange={(e) => updateBlock(block.id, { startDate: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>End date</Label>
-                      <Input type="date" value={block.endDate} onChange={(e) => updateBlock(block.id, { endDate: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Lowest days / week (optional)</Label>
-                      <Input type="number" min={0} max={7} placeholder="—" value={block.lowestDaysPerWeek ?? ""} onChange={(e) => updateBlock(block.id, { lowestDaysPerWeek: e.target.value === "" ? undefined : Number(e.target.value) })} />
-                    </div>
-                  </div>
-                  {err && <p className="text-xs text-destructive">{err}</p>}
+            <div id="snabbstart" className="border border-border rounded-lg p-4 bg-card space-y-3">
+              <h3 className="text-sm font-semibold">Snabbstart</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>Beräknat datum (BF)</Label>
+                  <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </div>
-              );
-            };
-
-            if (partner) {
-              return (
-                <div key={b.overlapGroupId} className="border-2 border-dashed border-accent rounded-lg p-3 space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground">⬡ Dubbeldagar (överlapp)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {renderBlock(b)}
-                    {renderBlock(partner)}
-                  </div>
+                <div className="space-y-1">
+                  <Label>Månader {PARENTS[0].name}</Label>
+                  <Input type="number" min={0} value={months1} onChange={(e) => setMonths1(Math.max(0, Number(e.target.value) || 0))} />
                 </div>
-              );
-            }
-
-            return renderBlock(b);
-          });
-        })()}
-      </div>
-      <div className="flex gap-3">
-        <Button onClick={addBlock}>Lägg till block</Button>
-        <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
-      </div>
-
-      </section>
-
-      {/* Steg 3 */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold border-b border-border pb-2">Steg 3 – Förstå utfallet</h2>
-
-        {result && (() => {
-          const r2 = (v: number) => Math.round(v * 100) / 100;
-          const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
-          const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
-          const totalAll = totalSickness + totalLowest;
-          const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
-          const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
-          const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
-
-          return (
-          <div className="space-y-4">
-            <div className="border border-border rounded-lg p-4 bg-card space-y-2">
-              <h3 className="text-sm font-semibold">Strategisk översikt</h3>
-              {(() => {
-                const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
-                const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
-                const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
-                const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
-                return (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-muted-foreground text-sm">Total ersättning under hela planen</p>
-                        <p className="text-2xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-sm">Hushållets genomsnittliga månadsersättning</p>
-                        <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr/mån</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
-                        <p className="font-medium">{r2(totalSickness)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Lägstanivådagar kvar</p>
-                        <p className="font-medium">{r2(totalLowest)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Totalt kvar</p>
-                        <p className="font-medium">{r2(totalAll)}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Dagar kvar efter denna plan: <span className="text-lg font-bold">{r2(totalAll)}</span></p>
-                {totalAll > 0 && (
-                  <p className="text-sm text-muted-foreground">Ni kan använda dessa senare, t.ex. vid inskolning eller lov.</p>
-                )}
+                <div className="space-y-1">
+                  <Label>Månader {PARENTS[1].name}</Label>
+                  <Input type="number" min={0} value={months2} onChange={(e) => setMonths2(Math.max(0, Number(e.target.value) || 0))} />
+                </div>
               </div>
-              {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
-              {allTransferableUsed && (
-                <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
-              )}
+              <Button size="sm" disabled={!dueDate} onClick={generateQuickStart}>Generera startplan</Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.parentsResult.map((pr) => (
-                <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
-                  <h3 className="text-sm font-semibold">{pr.name}</h3>
-                  <div className="space-y-1 text-sm">
-                    <p className="font-medium">Totalt uttagna dagar</p>
-                    <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
-                    <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p className="font-medium">Kvarvarande dagar</p>
-                    <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
-                    <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p className="font-medium">Beräknad ersättning (simulerad)</p>
-                    <p className="text-muted-foreground pl-2">Dagersättning sjukpenningnivå: {Math.round(pr.rates.dailySickness)} kr/dag</p>
-                    <p className="text-muted-foreground pl-2">Exempel månadsutbetalning (5 d/v): {Math.round(pr.rates.dailySickness * 5 * 4.33).toLocaleString()} kr brutto</p>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p className="font-medium">Beräknad månadsutbetalning (brutto)</p>
-                    {pr.monthlyBreakdown.length > 0 ? (
-                      <div className="pl-2 space-y-0.5">
-                        {pr.monthlyBreakdown.map((m) => (
-                          <p key={m.monthKey} className="text-muted-foreground">
-                            {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
-                          </p>
-                        ))}
+            {result && (() => {
+              const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
+              const unfulfilled = Number(result.unfulfilledDaysTotal ?? 0);
+              return budgetInsufficient ? (
+                <div className="border border-destructive rounded-lg p-4 bg-destructive/10 text-destructive text-sm font-medium">
+                  Planen kräver fler dagar än ni har kvar. Saknas totalt: {Math.abs(unfulfilled) < 0.05 ? 0 : unfulfilled.toFixed(1)} dagar.
+                </div>
+              ) : null;
+            })()}
+          </section>
+
+          {/* Block editor */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold border-b border-border pb-2">Redigera block</h2>
+
+            <div className="space-y-4">
+              {(() => {
+                const rendered = new Set<string>();
+                return blocks.map((b) => {
+                  if (rendered.has(b.id)) return null;
+                  rendered.add(b.id);
+
+                  const partner = b.overlapGroupId
+                    ? blocks.find((o) => o.id !== b.id && o.overlapGroupId === b.overlapGroupId)
+                    : null;
+                  if (partner) rendered.add(partner.id);
+
+                  const renderBlock = (block: Block) => {
+                    const err = blockErrors.get(block.id);
+                    return (
+                      <div key={block.id} className={`border rounded-lg p-4 space-y-3 bg-card ${err ? "border-destructive" : "border-border"}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{PARENTS.find((p) => p.id === block.parentId)?.name ?? "?"} – Block {block.id}</span>
+                          <Button variant="ghost" size="sm" onClick={() => removeBlock(block.id)}>Remove</Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label>Parent</Label>
+                            <Select value={block.parentId} onValueChange={(v) => updateBlock(block.id, { parentId: v })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {PARENTS.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Days / week</Label>
+                            <Input type="number" min={0} max={7} value={block.daysPerWeek} onChange={(e) => updateBlock(block.id, { daysPerWeek: Number(e.target.value) })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Start date</Label>
+                            <Input type="date" value={block.startDate} onChange={(e) => updateBlock(block.id, { startDate: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>End date</Label>
+                            <Input type="date" value={block.endDate} onChange={(e) => updateBlock(block.id, { endDate: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Lowest days / week (optional)</Label>
+                            <Input type="number" min={0} max={7} placeholder="—" value={block.lowestDaysPerWeek ?? ""} onChange={(e) => updateBlock(block.id, { lowestDaysPerWeek: e.target.value === "" ? undefined : Number(e.target.value) })} />
+                          </div>
+                        </div>
+                        {err && <p className="text-xs text-destructive">{err}</p>}
                       </div>
-                    ) : (
-                      <p className="text-muted-foreground pl-2">—</p>
+                    );
+                  };
+
+                  if (partner) {
+                    return (
+                      <div key={b.overlapGroupId} className="border-2 border-dashed border-accent rounded-lg p-3 space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground">⬡ Dubbeldagar (överlapp)</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {renderBlock(b)}
+                          {renderBlock(partner)}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return renderBlock(b);
+                });
+              })()}
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={addBlock}>Lägg till block</Button>
+              <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
+            </div>
+          </section>
+
+          <Button className="w-full" size="lg" disabled={!result} onClick={() => { setViewMode("result"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            Se resultat
+          </Button>
+        </>
+      )}
+
+      {viewMode === "result" && (
+        <>
+          <Button variant="outline" onClick={() => { setViewMode("edit"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            ← Tillbaka och ändra plan
+          </Button>
+
+          {/* Strategisk översikt + Planöversikt */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold border-b border-border pb-2">Resultat & justering</h2>
+
+            {result && (() => {
+              const r2 = (v: number) => Math.round(v * 100) / 100;
+              const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
+              const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
+              const totalAll = totalSickness + totalLowest;
+              const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
+              const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
+              const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
+
+              return (
+              <div className="space-y-4">
+                <div className="border border-border rounded-lg p-4 bg-card space-y-2">
+                  <h3 className="text-sm font-semibold">Strategisk översikt</h3>
+                  {(() => {
+                    const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
+                    const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
+                    const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
+                    const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
+                    return (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-muted-foreground text-sm">Total ersättning under hela planen</p>
+                            <p className="text-2xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-sm">Hushållets genomsnittliga månadsersättning</p>
+                            <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr/mån</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
+                            <p className="font-medium">{r2(totalSickness)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Lägstanivådagar kvar</p>
+                            <p className="font-medium">{r2(totalLowest)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Totalt kvar</p>
+                            <p className="font-medium">{r2(totalAll)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Dagar kvar efter denna plan: <span className="text-lg font-bold">{r2(totalAll)}</span></p>
+                    {totalAll > 0 && (
+                      <p className="text-sm text-muted-foreground">Ni kan använda dessa senare, t.ex. vid inskolning eller lov.</p>
                     )}
                   </div>
+                  {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
+                  {allTransferableUsed && (
+                    <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
+                  )}
                 </div>
-              ))}
+
+                {/* Transfer section */}
+                <div className="border border-border rounded-lg p-4 bg-card space-y-3">
+                  <h3 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {result.parentsResult.map((pr) => (
+                      <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
+                        <p className="font-medium text-foreground">{pr.name}</p>
+                        <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable * 100) / 100}</p>
+                        <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved * 100) / 100}</p>
+                        <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-end gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Antal dagar</Label>
+                      <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
+                    </div>
+                    <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
+                      Ge till {PARENTS[0].name}
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
+                      Ge till {PARENTS[1].name}
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>Max att ge till {PARENTS[0].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                    <p>Max att ge till {PARENTS[1].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                  </div>
+                  {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+                  {transfer && (
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <p>Aktiv överföring: {transfer.sicknessDays} dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} till {PARENTS.find(p => p.id === transfer.toParentId)?.name}</p>
+                      <p>Detta tar dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} och ger till {PARENTS.find(p => p.id === transfer.toParentId)?.name}.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Parent cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {result.parentsResult.map((pr) => (
+                    <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
+                      <h3 className="text-sm font-semibold">{pr.name}</h3>
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">Totalt uttagna dagar</p>
+                        <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
+                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">Kvarvarande dagar</p>
+                        <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
+                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">Beräknad ersättning (simulerad)</p>
+                        <p className="text-muted-foreground pl-2">Dagersättning sjukpenningnivå: {Math.round(pr.rates.dailySickness)} kr/dag</p>
+                        <p className="text-muted-foreground pl-2">Exempel månadsutbetalning (5 d/v): {Math.round(pr.rates.dailySickness * 5 * 4.33).toLocaleString()} kr brutto</p>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">Beräknad månadsutbetalning (brutto)</p>
+                        {pr.monthlyBreakdown.length > 0 ? (
+                          <div className="pl-2 space-y-0.5">
+                            {pr.monthlyBreakdown.map((m) => (
+                              <p key={m.monthKey} className="text-muted-foreground">
+                                {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground pl-2">—</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              );
+            })()}
+
+            <div className="flex gap-3">
+              <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
+              <Button disabled={!result} onClick={sharePlan}>Dela med din partner</Button>
             </div>
-          </div>
-          );
-        })()}
+          </section>
 
-        <div className="flex gap-3">
-          <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
-          <Button disabled={!result} onClick={sharePlan}>Dela med din partner</Button>
-        </div>
-      </section>
-
-      {/* Så räknar vi */}
-      <Collapsible>
-        <CollapsibleTrigger className="flex items-center justify-between w-full border-b border-border pb-2 text-lg font-semibold cursor-pointer [&[data-state=open]>svg]:rotate-180">
-          Så räknar vi
-          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4 text-sm text-muted-foreground space-y-2">
-          <p>Varje förälder har <span className="font-medium text-foreground">240 dagar</span> totalt: 195 på sjukpenningnivå och 45 på lägstanivå (180 kr/dag).</p>
-          <p>Av sjukpenningdagarna är <span className="font-medium text-foreground">90 dagar reserverade</span> per förälder och kan inte överföras. Resterande 105 dagar kan delas.</p>
-          <p>SGI-taket är <span className="font-medium text-foreground">592 000 kr/år</span>. Inkomst över taket ger inte högre ersättning.</p>
-          <p>Utbetalningen beräknas som <span className="font-medium text-foreground">80 % × 0,97</span> (reduktionsfaktor) av din dagsinkomst.</p>
-          <p className="italic">Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.</p>
-        </CollapsibleContent>
-      </Collapsible>
+          {/* Så räknar vi */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full border-b border-border pb-2 text-lg font-semibold cursor-pointer [&[data-state=open]>svg]:rotate-180">
+              Så räknar vi
+              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4 text-sm text-muted-foreground space-y-2">
+              <p>Varje förälder har <span className="font-medium text-foreground">240 dagar</span> totalt: 195 på sjukpenningnivå och 45 på lägstanivå (180 kr/dag).</p>
+              <p>Av sjukpenningdagarna är <span className="font-medium text-foreground">90 dagar reserverade</span> per förälder och kan inte överföras. Resterande 105 dagar kan delas.</p>
+              <p>SGI-taket är <span className="font-medium text-foreground">592 000 kr/år</span>. Inkomst över taket ger inte högre ersättning.</p>
+              <p>Utbetalningen beräknas som <span className="font-medium text-foreground">80 % × 0,97</span> (reduktionsfaktor) av din dagsinkomst.</p>
+              <p className="italic">Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.</p>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
+      )}
     </div>
   );
 };
