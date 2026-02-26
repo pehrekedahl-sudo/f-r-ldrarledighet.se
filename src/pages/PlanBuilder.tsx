@@ -459,26 +459,30 @@ const PlanBuilder = () => {
 
               return (
               <div className="space-y-4">
-                {/* KPI row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="border border-border rounded-lg p-4 bg-card text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
-                    <p className="text-xl font-bold mt-1">{latestEnd ?? "—"}</p>
+                {/* Sammanfattning */}
+                <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+                  <h3 className="text-base font-semibold">Sammanfattning</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
+                      <p className="text-xl font-bold mt-1">{latestEnd ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Hushållets snitt / mån</p>
+                      <p className="text-xl font-bold mt-1">{Math.round(avgMonthly).toLocaleString()} kr</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar totalt</p>
+                      <p className="text-xl font-bold mt-1">{r2(totalAll)}</p>
+                    </div>
                   </div>
-                  <div className="border border-border rounded-lg p-4 bg-card text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar</p>
-                    <p className="text-xl font-bold mt-1">{r2(totalAll)}</p>
-                  </div>
-                  <div className="border border-border rounded-lg p-4 bg-card text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Hushållets snitt / mån</p>
-                    <p className="text-xl font-bold mt-1">{Math.round(avgMonthly).toLocaleString()} kr</p>
-                  </div>
+                  {result.warnings.budgetInsufficient && (
+                    <p className="text-sm text-destructive font-medium">Planen kräver fler dagar än ni har kvar.</p>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => { setShowAdvanced(true); document.getElementById("advanced-section")?.scrollIntoView({ behavior: "smooth" }); }}>
+                    Justera planen
+                  </Button>
                 </div>
-
-                {/* Insight sentence */}
-                <p className={`text-sm px-1 ${result.warnings.budgetInsufficient ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                  {insightText}
-                </p>
 
                 {/* Strategic overview */}
                 <div className="border border-border rounded-lg p-4 bg-card space-y-3">
@@ -607,7 +611,7 @@ const PlanBuilder = () => {
           </section>
 
           {/* Advanced block editor toggle */}
-          <div className="space-y-4">
+          <div id="advanced-section" className="space-y-4">
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
