@@ -490,8 +490,13 @@ const PlanBuilder = () => {
               const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
               const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
               const totalGross = allMonthly.reduce((s, m) => s + m.grossAmount, 0);
-              const uniqueMonths = new Set(allMonthly.map(m => m.monthKey)).size;
-              const avgMonthly = uniqueMonths > 0 ? totalGross / uniqueMonths : 0;
+              // Group by monthKey, sum across parents, count only months with payout > 0
+              const monthTotals = new Map<string, number>();
+              for (const m of allMonthly) {
+                monthTotals.set(m.monthKey, (monthTotals.get(m.monthKey) ?? 0) + m.grossAmount);
+              }
+              const activeMonths = Array.from(monthTotals.values()).filter(v => v > 0).length;
+              const avgMonthly = activeMonths > 0 ? totalGross / activeMonths : 0;
 
               const unfulfilled = result.unfulfilledDaysTotal ?? 0;
               const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
@@ -713,8 +718,8 @@ const PlanBuilder = () => {
                   {result.parentsResult.map((pr) => {
                     const parentDaysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
                     const parentTotalGross = pr.monthlyBreakdown.reduce((s, m) => s + m.grossAmount, 0);
-                    const parentMonths = pr.monthlyBreakdown.length;
-                    const parentAvgMonthly = parentMonths > 0 ? Math.round(parentTotalGross / parentMonths) : 0;
+                    const parentActiveMonths = pr.monthlyBreakdown.filter(m => m.grossAmount > 0).length;
+                    const parentAvgMonthly = parentActiveMonths > 0 ? Math.round(parentTotalGross / parentActiveMonths) : 0;
                     return (
                     <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
                       <h3 className="text-sm font-semibold">{pr.name}</h3>
