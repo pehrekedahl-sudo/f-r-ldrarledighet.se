@@ -100,6 +100,7 @@ const PlanBuilder = () => {
     }
     setTransferError(null);
     setTransfer({ fromParentId, toParentId, sicknessDays: transferAmount });
+    setTransferAmount(0);
   };
 
   return (
@@ -237,11 +238,18 @@ const PlanBuilder = () => {
             Ge till {PARENTS[1].name}
           </Button>
         </div>
+        {result && (
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p>Max att ge till {PARENTS[0].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+            <p>Max att ge till {PARENTS[1].name} just nu: {Math.floor(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+          </div>
+        )}
         {transferError && <p className="text-xs text-destructive">{transferError}</p>}
         {transfer && (
-          <p className="text-xs text-muted-foreground">
-            Aktiv överföring: {transfer.sicknessDays} dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} till {PARENTS.find(p => p.id === transfer.toParentId)?.name}
-          </p>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p>Aktiv överföring: {transfer.sicknessDays} dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} till {PARENTS.find(p => p.id === transfer.toParentId)?.name}</p>
+            <p>Detta tar dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} och ger till {PARENTS.find(p => p.id === transfer.toParentId)?.name}.</p>
+          </div>
         )}
       </div>
 
