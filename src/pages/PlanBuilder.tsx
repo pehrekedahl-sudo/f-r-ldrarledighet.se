@@ -482,10 +482,12 @@ const PlanBuilder = () => {
 
             {result ? (() => {
               const r2 = (v: number) => Math.round(v);
-              const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
+              const totalTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+              const totalReserved = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessReserved, 0);
+              const totalSickness = totalTransferable + totalReserved;
               const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
               const totalAll = totalSickness + totalLowest;
-              const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
+              const allTransferableUsed = totalTransferable < 1;
               const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
               const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
               const allMonthly = result.parentsResult.flatMap(pr => pr.monthlyBreakdown);
@@ -583,10 +585,14 @@ const PlanBuilder = () => {
                       <p className="text-2xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
-                      <p className="font-medium">{r2(totalSickness)}</p>
+                      <p className="text-muted-foreground">Överförbara sjukpenningdagar kvar</p>
+                      <p className="font-medium">{r2(totalTransferable)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Reserverade sjukpenningdagar kvar</p>
+                      <p className="font-medium">{r2(totalReserved)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Lägstanivådagar kvar</p>
@@ -594,12 +600,14 @@ const PlanBuilder = () => {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Totalt kvar</p>
-                      <p className="font-medium">{r2(totalAll)}</p>
+                      <p className="font-medium font-bold">{r2(totalAll)}</p>
                     </div>
                   </div>
-                  {allTransferableUsed && (
-                    <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
-                  )}
+                  <p className="text-xs text-muted-foreground italic">
+                    {allTransferableUsed
+                      ? "Ni har använt alla överförbara sjukpenningdagar."
+                      : "Ni kan fortfarande omfördela överförbara dagar vid behov."}
+                  </p>
                 </div>
 
                 {/* Justeringar – collapsible */}
