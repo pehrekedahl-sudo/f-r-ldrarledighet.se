@@ -27,9 +27,9 @@ export type WizardResult = {
   dueDate: string;
   months1: number;
   months2: number;
-  daysPerWeek1: number;
-  daysPerWeek2: number;
-  savedDays: number;
+  daysPerWeek1: number; // integer 0..7
+  daysPerWeek2: number; // integer 0..7
+  savedDaysTarget: number; // informational goal, integer
   income1: number | null;
   income2: number | null;
   has240Days1: boolean;
@@ -95,9 +95,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         dueDate,
         months1,
         months2,
-        daysPerWeek1,
-        daysPerWeek2,
-        savedDays,
+        daysPerWeek1: Math.round(Math.max(0, Math.min(7, daysPerWeek1))),
+        daysPerWeek2: Math.round(Math.max(0, Math.min(7, daysPerWeek2))),
+        savedDaysTarget: savedDays,
         income1: wantIncome ? (Number(income1) || 0) : null,
         income2: wantIncome ? (Number(income2) || 0) : null,
         has240Days1: wantIncome ? has240Days1 : true,
