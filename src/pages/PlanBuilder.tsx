@@ -65,6 +65,25 @@ const PlanBuilder = () => {
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState("");
+  const [months1, setMonths1] = useState(6);
+  const [months2, setMonths2] = useState(6);
+
+  const generateQuickStart = () => {
+    if (!dueDate) return;
+    const due = new Date(dueDate);
+    const end1 = new Date(due);
+    end1.setMonth(end1.getMonth() + months1);
+    const end2 = new Date(end1);
+    end2.setMonth(end2.getMonth() + months2);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: 5 };
+    const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: 5 };
+    setBlocks([b1, b2]);
+    setTransfer(null);
+    setTransferAmount(0);
+    setTransferError(null);
+  };
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const addDoubleDays = () => {
@@ -136,6 +155,25 @@ const PlanBuilder = () => {
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <p className="text-sm text-muted-foreground">Plan Builder – live simulation</p>
+
+      <div className="border border-border rounded-lg p-4 bg-card space-y-3">
+        <h2 className="text-sm font-semibold">Snabbstart</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <Label>Beräknat datum (BF)</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Månader {PARENTS[0].name}</Label>
+            <Input type="number" min={0} value={months1} onChange={(e) => setMonths1(Math.max(0, Number(e.target.value) || 0))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Månader {PARENTS[1].name}</Label>
+            <Input type="number" min={0} value={months2} onChange={(e) => setMonths2(Math.max(0, Number(e.target.value) || 0))} />
+          </div>
+        </div>
+        <Button size="sm" disabled={!dueDate} onClick={generateQuickStart}>Generera startplan</Button>
+      </div>
 
       {result && (() => {
         const budgetInsufficient = Boolean(result.warnings?.budgetInsufficient);
