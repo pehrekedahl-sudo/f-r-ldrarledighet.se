@@ -72,8 +72,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 2: return wantIncome !== null;
       case 3: return dueDate.length > 0;
       case 4: return preBirthChoice === "no" || (preBirthChoice !== null && preBirthDate !== undefined);
-      case 5: return months1 >= 0;
-      case 6: return months2 >= 0;
+      case 5: return months1 >= 1;
+      case 6: return months2 >= 1;
       case 7: return savingPreset !== null;
       default: return false;
     }
@@ -243,6 +243,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="space-y-2">
               <Label className="text-base">Antal månader</Label>
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months1} onChange={(e) => setMonths1(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
+              {months1 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
             </div>
           </div>
         );
@@ -254,6 +255,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="space-y-2">
               <Label className="text-base">Antal månader</Label>
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months2} onChange={(e) => setMonths2(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
+              {months2 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
             </div>
           </div>
         );
