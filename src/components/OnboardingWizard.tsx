@@ -27,6 +27,8 @@ export type WizardResult = {
   dueDate: string;
   months1: number;
   months2: number;
+  daysPerWeek1: number;
+  daysPerWeek2: number;
   savedDays: number;
   income1: number | null;
   income2: number | null;
@@ -59,6 +61,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   // Step 5 & 6
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
+  const [daysPerWeek1, setDaysPerWeek1] = useState(5);
+  const [daysPerWeek2, setDaysPerWeek2] = useState(5);
   // Step 7
   const [savingPreset, setSavingPreset] = useState<SavingPreset | null>(null);
   const [savedDays, setSavedDays] = useState(30);
@@ -89,6 +93,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         dueDate,
         months1,
         months2,
+        daysPerWeek1,
+        daysPerWeek2,
         savedDays,
         income1: wantIncome ? (Number(income1) || 0) : null,
         income2: wantIncome ? (Number(income2) || 0) : null,
@@ -245,6 +251,33 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months1} onChange={(e) => setMonths1(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
               {months1 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
             </div>
+            <div className="space-y-3">
+              <Label className="text-base">Hur många föräldradagar per vecka planerar {parent1Name} ta ut?</Label>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Dagar/vecka</span>
+                <span className="font-medium text-lg">{daysPerWeek1} dagar/vecka</span>
+              </div>
+              <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => setDaysPerWeek1(v)} />
+              <div className="flex gap-2">
+                {[3, 5, 7].map((n) => (
+                  <button key={n} onClick={() => setDaysPerWeek1(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek1 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                  Vad betyder detta?
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 text-sm text-muted-foreground space-y-1">
+                  <p>Att vara hemma är inte samma sak som att ta ut dagar.</p>
+                  <p>Tar ni ut 5 dagar/vecka och är hemma 7 dagar sparar ni 2 dagar/vecka.</p>
+                  <p>Uttagstakt påverkar både hur länge dagarna räcker och ersättningen.</p>
+                  <a href="/foraldradagar-101" className="inline-block mt-1 text-primary hover:underline">Läs mer i Föräldradagar 101 →</a>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </div>
         );
 
@@ -256,6 +289,33 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <Label className="text-base">Antal månader</Label>
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months2} onChange={(e) => setMonths2(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
               {months2 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
+            </div>
+            <div className="space-y-3">
+              <Label className="text-base">Hur många föräldradagar per vecka planerar {parent2Name} ta ut?</Label>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Dagar/vecka</span>
+                <span className="font-medium text-lg">{daysPerWeek2} dagar/vecka</span>
+              </div>
+              <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => setDaysPerWeek2(v)} />
+              <div className="flex gap-2">
+                {[3, 5, 7].map((n) => (
+                  <button key={n} onClick={() => setDaysPerWeek2(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek2 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                  Vad betyder detta?
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 text-sm text-muted-foreground space-y-1">
+                  <p>Att vara hemma är inte samma sak som att ta ut dagar.</p>
+                  <p>Tar ni ut 5 dagar/vecka och är hemma 7 dagar sparar ni 2 dagar/vecka.</p>
+                  <p>Uttagstakt påverkar både hur länge dagarna räcker och ersättningen.</p>
+                  <a href="/foraldradagar-101" className="inline-block mt-1 text-primary hover:underline">Läs mer i Föräldradagar 101 →</a>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </div>
         );
