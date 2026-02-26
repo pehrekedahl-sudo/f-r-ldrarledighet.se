@@ -433,22 +433,11 @@ const PlanBuilder = () => {
           <section className="space-y-4">
             <h2 className="text-lg font-semibold border-b border-border pb-2">Resultat & justering</h2>
 
-            {/* DEBUG: validation errors */}
             {result && (result as any).validationErrors?.length > 0 && (
-              <div className="border border-destructive rounded-lg p-4 bg-destructive/10 space-y-2">
+              <div className="border border-destructive rounded-lg p-4 bg-destructive/10">
                 <p className="text-destructive font-medium">Planen kunde inte beräknas – kontrollera fälten.</p>
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-destructive/80">Visa valideringsfel</summary>
-                  <pre className="mt-2 text-xs overflow-auto max-h-40 bg-background p-2 rounded">{JSON.stringify((result as any).validationErrors, null, 2)}</pre>
-                </details>
               </div>
             )}
-
-            {/* DEBUG: plan input JSON */}
-            <details className="text-sm text-muted-foreground">
-              <summary className="cursor-pointer hover:text-foreground transition-colors">Debug: visa plan-input JSON</summary>
-              <pre className="mt-2 text-xs overflow-auto max-h-60 bg-muted p-3 rounded">{JSON.stringify(planInput, null, 2)}</pre>
-            </details>
 
             {result ? (() => {
               const r2 = (v: number) => Math.round(v);
