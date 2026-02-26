@@ -240,9 +240,42 @@ const PlanBuilder = () => {
         );
       })()}
 
-      {result && (
+      {result && (() => {
+        const r2 = (v: number) => Math.round(v * 100) / 100;
+        const totalSickness = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved, 0);
+        const totalLowest = result.parentsResult.reduce((s, pr) => s + pr.remaining.lowest, 0);
+        const totalAll = totalSickness + totalLowest;
+        const allTransferableUsed = result.parentsResult.every(pr => pr.remaining.sicknessTransferable < 0.01);
+        const validBlocks = blocks.filter(b => !blockErrors.get(b.id));
+        const latestEnd = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate) : null;
+
+        return (
         <div className="space-y-4">
           <h2 className="text-sm font-semibold">Planöversikt</h2>
+
+          <div className="border border-border rounded-lg p-4 bg-card space-y-2">
+            <h3 className="text-sm font-semibold">Strategisk översikt</h3>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Sjukpenningdagar kvar</p>
+                <p className="font-medium">{r2(totalSickness)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Lägstanivådagar kvar</p>
+                <p className="font-medium">{r2(totalLowest)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Totalt kvar</p>
+                <p className="font-medium">{r2(totalAll)}</p>
+              </div>
+            </div>
+            <p className="text-sm">Ni sparar totalt <span className="font-medium">{r2(totalAll)}</span> dagar.</p>
+            {latestEnd && <p className="text-sm text-muted-foreground">Planen räcker till: <span className="font-medium text-foreground">{latestEnd}</span></p>}
+            {allTransferableUsed && (
+              <p className="text-xs text-muted-foreground italic">Ni har använt alla överförbara sjukpenningdagar.</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {result.parentsResult.map((pr) => (
               <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
@@ -278,7 +311,8 @@ const PlanBuilder = () => {
             ))}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       <div className="border border-border rounded-lg p-4 bg-card space-y-3">
         <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
