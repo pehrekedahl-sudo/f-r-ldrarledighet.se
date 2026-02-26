@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 
@@ -15,13 +16,19 @@ const PRESET_DAYS: Record<SavingPreset, number> = {
   unknown: 30,
 };
 
-type WizardResult = {
+export type WizardResult = {
   parent1Name: string;
   parent2Name: string;
   dueDate: string;
   months1: number;
   months2: number;
   savedDays: number;
+  income1: number | null;
+  income2: number | null;
+  has240Days1: boolean;
+  has240Days2: boolean;
+  preBirthParent: string | null;
+  preBirthWeeks: number;
 };
 
 type Props = {
@@ -30,24 +37,39 @@ type Props = {
 
 const OnboardingWizard = ({ onComplete }: Props) => {
   const [step, setStep] = useState(1);
+  // Step 1
   const [parent1Name, setParent1Name] = useState("");
   const [parent2Name, setParent2Name] = useState("");
+  // Step 2
+  const [wantIncome, setWantIncome] = useState<boolean | null>(null);
+  const [income1, setIncome1] = useState<number>(45000);
+  const [income2, setIncome2] = useState<number>(38000);
+  const [has240Days1, setHas240Days1] = useState(true);
+  const [has240Days2, setHas240Days2] = useState(true);
+  // Step 3
   const [dueDate, setDueDate] = useState("");
+  // Step 4
+  const [preBirthChoice, setPreBirthChoice] = useState<"no" | "p1" | "p2" | null>(null);
+  const [preBirthWeeks, setPreBirthWeeks] = useState(2);
+  // Step 5 & 6
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
+  // Step 7
   const [savingPreset, setSavingPreset] = useState<SavingPreset | null>(null);
   const [savedDays, setSavedDays] = useState(30);
   const [showSlider, setShowSlider] = useState(false);
 
-  const totalSteps = 5;
+  const totalSteps = 7;
 
   const canNext = (): boolean => {
     switch (step) {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
-      case 2: return dueDate.length > 0;
-      case 3: return months1 >= 0;
-      case 4: return months2 >= 0;
-      case 5: return savingPreset !== null;
+      case 2: return wantIncome !== null && (wantIncome === false || (income1 > 0 && income2 > 0));
+      case 3: return dueDate.length > 0;
+      case 4: return preBirthChoice !== null;
+      case 5: return months1 >= 0;
+      case 6: return months2 >= 0;
+      case 7: return savingPreset !== null;
       default: return false;
     }
   };
@@ -56,7 +78,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      onComplete({ parent1Name, parent2Name, dueDate, months1, months2, savedDays });
+      onComplete({
+        parent1Name,
+        parent2Name,
+        dueDate,
+        months1,
+        months2,
+        savedDays,
+        income1: wantIncome ? income1 : null,
+        income2: wantIncome ? income2 : null,
+        has240Days1: wantIncome ? has240Days1 : true,
+        has240Days2: wantIncome ? has240Days2 : true,
+        preBirthParent: preBirthChoice === "p1" ? "p1" : preBirthChoice === "p2" ? "p2" : null,
+        preBirthWeeks: preBirthChoice !== "no" && preBirthChoice !== null ? preBirthWeeks : 0,
+      });
     }
   };
 
@@ -69,113 +104,138 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setSavedDays(PRESET_DAYS[preset]);
   };
 
-  return (
-    <div className="max-w-lg mx-auto px-6 py-12 min-h-[80vh] flex flex-col">
-      {/* Progress */}
-      <div className="text-center mb-2">
-        <p className="text-sm text-muted-foreground">Steg {step} av {totalSteps}</p>
-      </div>
-      <div className="flex gap-1.5 mb-12">
-        {Array.from({ length: totalSteps }, (_, i) => (
-          <div
-            key={i}
-            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-              i < step ? "bg-primary" : "bg-muted"
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col justify-center">
-        {step === 1 && (
+  const stepContent = () => {
+    switch (step) {
+      case 1:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="text-3xl font-bold tracking-tight text-center">Vad heter ni?</h1>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-base">Förälder 1</Label>
-                <Input
-                  className="text-lg h-12"
-                  placeholder="Förnamn"
-                  value={parent1Name}
-                  onChange={(e) => setParent1Name(e.target.value)}
-                  autoFocus
-                />
+                <Input className="text-lg h-12" placeholder="Förnamn" value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} autoFocus />
               </div>
               <div className="space-y-2">
                 <Label className="text-base">Förälder 2</Label>
-                <Input
-                  className="text-lg h-12"
-                  placeholder="Förnamn"
-                  value={parent2Name}
-                  onChange={(e) => setParent2Name(e.target.value)}
-                />
+                <Input className="text-lg h-12" placeholder="Förnamn" value={parent2Name} onChange={(e) => setParent2Name(e.target.value)} />
               </div>
             </div>
           </div>
-        )}
+        );
 
-        {step === 2 && (
+      case 2:
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <h1 className="text-3xl font-bold tracking-tight text-center">Vill ni se en uppskattning av ersättningen?</h1>
+            <div className="space-y-3">
+              <button
+                onClick={() => setWantIncome(true)}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${wantIncome === true ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
+              >
+                Ja, ange inkomst
+              </button>
+              <button
+                onClick={() => setWantIncome(false)}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${wantIncome === false ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
+              >
+                Nej, hoppa över
+              </button>
+            </div>
+            {wantIncome && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-base">Månadsinkomst {parent1Name} (kr)</Label>
+                  <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(Math.max(0, Number(e.target.value) || 0))} />
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
+                    <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-base">Månadsinkomst {parent2Name} (kr)</Label>
+                  <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(Math.max(0, Number(e.target.value) || 0))} />
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
+                    <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 3:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="text-3xl font-bold tracking-tight text-center">När är barnet beräknat?</h1>
             <div className="space-y-2">
               <Label className="text-base">Beräknat datum</Label>
-              <Input
-                type="date"
-                className="text-lg h-12"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                autoFocus
-              />
+              <Input type="date" className="text-lg h-12" value={dueDate} onChange={(e) => setDueDate(e.target.value)} autoFocus />
             </div>
           </div>
-        )}
+        );
 
-        {step === 3 && (
+      case 4:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-            <h1 className="text-3xl font-bold tracking-tight text-center">
-              Hur länge vill {parent1Name} vara hemma?
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Ska någon börja vara ledig innan barnet föds?</h1>
+            <div className="space-y-3">
+              {([
+                { key: "no" as const, label: "Nej" },
+                { key: "p1" as const, label: `Ja, ${parent1Name}` },
+                { key: "p2" as const, label: `Ja, ${parent2Name}` },
+              ]).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setPreBirthChoice(opt.key)}
+                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${preBirthChoice === opt.key ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {preBirthChoice && preBirthChoice !== "no" && (
+              <div className="space-y-2 animate-in fade-in duration-200">
+                <Label className="text-base">Antal veckor före BF</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={8}
+                  className="text-lg h-12"
+                  value={preBirthWeeks}
+                  onChange={(e) => setPreBirthWeeks(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill {parent1Name} vara hemma?</h1>
             <div className="space-y-2">
               <Label className="text-base">Antal månader</Label>
-              <Input
-                type="number"
-                min={0}
-                max={24}
-                className="text-lg h-12"
-                value={months1}
-                onChange={(e) => setMonths1(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
-                autoFocus
-              />
+              <Input type="number" min={0} max={24} className="text-lg h-12" value={months1} onChange={(e) => setMonths1(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
             </div>
           </div>
-        )}
+        );
 
-        {step === 4 && (
+      case 6:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-            <h1 className="text-3xl font-bold tracking-tight text-center">
-              Hur länge vill {parent2Name} vara hemma?
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill {parent2Name} vara hemma?</h1>
             <div className="space-y-2">
               <Label className="text-base">Antal månader</Label>
-              <Input
-                type="number"
-                min={0}
-                max={24}
-                className="text-lg h-12"
-                value={months2}
-                onChange={(e) => setMonths2(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
-                autoFocus
-              />
+              <Input type="number" min={0} max={24} className="text-lg h-12" value={months2} onChange={(e) => setMonths2(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
             </div>
           </div>
-        )}
+        );
 
-        {step === 5 && (
+      case 7:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-            <h1 className="text-3xl font-bold tracking-tight text-center">
-              Vill ni ha dagar kvar till senare?
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Vill ni ha dagar kvar till senare?</h1>
             <div className="space-y-3">
               {([
                 { key: "none" as SavingPreset, label: "Nej, använd så mycket som möjligt nu" },
@@ -186,17 +246,12 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <button
                   key={opt.key}
                   onClick={() => selectPreset(opt.key)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${
-                    savingPreset === opt.key
-                      ? "border-primary bg-primary/5 font-medium"
-                      : "border-border bg-card hover:bg-muted"
-                  }`}
+                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${savingPreset === opt.key ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-
             <Collapsible open={showSlider} onOpenChange={setShowSlider}>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
                 Justera exakt antal (valfritt)
@@ -207,17 +262,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <span className="text-muted-foreground">Spara dagar</span>
                   <span className="font-medium text-lg">{savedDays} dagar</span>
                 </div>
-                <Slider
-                  min={0}
-                  max={120}
-                  step={1}
-                  value={[savedDays]}
-                  onValueChange={([v]) => {
-                    setSavedDays(v);
-                    // Clear preset match since user manually adjusted
-                    if (savingPreset === null) setSavingPreset("lite");
-                  }}
-                />
+                <Slider min={0} max={120} step={1} value={[savedDays]} onValueChange={([v]) => { setSavedDays(v); if (savingPreset === null) setSavingPreset("lite"); }} />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>0</span>
                   <span>120</span>
@@ -225,23 +270,39 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               </CollapsibleContent>
             </Collapsible>
           </div>
-        )}
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="max-w-lg mx-auto px-6 py-12 min-h-[80vh] flex flex-col">
+      {/* Progress */}
+      <div className="text-center mb-2">
+        <p className="text-sm text-muted-foreground">Steg {step} av {totalSteps}</p>
+      </div>
+      <div className="flex gap-1.5 mb-12">
+        {Array.from({ length: totalSteps }, (_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i < step ? "bg-primary" : "bg-muted"}`}
+          />
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex flex-col justify-center">
+        {stepContent()}
       </div>
 
       {/* Navigation */}
       <div className="flex justify-between pt-8">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          disabled={step === 1}
-        >
+        <Button variant="ghost" onClick={handleBack} disabled={step === 1}>
           ← Tillbaka
         </Button>
-        <Button
-          size="lg"
-          onClick={handleNext}
-          disabled={!canNext()}
-        >
+        <Button size="lg" onClick={handleNext} disabled={!canNext()}>
           {step === totalSteps ? "Se min plan →" : "Nästa →"}
         </Button>
       </div>
