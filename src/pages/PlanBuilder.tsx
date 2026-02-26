@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 import {
   Select,
@@ -58,6 +59,7 @@ function validateBlock(b: Block): string | null {
 }
 
 const PlanBuilder = () => {
+  const { toast } = useToast();
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
   const [transferAmount, setTransferAmount] = useState(0);
@@ -102,6 +104,27 @@ const PlanBuilder = () => {
     setTransfer({ fromParentId, toParentId, sicknessDays: transferAmount });
     setTransferAmount(0);
   };
+
+  const copyPlan = useCallback(() => {
+    if (!result) return;
+    const lines: string[] = [];
+    for (const pr of result.parentsResult) {
+      lines.push(pr.name);
+      const parentBlocks = blocks
+        .filter((b) => b.parentId === pr.parentId && !blockErrors.get(b.id))
+        .sort((a, b) => a.startDate.localeCompare(b.startDate));
+      for (const b of parentBlocks) {
+        let line = `  ${b.startDate} – ${b.endDate}, ${b.daysPerWeek} dagar/vecka`;
+        if (b.lowestDaysPerWeek !== undefined) line += `, lägstanivå ${b.lowestDaysPerWeek} d/v`;
+        lines.push(line);
+      }
+      lines.push(`  Kvar: överförbar ${Math.round(pr.remaining.sicknessTransferable * 100) / 100}, reserverad ${Math.round(pr.remaining.sicknessReserved * 100) / 100}, lägstanivå ${Math.round(pr.remaining.lowest * 100) / 100}`);
+      lines.push("");
+    }
+    lines.push("Simulering – kontrollera alltid i Försäkringskassan.");
+    navigator.clipboard.writeText(lines.join("\n"));
+    toast({ description: "Plan kopierad" });
+  }, [result, blocks, blockErrors, toast]);
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -295,7 +318,10 @@ const PlanBuilder = () => {
         })}
       </div>
 
-      <Button onClick={addBlock}>Add block</Button>
+      <div className="flex gap-3">
+        <Button onClick={addBlock}>Add block</Button>
+        <Button variant="outline" disabled={!result} onClick={copyPlan}>Kopiera plan</Button>
+      </div>
 
       {result && (
         <details className="bg-muted rounded-lg">
