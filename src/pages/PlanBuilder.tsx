@@ -579,40 +579,49 @@ const PlanBuilder = () => {
 
                 {/* Parent cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {result.parentsResult.map((pr) => (
+                  {result.parentsResult.map((pr) => {
+                    const parentDaysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
+                    const parentTotalGross = pr.monthlyBreakdown.reduce((s, m) => s + m.grossAmount, 0);
+                    const parentMonths = pr.monthlyBreakdown.length;
+                    const parentAvgMonthly = parentMonths > 0 ? Math.round(parentTotalGross / parentMonths) : 0;
+                    return (
                     <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
                       <h3 className="text-sm font-semibold">{pr.name}</h3>
-                      <div className="space-y-1 text-sm">
-                        <p className="font-medium">Totalt uttagna dagar</p>
-                        <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness)}</p>
-                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest)}</p>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Uttagna</p>
+                          <p className="font-medium">{Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
+                          <p className="text-xs text-muted-foreground">Sjuk {Math.round(pr.taken.sickness)} · Lägsta {Math.round(pr.taken.lowest)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Kvar totalt</p>
+                          <p className="font-medium">{parentDaysLeft} dagar</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Snitt / mån</p>
+                          <p className="font-medium">{parentAvgMonthly.toLocaleString()} kr</p>
+                        </div>
                       </div>
-                      <div className="space-y-1 text-sm">
-                        <p className="font-medium">Kvarvarande dagar</p>
-                        <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved)}</p>
-                        <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest)}</p>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        <p className="font-medium">Beräknad ersättning (simulerad)</p>
-                        <p className="text-muted-foreground pl-2">Dagersättning sjukpenningnivå: {Math.round(pr.rates.dailySickness)} kr/dag</p>
-                        <p className="text-muted-foreground pl-2">Exempel månadsutbetalning (5 d/v): {Math.round(pr.rates.dailySickness * 5 * 4.33).toLocaleString()} kr brutto</p>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        <p className="font-medium">Beräknad månadsutbetalning (brutto)</p>
-                        {pr.monthlyBreakdown.length > 0 ? (
-                          <div className="pl-2 space-y-0.5">
-                            {pr.monthlyBreakdown.map((m) => (
-                              <p key={m.monthKey} className="text-muted-foreground">
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                          Visa månad för månad
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2 space-y-0.5">
+                          {pr.monthlyBreakdown.length > 0 ? (
+                            pr.monthlyBreakdown.map((m) => (
+                              <p key={m.monthKey} className="text-sm text-muted-foreground">
                                 {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
                               </p>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-muted-foreground pl-2">—</p>
-                        )}
-                      </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">—</p>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               );
