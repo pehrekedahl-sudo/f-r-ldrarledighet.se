@@ -99,13 +99,13 @@ const PlanBuilder = () => {
   const handleWizardComplete = useCallback((wr: WizardResult) => {
     const newParents = [
       {
-        ...DEFAULT_PARENTS[0],
+        id: "p1" as const,
         name: wr.parent1Name,
         monthlyIncomeFixed: wr.income1 ?? DEFAULT_PARENTS[0].monthlyIncomeFixed,
         has240Days: wr.has240Days1,
       },
       {
-        ...DEFAULT_PARENTS[1],
+        id: "p2" as const,
         name: wr.parent2Name,
         monthlyIncomeFixed: wr.income2 ?? DEFAULT_PARENTS[1].monthlyIncomeFixed,
         has240Days: wr.has240Days2,
@@ -171,8 +171,8 @@ const PlanBuilder = () => {
   // Defer switching to result mode until plan state is ready
   useEffect(() => {
     if (pendingResult && blocks.length > 0) {
-      const planState = { parents, blocks, transfer, constants: CONSTANTS };
-      console.log("Generated plan:", planState);
+      const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
+      console.log("FINAL PLAN (wizard -> result):", finalPlan);
       setPendingResult(false);
       setViewMode("result");
     }
