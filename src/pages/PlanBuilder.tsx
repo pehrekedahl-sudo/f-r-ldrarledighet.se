@@ -178,6 +178,46 @@ const PlanBuilder = () => {
         );
       })()}
 
+      {result && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold">Planöversikt</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {result.parentsResult.map((pr) => (
+              <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-card space-y-3">
+                <h3 className="text-sm font-semibold">{pr.name}</h3>
+
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">Totalt uttagna dagar</p>
+                  <p className="text-muted-foreground pl-2">Sjukpenningnivå: {Math.round(pr.taken.sickness * 100) / 100}</p>
+                  <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.taken.lowest * 100) / 100}</p>
+                </div>
+
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">Kvarvarande dagar</p>
+                  <p className="text-muted-foreground pl-2">Sjukpenning: {Math.round((pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved) * 100) / 100}</p>
+                  <p className="text-muted-foreground pl-2">Lägstanivå: {Math.round(pr.remaining.lowest * 100) / 100}</p>
+                </div>
+
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">Estimated monthly gross payout</p>
+                  {pr.monthlyBreakdown.length > 0 ? (
+                    <div className="pl-2 space-y-0.5">
+                      {pr.monthlyBreakdown.map((m) => (
+                        <p key={m.monthKey} className="text-muted-foreground">
+                          {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground pl-2">—</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="border border-border rounded-lg p-4 bg-card space-y-3">
         <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
         {result && (
