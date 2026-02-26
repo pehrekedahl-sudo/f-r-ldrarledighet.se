@@ -497,9 +497,7 @@ const PlanBuilder = () => {
               const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
 
               const insightText = unfulfilled > 0
-                ? (householdTransferableRemaining > 0
-                    ? "Planen kräver omfördelning av dagar mellan er."
-                    : `Planen saknar ${unfulfilled} dagar. Justera perioder eller dagar/vecka.`)
+                ? `Planen saknar ${unfulfilled} dagar för att gå ihop.`
                 : r2(totalAll) > 50
                   ? "Ni har gott om marginal och kan spara dagar till senare."
                   : r2(totalAll) > 0
@@ -525,10 +523,12 @@ const PlanBuilder = () => {
                       <p className="text-xl font-bold mt-1">{r2(totalAll)}</p>
                     </div>
                   </div>
+                  {unfulfilled > 0 && (
+                    <p className="text-sm text-destructive font-medium">Planen saknar {unfulfilled} dagar för att gå ihop.</p>
+                  )}
                   {unfulfilled > 0 && householdTransferableRemaining > 0 && (
                     <div className="text-sm space-y-2 p-3 rounded-md bg-warning/10 border border-warning/30">
-                      <p className="font-medium text-warning-foreground">Planen kräver att ni omfördelar dagar mellan er för att gå ihop.</p>
-                      <p className="text-xs text-warning-foreground/80">Testa att flytta överförbara sjukpenningdagar under &quot;Omfördela dagar&quot;.</p>
+                      <p className="text-xs text-warning-foreground/80">Testa att omfördela överförbara sjukpenningdagar.</p>
                       <Button
                         variant="outline"
                         size="sm"
@@ -537,7 +537,6 @@ const PlanBuilder = () => {
                           setAdjustOpen(true);
                           setTimeout(() => {
                             document.getElementById("transfer-section")?.scrollIntoView({ behavior: "smooth" });
-                            // Trigger suggestion
                             const scored = result.parentsResult.map(pr => ({
                               ...pr,
                               totalRemaining: pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
@@ -560,9 +559,6 @@ const PlanBuilder = () => {
                         Föreslå omfördelning
                       </Button>
                     </div>
-                  )}
-                  {unfulfilled > 0 && householdTransferableRemaining <= 0 && (
-                    <p className="text-sm text-destructive font-medium">Planen saknar totalt {unfulfilled} dagar för att gå ihop.</p>
                   )}
                   <Button variant="outline" size="sm" onClick={() => { setAdjustOpen(true); setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100); }}>
                     Justera planen
