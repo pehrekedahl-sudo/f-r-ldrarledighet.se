@@ -42,8 +42,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [parent2Name, setParent2Name] = useState("");
   // Step 2
   const [wantIncome, setWantIncome] = useState<boolean | null>(null);
-  const [income1, setIncome1] = useState<number>(45000);
-  const [income2, setIncome2] = useState<number>(38000);
+  const [income1, setIncome1] = useState("");
+  const [income2, setIncome2] = useState("");
   const [has240Days1, setHas240Days1] = useState(true);
   const [has240Days2, setHas240Days2] = useState(true);
   // Step 3
@@ -64,7 +64,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const canNext = (): boolean => {
     switch (step) {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
-      case 2: return wantIncome !== null && (wantIncome === false || (income1 > 0 && income2 > 0));
+      case 2: return wantIncome !== null;
       case 3: return dueDate.length > 0;
       case 4: return preBirthChoice !== null;
       case 5: return months1 >= 0;
@@ -85,8 +85,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         months1,
         months2,
         savedDays,
-        income1: wantIncome ? income1 : null,
-        income2: wantIncome ? income2 : null,
+        income1: wantIncome ? (Number(income1) || 0) : null,
+        income2: wantIncome ? (Number(income2) || 0) : null,
         has240Days1: wantIncome ? has240Days1 : true,
         has240Days2: wantIncome ? has240Days2 : true,
         preBirthParent: preBirthChoice === "p1" ? "p1" : preBirthChoice === "p2" ? "p2" : null,
@@ -145,7 +145,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <div className="space-y-5 animate-in fade-in duration-200">
                 <div className="space-y-2">
                   <Label className="text-base">Månadsinkomst {parent1Name} (kr)</Label>
-                  <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(Math.max(0, Number(e.target.value) || 0))} />
+                  <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(e.target.value)} />
                   <div className="flex items-center gap-2 pt-1">
                     <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
                     <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
@@ -153,7 +153,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-base">Månadsinkomst {parent2Name} (kr)</Label>
-                  <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(Math.max(0, Number(e.target.value) || 0))} />
+                  <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(e.target.value)} />
                   <div className="flex items-center gap-2 pt-1">
                     <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
                     <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
