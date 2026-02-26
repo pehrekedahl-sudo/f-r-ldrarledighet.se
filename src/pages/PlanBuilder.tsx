@@ -3,7 +3,7 @@ import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
+
 import {
   Select,
   SelectContent,
@@ -59,7 +59,9 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
-  const [transferDays, setTransferDays] = useState(0);
+  const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
+  const [transferAmount, setTransferAmount] = useState(0);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const updateBlock = (id: string, patch: Partial<Block>) =>
@@ -77,9 +79,7 @@ const PlanBuilder = () => {
       .filter((b) => !blockErrors.get(b.id))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
     if (valid.length === 0) return null;
-    const transfers = transferDays > 0
-      ? [{ fromParentId: "p2", toParentId: "p1", sicknessDays: transferDays }]
-      : [];
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
     try {
       const r = simulatePlan({ parents: PARENTS, blocks: valid, transfers, constants: CONSTANTS });
       console.log("simulatePlan result:", r);
@@ -87,7 +87,20 @@ const PlanBuilder = () => {
     } catch {
       return null;
     }
-  }, [blocks, blockErrors, transferDays]);
+  }, [blocks, blockErrors, transfer]);
+
+  const handleTransfer = (toParentId: string) => {
+    const fromParentId = toParentId === "p1" ? "p2" : "p1";
+    const senderResult = result?.parentsResult.find((pr) => pr.parentId === fromParentId);
+    const available = senderResult?.remaining.sicknessTransferable ?? 0;
+    if (transferAmount > available) {
+      const senderName = PARENTS.find((p) => p.id === fromParentId)?.name ?? "?";
+      setTransferError(`${senderName} har bara ${Math.floor(available)} överförbara dagar kvar.`);
+      return;
+    }
+    setTransferError(null);
+    setTransfer({ fromParentId, toParentId, sicknessDays: transferAmount });
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -166,18 +179,25 @@ const PlanBuilder = () => {
       })()}
 
       <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-        <h2 className="text-sm font-semibold">Överföringar</h2>
-        <div className="space-y-2">
-          <Label className="text-sm">Flytta sjukpenningdagar från Erik till Anna: {transferDays}</Label>
-          <Slider
-            min={0}
-            max={105}
-            step={1}
-            value={[transferDays]}
-            onValueChange={([v]) => setTransferDays(v)}
-          />
-          <p className="text-xs text-muted-foreground">0 – 105 dagar</p>
+        <h2 className="text-sm font-semibold">Omfördela överförbara sjukpenningdagar</h2>
+        <div className="flex items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-sm">Antal dagar</Label>
+            <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
+          </div>
+          <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
+            Ge till {PARENTS[0].name}
+          </Button>
+          <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
+            Ge till {PARENTS[1].name}
+          </Button>
         </div>
+        {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+        {transfer && (
+          <p className="text-xs text-muted-foreground">
+            Aktiv överföring: {transfer.sicknessDays} dagar från {PARENTS.find(p => p.id === transfer.fromParentId)?.name} till {PARENTS.find(p => p.id === transfer.toParentId)?.name}
+          </p>
+        )}
       </div>
 
       <div className="space-y-4">
