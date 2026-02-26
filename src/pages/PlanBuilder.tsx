@@ -79,6 +79,7 @@ const PlanBuilder = () => {
   const [viewMode, setViewMode] = useState<"wizard" | "edit" | "result">("wizard");
   const [pendingResult, setPendingResult] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
 
   useEffect(() => {
     const planParam = searchParams.get("plan");
@@ -479,7 +480,7 @@ const PlanBuilder = () => {
                   {result.warnings.budgetInsufficient && (
                     <p className="text-sm text-destructive font-medium">Planen kräver fler dagar än ni har kvar.</p>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => { setShowAdvanced(true); document.getElementById("advanced-section")?.scrollIntoView({ behavior: "smooth" }); }}>
+                  <Button variant="outline" size="sm" onClick={() => { setAdjustOpen(true); setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100); }}>
                     Justera planen
                   </Button>
                 </div>
@@ -516,46 +517,63 @@ const PlanBuilder = () => {
                   )}
                 </div>
 
-                {/* Transfer section – collapsible */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center justify-between w-full border border-border rounded-lg p-3 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
-                    Omfördela dagar
+                {/* Justeringar – collapsible */}
+                <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
+                  <CollapsibleTrigger id="adjust-section" className="flex items-center justify-between w-full border border-border rounded-lg p-3 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
+                    Justeringar
                     <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="border border-t-0 border-border rounded-b-lg p-4 bg-card space-y-3">
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      {result.parentsResult.map((pr) => (
-                        <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
-                          <p className="font-medium text-foreground">{pr.name}</p>
-                          <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
-                          <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
-                          <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
+                  <CollapsibleContent className="border border-t-0 border-border rounded-b-lg p-4 bg-card space-y-6">
+                    {/* Transfer */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Omfördela dagar</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        {result.parentsResult.map((pr) => (
+                          <div key={pr.parentId} className="space-y-0.5 text-muted-foreground">
+                            <p className="font-medium text-foreground">{pr.name}</p>
+                            <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                            <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
+                            <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-end gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-sm">Antal dagar</Label>
+                          <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
                         </div>
-                      ))}
-                    </div>
-                    <div className="flex items-end gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-sm">Antal dagar</Label>
-                        <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} />
+                        <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
+                          Ge till {parents[0].name}
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
+                          Ge till {parents[1].name}
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p1")}>
-                        Ge till {parents[0].name}
-                      </Button>
-                      <Button variant="outline" size="sm" disabled={transferAmount === 0} onClick={() => handleTransfer("p2")}>
-                        Ge till {parents[1].name}
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                      <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
-                    </div>
-                    {transferError && <p className="text-xs text-destructive">{transferError}</p>}
-                    {transfer && (
                       <div className="text-xs text-muted-foreground space-y-0.5">
-                        <p>Aktiv överföring: {transfer.sicknessDays} dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} till {parents.find(p => p.id === transfer.toParentId)?.name}</p>
-                        <p>Detta tar dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} och ger till {parents.find(p => p.id === transfer.toParentId)?.name}.</p>
+                        <p>Max att ge till {parents[0].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0)} dagar</p>
+                        <p>Max att ge till {parents[1].name} just nu: {Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0)} dagar</p>
                       </div>
-                    )}
+                      {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+                      {transfer && (
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p>Aktiv överföring: {transfer.sicknessDays} dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} till {parents.find(p => p.id === transfer.toParentId)?.name}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-border" />
+
+                    {/* Advanced block editor */}
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                      >
+                        {showAdvanced ? "Dölj avancerade inställningar" : "Avancerade inställningar"}
+                      </button>
+                      {showAdvanced && renderBlockEditor()}
+                    </div>
                   </CollapsibleContent>
                 </Collapsible>
 
@@ -610,18 +628,6 @@ const PlanBuilder = () => {
             </div>
           </section>
 
-          {/* Advanced block editor toggle */}
-          <div id="advanced-section" className="space-y-4">
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
-            >
-              {showAdvanced ? "Dölj avancerade inställningar" : "Avancerade inställningar"}
-            </button>
-            {showAdvanced && renderBlockEditor()}
-          </div>
-
-          {/* Så räknar vi */}
           <Collapsible>
             <CollapsibleTrigger className="flex items-center justify-between w-full border-b border-border pb-2 text-lg font-semibold cursor-pointer [&[data-state=open]>svg]:rotate-180">
               Så räknar vi
