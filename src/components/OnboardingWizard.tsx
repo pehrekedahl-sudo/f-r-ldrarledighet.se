@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,10 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, CalendarIcon } from "lucide-react";
+import { ChevronDown, CalendarIcon, RotateCcw, Upload } from "lucide-react";
 import { format, differenceInCalendarDays, subWeeks } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { saveWizardDraft, loadWizardDraft, clearAllDrafts, type WizardDraft } from "@/lib/persistence";
 
 type SavingPreset = "none" | "lite" | "buffert" | "unknown";
 
@@ -43,34 +44,63 @@ type Props = {
 };
 
 const OnboardingWizard = ({ onComplete }: Props) => {
-  const [step, setStep] = useState(1);
+  const draft = loadWizardDraft();
+  const [step, setStep] = useState(draft?.step ?? 1);
   // Step 1
-  const [parent1Name, setParent1Name] = useState("");
-  const [parent2Name, setParent2Name] = useState("");
+  const [parent1Name, setParent1Name] = useState(draft?.parent1Name ?? "");
+  const [parent2Name, setParent2Name] = useState(draft?.parent2Name ?? "");
   // Step 2
-  const [wantIncome, setWantIncome] = useState<boolean | null>(null);
-  const [income1, setIncome1] = useState("");
-  const [income2, setIncome2] = useState("");
-  const [has240Days1, setHas240Days1] = useState(true);
-  const [has240Days2, setHas240Days2] = useState(true);
+  const [wantIncome, setWantIncome] = useState<boolean | null>(draft?.wantIncome ?? null);
+  const [income1, setIncome1] = useState(draft?.income1 ?? "");
+  const [income2, setIncome2] = useState(draft?.income2 ?? "");
+  const [has240Days1, setHas240Days1] = useState(draft?.has240Days1 ?? true);
+  const [has240Days2, setHas240Days2] = useState(draft?.has240Days2 ?? true);
   // Step 3
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(draft?.dueDate ?? "");
   // Step 4
-  const [preBirthChoice, setPreBirthChoice] = useState<"no" | "p1" | "p2" | null>(null);
-  const [preBirthDate, setPreBirthDate] = useState<Date | undefined>(undefined);
+  const [preBirthChoice, setPreBirthChoice] = useState<"no" | "p1" | "p2" | null>(draft?.preBirthChoice ?? null);
+  const [preBirthDate, setPreBirthDate] = useState<Date | undefined>(
+    draft?.preBirthDate ? new Date(draft.preBirthDate) : undefined
+  );
   // Step 5 & 6
-  const [months1, setMonths1] = useState(6);
-  const [months2, setMonths2] = useState(6);
-  const [daysPerWeek1, setDaysPerWeek1] = useState(5);
-  const [daysPerWeek2, setDaysPerWeek2] = useState(5);
+  const [months1, setMonths1] = useState(draft?.months1 ?? 6);
+  const [months2, setMonths2] = useState(draft?.months2 ?? 6);
+  const [daysPerWeek1, setDaysPerWeek1] = useState(draft?.daysPerWeek1 ?? 5);
+  const [daysPerWeek2, setDaysPerWeek2] = useState(draft?.daysPerWeek2 ?? 5);
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
   // Step 7
-  const [savingPreset, setSavingPreset] = useState<SavingPreset | null>(null);
-  const [savedDays, setSavedDays] = useState(30);
+  const [savingPreset, setSavingPreset] = useState<SavingPreset | null>((draft?.savingPreset as SavingPreset) ?? null);
+  const [savedDays, setSavedDays] = useState(draft?.savedDays ?? 30);
   const [showSlider, setShowSlider] = useState(false);
+  const [hasDraft] = useState(() => !!loadWizardDraft());
 
   const totalSteps = 7;
+
+  // Auto-save on every state change
+  useEffect(() => {
+    saveWizardDraft({
+      parent1Name, parent2Name, wantIncome, income1, income2,
+      has240Days1, has240Days2, dueDate, preBirthChoice,
+      preBirthDate: preBirthDate ? preBirthDate.toISOString() : null,
+      months1, months2, daysPerWeek1, daysPerWeek2,
+      savingPreset, savedDays, step,
+    });
+  }, [parent1Name, parent2Name, wantIncome, income1, income2,
+    has240Days1, has240Days2, dueDate, preBirthChoice, preBirthDate,
+    months1, months2, daysPerWeek1, daysPerWeek2, savingPreset, savedDays, step]);
+
+  const handleReset = useCallback(() => {
+    clearAllDrafts();
+    setStep(1);
+    setParent1Name(""); setParent2Name("");
+    setWantIncome(null); setIncome1(""); setIncome2("");
+    setHas240Days1(true); setHas240Days2(true);
+    setDueDate(""); setPreBirthChoice(null); setPreBirthDate(undefined);
+    setMonths1(6); setMonths2(6);
+    setDaysPerWeek1(5); setDaysPerWeek2(5);
+    setSavingPreset(null); setSavedDays(30);
+  }, []);
 
   const canNext = (): boolean => {
     switch (step) {
@@ -384,6 +414,33 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i < step ? "bg-primary" : "bg-muted"}`}
           />
         ))}
+      </div>
+
+      {/* Draft actions */}
+      <div className="flex justify-center gap-3 mb-4">
+        {hasDraft && step === 1 && (
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => {
+            const d = loadWizardDraft();
+            if (d) {
+              setParent1Name(d.parent1Name); setParent2Name(d.parent2Name);
+              setWantIncome(d.wantIncome); setIncome1(d.income1); setIncome2(d.income2);
+              setHas240Days1(d.has240Days1); setHas240Days2(d.has240Days2);
+              setDueDate(d.dueDate); setPreBirthChoice(d.preBirthChoice);
+              setPreBirthDate(d.preBirthDate ? new Date(d.preBirthDate) : undefined);
+              setMonths1(d.months1); setMonths2(d.months2);
+              setDaysPerWeek1(d.daysPerWeek1); setDaysPerWeek2(d.daysPerWeek2);
+              setSavingPreset(d.savingPreset as SavingPreset); setSavedDays(d.savedDays);
+              setStep(d.step);
+            }
+          }}>
+            <Upload className="h-3.5 w-3.5" />
+            Ladda senaste
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground" onClick={handleReset}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Återställ
+        </Button>
       </div>
 
       {/* Content */}
