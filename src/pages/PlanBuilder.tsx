@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 import {
   Select,
@@ -425,6 +427,21 @@ const PlanBuilder = () => {
           <Button disabled={!result} onClick={sharePlan}>Dela med din partner</Button>
         </div>
       </section>
+
+      {/* Så räknar vi */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full border-b border-border pb-2 text-lg font-semibold cursor-pointer [&[data-state=open]>svg]:rotate-180">
+          Så räknar vi
+          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4 text-sm text-muted-foreground space-y-2">
+          <p>Varje förälder har <span className="font-medium text-foreground">240 dagar</span> totalt: 195 på sjukpenningnivå och 45 på lägstanivå (180 kr/dag).</p>
+          <p>Av sjukpenningdagarna är <span className="font-medium text-foreground">90 dagar reserverade</span> per förälder och kan inte överföras. Resterande 105 dagar kan delas.</p>
+          <p>SGI-taket är <span className="font-medium text-foreground">592 000 kr/år</span>. Inkomst över taket ger inte högre ersättning.</p>
+          <p>Utbetalningen beräknas som <span className="font-medium text-foreground">80 % × 0,97</span> (reduktionsfaktor) av din dagsinkomst.</p>
+          <p className="italic">Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.</p>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
