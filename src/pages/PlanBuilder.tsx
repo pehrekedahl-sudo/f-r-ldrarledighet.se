@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import PlanTimeline from "@/components/PlanTimeline";
+import BlockEditDrawer from "@/components/BlockEditDrawer";
 
 import {
   Select,
@@ -82,6 +83,8 @@ const PlanBuilder = () => {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [noSavedPlan, setNoSavedPlan] = useState(false);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -153,6 +156,30 @@ const PlanBuilder = () => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   const removeBlock = (id: string) =>
     setBlocks((prev) => prev.filter((b) => b.id !== id));
+
+  const handleTimelineBlockClick = (blockId: string) => {
+    setEditingBlockId(blockId);
+    setDrawerOpen(true);
+  };
+
+  const handleDrawerSave = (updated: Block) => {
+    updateBlock(updated.id, updated);
+    // Persist to localStorage
+    const valid = blocks.map(b => b.id === updated.id ? updated : b).filter(b => {
+      const err = validateBlock(b);
+      return !err;
+    }).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+  };
+
+  const handleDrawerDelete = (id: string) => {
+    removeBlock(id);
+    const remaining = blocks.filter(b => b.id !== id);
+    const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+  };
 
   const blockErrors = useMemo(
     () => new Map(blocks.map((b) => [b.id, validateBlock(b)])),
@@ -544,6 +571,7 @@ const PlanBuilder = () => {
                   blocks={blocks.filter(b => !blockErrors.get(b.id))}
                   parents={parents}
                   unfulfilledDaysTotal={result.unfulfilledDaysTotal ?? 0}
+                  onBlockClick={handleTimelineBlockClick}
                 />
 
                 {/* Justeringar – collapsible */}
@@ -761,6 +789,15 @@ const PlanBuilder = () => {
           </Collapsible>
         </>
       )}
+      <BlockEditDrawer
+        block={blocks.find(b => b.id === editingBlockId) ?? null}
+        parentName={parents.find(p => p.id === blocks.find(b => b.id === editingBlockId)?.parentId)?.name ?? ""}
+        allBlocks={blocks}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onSave={handleDrawerSave}
+        onDelete={handleDrawerDelete}
+      />
     </div>
   );
 };
