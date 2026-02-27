@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
+import PlanTimeline from "@/components/PlanTimeline";
 
 import {
   Select,
@@ -537,6 +538,13 @@ const PlanBuilder = () => {
                       : "Ni kan fortfarande omfördela överförbara dagar vid behov."}
                   </p>
                 </div>
+
+                {/* Tidslinje */}
+                <PlanTimeline
+                  blocks={blocks.filter(b => !blockErrors.get(b.id))}
+                  parents={parents}
+                  unfulfilledDaysTotal={result.unfulfilledDaysTotal ?? 0}
+                />
 
                 {/* Justeringar – collapsible */}
                 <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
