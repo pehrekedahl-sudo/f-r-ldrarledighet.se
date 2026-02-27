@@ -80,6 +80,21 @@ const PlanBuilder = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [noSavedPlan, setNoSavedPlan] = useState(false);
+
+  const loadFromLocalStorage = useCallback(() => {
+    const saved = loadPlanInput() as any;
+    if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
+      setParents(saved.parents);
+      setBlocks(saved.blocks);
+      if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
+      setViewMode("result");
+      setLoaded(true);
+      setNoSavedPlan(false);
+      return true;
+    }
+    return false;
+  }, []);
 
   // Load plan from URL param or localStorage
   useEffect(() => {
@@ -100,17 +115,22 @@ const PlanBuilder = () => {
       } catch { /* ignore */ }
     }
 
-    const saved = loadPlanInput() as any;
-    if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
-      setParents(saved.parents);
-      setBlocks(saved.blocks);
-      if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
-      setViewMode("result");
-      setLoaded(true);
-    } else {
+    if (!loadFromLocalStorage()) {
       navigate("/wizard", { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLoadSaved = () => {
+    if (!loadFromLocalStorage()) {
+      setNoSavedPlan(true);
+    }
+  };
+
+  const handleClearPlan = () => {
+    localStorage.removeItem("planBuilderLastPlanV1");
+    setLoaded(false);
+    navigate("/wizard", { replace: true });
+  };
 
   const sharePlan = useCallback(() => {
     const payload = { blocks, transfer, dueDate, months1, months2, parents };
@@ -280,6 +300,19 @@ const PlanBuilder = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-10">
+      {/* Dev toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="outline" size="sm" onClick={handleLoadSaved}>
+          Ladda senaste sparade plan
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleClearPlan}>
+          Rensa plan
+        </Button>
+        {noSavedPlan && (
+          <span className="text-xs text-muted-foreground">Ingen sparad plan hittades.</span>
+        )}
+      </div>
+
       {isSharedPlan && (
         <div className="border border-border rounded-lg p-3 bg-muted text-sm text-muted-foreground text-center">
           Du tittar på en delad plan
