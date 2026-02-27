@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import OnboardingWizard from "@/components/OnboardingWizard";
-import type { WizardResult } from "@/components/OnboardingWizard";
-import { savePlanInput } from "@/lib/persistence";
+import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 
 import {
   Select,
@@ -67,6 +65,7 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
@@ -77,144 +76,41 @@ const PlanBuilder = () => {
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
-  const [viewMode, setViewMode] = useState<"wizard" | "edit" | "result">("wizard");
-  const [pendingResult, setPendingResult] = useState(false);
+  const [viewMode, setViewMode] = useState<"edit" | "result">("result");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
+  // Load plan from URL param or localStorage
   useEffect(() => {
     const planParam = searchParams.get("plan");
-    if (!planParam) return;
-    try {
-      const decoded = JSON.parse(atob(planParam));
-      if (decoded.blocks) setBlocks(decoded.blocks);
-      if (decoded.transfer) setTransfer(decoded.transfer);
-      if (decoded.dueDate) setDueDate(decoded.dueDate);
-      if (decoded.months1 !== undefined) setMonths1(decoded.months1);
-      if (decoded.months2 !== undefined) setMonths2(decoded.months2);
-      if (decoded.parents) setParents(decoded.parents);
-      setIsSharedPlan(true);
-      setViewMode("result");
-    } catch { /* ignore invalid plan param */ }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleWizardComplete = useCallback((wr: WizardResult) => {
-    const newParents = [
-      {
-        id: "p1" as const,
-        name: wr.parent1Name,
-        monthlyIncomeFixed: wr.income1 ?? DEFAULT_PARENTS[0].monthlyIncomeFixed,
-        has240Days: wr.has240Days1,
-      },
-      {
-        id: "p2" as const,
-        name: wr.parent2Name,
-        monthlyIncomeFixed: wr.income2 ?? DEFAULT_PARENTS[1].monthlyIncomeFixed,
-        has240Days: wr.has240Days2,
-      },
-    ];
-    setParents(newParents);
-    setDueDate(wr.dueDate);
-    setMonths1(wr.months1);
-    setMonths2(wr.months2);
-
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const due = new Date(wr.dueDate);
-
-    // Pre-birth block
-    const generatedBlocks: Block[] = [];
-
-    if (wr.preBirthParent && wr.preBirthWeeks > 0) {
-      const preDpw = wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2;
-      if (preDpw > 0) {
-        const preStart = new Date(due);
-        preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
-        const preEnd = new Date(due);
-        preEnd.setDate(preEnd.getDate() - 1);
-        if (preStart < preEnd) {
-          generatedBlocks.push({
-            id: `b${nextId++}`,
-            parentId: wr.preBirthParent,
-            startDate: fmt(preStart),
-            endDate: fmt(preEnd),
-            daysPerWeek: Math.round(preDpw),
-          });
-        }
-      }
-    }
-
-    // Main blocks
-    const end1 = new Date(due);
-    end1.setMonth(end1.getMonth() + wr.months1);
-    const end2 = new Date(end1);
-    end2.setMonth(end2.getMonth() + wr.months2);
-
-    const maybeBlock = (b: Block) => b.startDate < b.endDate && b.daysPerWeek > 0 ? b : null;
-    [
-      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: Math.round(wr.daysPerWeek1) }) : null,
-      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: Math.round(wr.daysPerWeek2) }) : null,
-    ].forEach(b => b && generatedBlocks.push(b));
-
-    setBlocks(generatedBlocks);
-    setTransfer(null);
-    setTransferAmount(0);
-    setTransferError(null);
-    setShowAdvanced(false);
-    setPendingResult(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  // Defer switching to result mode until plan state is ready
-  useEffect(() => {
-    if (pendingResult) {
-      if (blocks.length > 0) {
-        // Validate no overlap within same parent
-        const byParent = new Map<string, Block[]>();
-        for (const b of blocks) {
-          if (!byParent.has(b.parentId)) byParent.set(b.parentId, []);
-          byParent.get(b.parentId)!.push(b);
-        }
-        let hasOverlap = false;
-        for (const [, arr] of byParent.entries()) {
-          const sorted = [...arr].sort((a, b) => a.startDate.localeCompare(b.startDate));
-          for (let i = 0; i < sorted.length - 1; i++) {
-            if (sorted[i].endDate >= sorted[i + 1].startDate) {
-              hasOverlap = true;
-              break;
-            }
-          }
-          if (hasOverlap) break;
-        }
-        if (hasOverlap) {
-          setPendingResult(false);
-          setViewMode("wizard");
-          toast({ variant: "destructive", description: "Block överlappar inom samma förälder. Justera datumen." });
-          return;
-        }
-
-        // Validate all blocks have integer daysPerWeek
-        for (const b of blocks) {
-          const err = validateBlock(b);
-          if (err) {
-            setPendingResult(false);
-            setViewMode("wizard");
-            toast({ variant: "destructive", description: err });
-            return;
-          }
-        }
-
-        const finalPlan = { parents, blocks, transfers: transfer && transfer.sicknessDays > 0 ? [transfer] : [], constants: CONSTANTS };
-        console.log("FINAL PLAN (wizard -> result):", finalPlan);
-        savePlanInput(finalPlan);
-        setPendingResult(false);
+    if (planParam) {
+      try {
+        const decoded = JSON.parse(atob(planParam));
+        if (decoded.blocks) setBlocks(decoded.blocks);
+        if (decoded.transfer) setTransfer(decoded.transfer);
+        if (decoded.dueDate) setDueDate(decoded.dueDate);
+        if (decoded.months1 !== undefined) setMonths1(decoded.months1);
+        if (decoded.months2 !== undefined) setMonths2(decoded.months2);
+        if (decoded.parents) setParents(decoded.parents);
+        setIsSharedPlan(true);
         setViewMode("result");
-      } else {
-        setPendingResult(false);
-        setViewMode("wizard");
-        toast({ variant: "destructive", description: "Planen innehåller ingen aktiv ledighet." });
-      }
+        setLoaded(true);
+        return;
+      } catch { /* ignore */ }
     }
-  }, [pendingResult, blocks, parents, transfer, toast]);
+
+    const saved = loadPlanInput() as any;
+    if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
+      setParents(saved.parents);
+      setBlocks(saved.blocks);
+      if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
+      setViewMode("result");
+      setLoaded(true);
+    } else {
+      navigate("/wizard", { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sharePlan = useCallback(() => {
     const payload = { blocks, transfer, dueDate, months1, months2, parents };
@@ -294,16 +190,13 @@ const PlanBuilder = () => {
     toast({ description: "Plan kopierad" });
   }, [result, blocks, blockErrors, toast]);
 
-  // Wizard mode or pending result (show wizard/loading until plan is ready)
-  if (viewMode === "wizard" || pendingResult) {
-    if (pendingResult) {
-      return (
-        <div className="max-w-lg mx-auto px-6 py-24 text-center space-y-4">
-          <p className="text-lg text-muted-foreground">Genererar din plan…</p>
-        </div>
-      );
-    }
-    return <OnboardingWizard onComplete={handleWizardComplete} />;
+  // Show loading until plan is loaded
+  if (!loaded) {
+    return (
+      <div className="max-w-lg mx-auto px-6 py-24 text-center space-y-4">
+        <p className="text-lg text-muted-foreground">Laddar plan…</p>
+      </div>
+    );
   }
 
   const renderBlockEditor = () => (
