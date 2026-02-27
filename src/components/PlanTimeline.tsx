@@ -19,6 +19,7 @@ type Props = {
   blocks: Block[];
   parents: Parent[];
   unfulfilledDaysTotal: number;
+  onBlockClick?: (blockId: string) => void;
 };
 
 function parseDateUTC(iso: string): Date {
@@ -92,7 +93,7 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
 const LABEL_WIDTH = 140;
 const MIN_MONTH_WIDTH = 56;
 
-const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal }: Props) => {
+const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: Props) => {
   const validBlocks = blocks.filter((b) => b.startDate && b.endDate && b.endDate >= b.startDate);
 
   const { timelineStart, totalMs, months } = useMemo(() => {
@@ -189,8 +190,9 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal }: Props) => {
                     return (
                       <div
                         key={b.id}
-                        className={`absolute top-1 bottom-1 rounded border text-[11px] font-medium flex items-center justify-center text-foreground/80 ${getIntensityClass(b.parentId, b.daysPerWeek)}`}
+                        className={`absolute top-1 bottom-1 rounded border text-[11px] font-medium flex items-center justify-center text-foreground/80 ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
                         style={{ left: `${left}%`, width: `${width}%`, minWidth: 32 }}
+                        onClick={() => onBlockClick?.(b.id)}
                       >
                         {b.daysPerWeek} d/v
                       </div>
