@@ -768,6 +768,32 @@ const PlanBuilder = () => {
                           )}
                         </CollapsibleContent>
                       </Collapsible>
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                          Budgetdetaljer
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2 space-y-2 text-xs text-muted-foreground">
+                          <div>
+                            <p className="font-medium text-foreground">Startbudget</p>
+                            <p>Överförbara sjukpenningdagar: 105</p>
+                            <p>Reserverade sjukpenningdagar: 90</p>
+                            <p>Lägstanivådagar: 45</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">Förbrukat</p>
+                            <p>Reserverade använda: {Math.round(90 - pr.remaining.sicknessReserved)}</p>
+                            <p>Överförbara använda: {Math.round(105 - pr.remaining.sicknessTransferable)}</p>
+                            <p>Lägstanivå använda: {Math.round(45 - pr.remaining.lowest)}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">Kvar</p>
+                            <p>Överförbara kvar: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                            <p>Reserverade kvar: {Math.round(pr.remaining.sicknessReserved)}</p>
+                            <p>Lägstanivå kvar: {Math.round(pr.remaining.lowest)}</p>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                     );
                   })}
