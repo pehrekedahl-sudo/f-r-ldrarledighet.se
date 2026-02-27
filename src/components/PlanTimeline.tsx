@@ -130,9 +130,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
   const timelineWidth = Math.max(months.length * MIN_MONTH_WIDTH, 400);
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold">Tidslinje</h3>
-      <div className="border border-border rounded-lg bg-card overflow-x-auto">
+    <div className="border border-border rounded-lg bg-card overflow-x-auto">
         <div className="flex" style={{ minWidth: LABEL_WIDTH + timelineWidth }}>
           {/* Left label column */}
           <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }}>
@@ -235,7 +233,6 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 };

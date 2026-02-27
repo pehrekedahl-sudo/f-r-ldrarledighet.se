@@ -85,6 +85,7 @@ const PlanBuilder = () => {
   const [noSavedPlan, setNoSavedPlan] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"edit" | "create">("edit");
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -159,18 +160,29 @@ const PlanBuilder = () => {
 
   const handleTimelineBlockClick = (blockId: string) => {
     setEditingBlockId(blockId);
+    setDrawerMode("edit");
+    setDrawerOpen(true);
+  };
+
+  const handleAddPeriod = () => {
+    setEditingBlockId(null);
+    setDrawerMode("create");
     setDrawerOpen(true);
   };
 
   const handleDrawerSave = (updated: Block) => {
-    updateBlock(updated.id, updated);
-    // Persist to localStorage
-    const valid = blocks.map(b => b.id === updated.id ? updated : b).filter(b => {
-      const err = validateBlock(b);
-      return !err;
-    }).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    if (drawerMode === "create") {
+      const newBlocks = [...blocks, updated];
+      setBlocks(newBlocks);
+      const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    } else {
+      updateBlock(updated.id, updated);
+      const valid = blocks.map(b => b.id === updated.id ? updated : b).filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    }
   };
 
   const handleDrawerDelete = (id: string) => {
@@ -567,12 +579,18 @@ const PlanBuilder = () => {
                 </div>
 
                 {/* Tidslinje */}
-                <PlanTimeline
-                  blocks={blocks.filter(b => !blockErrors.get(b.id))}
-                  parents={parents}
-                  unfulfilledDaysTotal={result.unfulfilledDaysTotal ?? 0}
-                  onBlockClick={handleTimelineBlockClick}
-                />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Tidslinje</h3>
+                    <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
+                  </div>
+                  <PlanTimeline
+                    blocks={blocks.filter(b => !blockErrors.get(b.id))}
+                    parents={parents}
+                    unfulfilledDaysTotal={result.unfulfilledDaysTotal ?? 0}
+                    onBlockClick={handleTimelineBlockClick}
+                  />
+                </div>
 
                 {/* Justeringar – collapsible */}
                 <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
@@ -790,8 +808,9 @@ const PlanBuilder = () => {
         </>
       )}
       <BlockEditDrawer
-        block={blocks.find(b => b.id === editingBlockId) ?? null}
-        parentName={parents.find(p => p.id === blocks.find(b => b.id === editingBlockId)?.parentId)?.name ?? ""}
+        mode={drawerMode}
+        block={drawerMode === "edit" ? (blocks.find(b => b.id === editingBlockId) ?? null) : null}
+        parents={parents}
         allBlocks={blocks}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}

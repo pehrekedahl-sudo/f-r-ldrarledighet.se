@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Block = {
   id: string;
@@ -22,15 +29,23 @@ type Block = {
   overlapGroupId?: string;
 };
 
+type Parent = {
+  id: string;
+  name: string;
+};
+
 type Props = {
+  mode: "edit" | "create";
   block: Block | null;
-  parentName: string;
+  parents: Parent[];
   allBlocks: Block[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (updated: Block) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
 };
+
+const MAX_BLOCKS = 8;
 
 function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   for (const other of allBlocks) {
@@ -43,50 +58,99 @@ function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   return null;
 }
 
-const BlockEditDrawer = ({ block, parentName, allBlocks, open, onOpenChange, onSave, onDelete }: Props) => {
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, onSave, onDelete }: Props) => {
+  const [parentId, setParentId] = useState(parents[0]?.id ?? "p1");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
   const [lowestDaysPerWeek, setLowestDaysPerWeek] = useState(0);
 
   useEffect(() => {
-    if (block) {
+    if (!open) return;
+    if (mode === "edit" && block) {
+      setParentId(block.parentId);
       setStartDate(block.startDate);
       setEndDate(block.endDate);
       setDaysPerWeek(block.daysPerWeek);
       setLowestDaysPerWeek(block.lowestDaysPerWeek ?? 0);
+    } else if (mode === "create") {
+      const pid = parents[0]?.id ?? "p1";
+      setParentId(pid);
+      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => b.endDate.localeCompare(a.endDate));
+      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : new Date().toISOString().slice(0, 10);
+      setStartDate(defaultStart);
+      setEndDate(addDays(defaultStart, 28));
+      setDaysPerWeek(5);
+      setLowestDaysPerWeek(0);
     }
-  }, [block]);
+  }, [open, mode, block, parents, allBlocks]);
 
-  const draft: Block | null = block
-    ? { ...block, startDate, endDate, daysPerWeek, lowestDaysPerWeek: lowestDaysPerWeek > 0 ? lowestDaysPerWeek : undefined }
-    : null;
+  // Recalculate defaults when parent changes in create mode
+  const handleParentChange = (pid: string) => {
+    setParentId(pid);
+    if (mode === "create") {
+      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => b.endDate.localeCompare(a.endDate));
+      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : new Date().toISOString().slice(0, 10);
+      setStartDate(defaultStart);
+      setEndDate(addDays(defaultStart, 28));
+    }
+  };
 
-  const overlapError = useMemo(() => {
-    if (!draft) return null;
-    return checkOverlap(draft, allBlocks);
-  }, [draft, allBlocks]);
+  const draftId = mode === "edit" && block ? block.id : `b${Date.now()}`;
+  const draft: Block = {
+    id: draftId,
+    parentId,
+    startDate,
+    endDate,
+    daysPerWeek,
+    lowestDaysPerWeek: lowestDaysPerWeek > 0 ? lowestDaysPerWeek : undefined,
+    overlapGroupId: mode === "edit" && block ? block.overlapGroupId : undefined,
+  };
+
+  const overlapError = useMemo(() => checkOverlap(draft, allBlocks), [draft, allBlocks]);
 
   const validationError = useMemo(() => {
-    if (!draft) return null;
     if (!draft.startDate) return "Startdatum krävs.";
     if (!draft.endDate) return "Slutdatum krävs.";
     if (draft.endDate < draft.startDate) return "Slutdatum måste vara efter startdatum.";
     return null;
-  }, [draft]);
+  }, [draft.startDate, draft.endDate]);
 
-  const canSave = !overlapError && !validationError && draft !== null;
+  const maxBlocksError = mode === "create" && allBlocks.length >= MAX_BLOCKS
+    ? "Max 8 perioder i denna version."
+    : null;
 
-  if (!block) return null;
+  const canSave = !overlapError && !validationError && !maxBlocksError;
+
+  const parentName = parents.find(p => p.id === parentId)?.name ?? "";
+  const isCreate = mode === "create";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[400px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>Redigera period – {parentName}</SheetTitle>
+          <SheetTitle>{isCreate ? "Ny period" : `Redigera period – ${parentName}`}</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
+          {isCreate && (
+            <div className="space-y-1">
+              <Label>Förälder</Label>
+              <Select value={parentId} onValueChange={handleParentChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {parents.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-1">
             <Label>Startdatum</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -100,9 +164,7 @@ const BlockEditDrawer = ({ block, parentName, allBlocks, open, onOpenChange, onS
           <div className="space-y-2">
             <Label>Dagar per vecka: {daysPerWeek}</Label>
             <Slider
-              min={0}
-              max={7}
-              step={1}
+              min={0} max={7} step={1}
               value={[daysPerWeek]}
               onValueChange={([v]) => {
                 setDaysPerWeek(v);
@@ -117,33 +179,27 @@ const BlockEditDrawer = ({ block, parentName, allBlocks, open, onOpenChange, onS
           <div className="space-y-2">
             <Label>Lägstanivå per vecka: {lowestDaysPerWeek}</Label>
             <Slider
-              min={0}
-              max={daysPerWeek}
-              step={1}
+              min={0} max={daysPerWeek} step={1}
               value={[lowestDaysPerWeek]}
               onValueChange={([v]) => setLowestDaysPerWeek(v)}
               disabled={daysPerWeek === 0}
             />
           </div>
 
-          {overlapError && (
-            <p className="text-xs text-destructive font-medium">{overlapError}</p>
-          )}
-          {validationError && (
-            <p className="text-xs text-destructive font-medium">{validationError}</p>
-          )}
+          {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
+          {validationError && <p className="text-xs text-destructive font-medium">{validationError}</p>}
+          {maxBlocksError && <p className="text-xs text-destructive font-medium">{maxBlocksError}</p>}
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
-          <Button disabled={!canSave} onClick={() => { if (draft) { onSave(draft); onOpenChange(false); } }}>
+          <Button disabled={!canSave} onClick={() => { onSave(draft); onOpenChange(false); }}>
             Spara
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => { onDelete(block.id); onOpenChange(false); }}
-          >
-            Ta bort period
-          </Button>
+          {!isCreate && onDelete && block && (
+            <Button variant="destructive" onClick={() => { onDelete(block.id); onOpenChange(false); }}>
+              Ta bort period
+            </Button>
+          )}
           <SheetClose asChild>
             <Button variant="ghost">Avbryt</Button>
           </SheetClose>
