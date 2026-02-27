@@ -25,21 +25,30 @@ function parseDateUTC(iso: string): Date {
   return new Date(iso + "T00:00:00Z");
 }
 
-function monthsBetween(start: Date, end: Date): string[] {
-  const months: string[] = [];
+type MonthInfo = { key: string; label: string; year: number; isFirstOfYear: boolean };
+
+function getMonths(start: Date, end: Date): MonthInfo[] {
+  const months: MonthInfo[] = [];
   const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
   const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+  const shortNames = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+  let prevYear = -1;
   while (cur <= last) {
-    months.push(
-      cur.toLocaleDateString("sv-SE", { year: "numeric", month: "short", timeZone: "UTC" })
-    );
+    const y = cur.getUTCFullYear();
+    const m = cur.getUTCMonth();
+    months.push({
+      key: `${y}-${m}`,
+      label: shortNames[m],
+      year: y,
+      isFirstOfYear: y !== prevYear,
+    });
+    prevYear = y;
     cur.setUTCMonth(cur.getUTCMonth() + 1);
   }
   return months;
 }
 
 function getIntensityClass(parentId: string, daysPerWeek: number): string {
-  // Parent 1 = blue hue, Parent 2 = emerald hue
   if (parentId === "p1") {
     if (daysPerWeek <= 4) return "bg-blue-300/60 border-blue-400/50";
     if (daysPerWeek === 5) return "bg-blue-400/70 border-blue-500/60";
@@ -50,37 +59,23 @@ function getIntensityClass(parentId: string, daysPerWeek: number): string {
   return "bg-emerald-500/80 border-emerald-600/70";
 }
 
-/**
- * Find the approximate date when days run out.
- * We look at cumulative days consumed per block in time order.
- * Total budget = 480 (240 per parent). When cumulative exceeds budget, that's the cutoff.
- */
 function findUnfulfilledDate(blocks: Block[]): string | null {
-  // Sort blocks by start date
   const sorted = [...blocks].sort(
     (a, b) => parseDateUTC(a.startDate).getTime() - parseDateUTC(b.startDate).getTime()
   );
-
-  // Total available days: 240 per parent × 2
   const budgetPerParent = new Map<string, number>();
-  // Each parent has 195 sickness + 45 lowest = 240
   for (const b of sorted) {
     if (!budgetPerParent.has(b.parentId)) budgetPerParent.set(b.parentId, 240);
   }
-
   for (const b of sorted) {
     const start = parseDateUTC(b.startDate);
     const end = parseDateUTC(b.endDate);
     const totalMs = end.getTime() - start.getTime();
     if (totalMs <= 0) continue;
-
-    // Rough estimate of days consumed
-    const weeks = (totalMs / (7 * 86400000));
+    const weeks = totalMs / (7 * 86400000);
     const totalDays = Math.round(weeks * b.daysPerWeek);
     const remaining = budgetPerParent.get(b.parentId) ?? 0;
-
     if (totalDays > remaining && remaining >= 0) {
-      // Approximate the date where budget runs out
       const daysPerDay = b.daysPerWeek / 7;
       const daysUntilEmpty = daysPerDay > 0 ? remaining / daysPerDay : 0;
       const cutoff = new Date(start.getTime() + daysUntilEmpty * 86400000);
@@ -94,21 +89,22 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
   return null;
 }
 
+const LABEL_WIDTH = 140;
+const MIN_MONTH_WIDTH = 56;
+
 const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal }: Props) => {
   const validBlocks = blocks.filter((b) => b.startDate && b.endDate && b.endDate >= b.startDate);
 
-  const { timelineStart, timelineEnd, months, totalMs } = useMemo(() => {
-    if (validBlocks.length === 0) return { timelineStart: 0, timelineEnd: 0, months: [], totalMs: 1 };
+  const { timelineStart, totalMs, months } = useMemo(() => {
+    if (validBlocks.length === 0) return { timelineStart: 0, totalMs: 1, months: [] as MonthInfo[] };
     const starts = validBlocks.map((b) => parseDateUTC(b.startDate).getTime());
     const ends = validBlocks.map((b) => parseDateUTC(b.endDate).getTime());
     const minStart = Math.min(...starts);
     const maxEnd = Math.max(...ends);
-    const ms = maxEnd - minStart || 1;
     return {
       timelineStart: minStart,
-      timelineEnd: maxEnd,
-      months: monthsBetween(new Date(minStart), new Date(maxEnd)),
-      totalMs: ms,
+      totalMs: maxEnd - minStart || 1,
+      months: getMonths(new Date(minStart), new Date(maxEnd)),
     };
   }, [validBlocks]);
 
@@ -130,65 +126,110 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal }: Props) => {
     blocks: validBlocks.filter((b) => b.parentId === p.id),
   }));
 
+  const timelineWidth = Math.max(months.length * MIN_MONTH_WIDTH, 400);
+
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">Tidslinje</h3>
-      <div className="border border-border rounded-lg p-4 bg-card overflow-x-auto">
-        <div className="min-w-[500px]">
-          {/* Month labels */}
-          <div className="flex mb-1 text-[10px] text-muted-foreground relative" style={{ height: 16 }}>
-            {months.map((label, i) => (
-              <div
-                key={i}
-                className="text-center truncate"
-                style={{ width: `${100 / months.length}%` }}
-              >
-                {label}
+      <div className="border border-border rounded-lg bg-card overflow-x-auto">
+        <div className="flex" style={{ minWidth: LABEL_WIDTH + timelineWidth }}>
+          {/* Left label column */}
+          <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }}>
+            {/* Year row spacer */}
+            <div className="h-5" />
+            {/* Month row spacer */}
+            <div className="h-5" />
+            {/* Parent rows */}
+            {parentRows.map((row) => (
+              <div key={row.id} className="h-9 flex items-center px-3">
+                <span className="text-xs font-medium text-muted-foreground truncate">{row.name}</span>
               </div>
             ))}
+            {/* Unfulfilled label spacer */}
+            {unfulfilledPct !== null && <div className="h-5" />}
           </div>
 
-          {/* Rows */}
-          <div className="relative space-y-1.5">
-            {parentRows.map((row) => (
-              <div key={row.id} className="relative h-8 bg-muted/30 rounded">
-                {/* Parent label */}
-                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground z-10">
-                  {row.name}
-                </span>
-                {row.blocks.map((b) => {
-                  const startMs = parseDateUTC(b.startDate).getTime();
-                  const endMs = parseDateUTC(b.endDate).getTime();
-                  const left = ((startMs - timelineStart) / totalMs) * 100;
-                  const width = Math.max(((endMs - startMs) / totalMs) * 100, 1);
-                  return (
-                    <div
-                      key={b.id}
-                      className={`absolute top-0.5 bottom-0.5 rounded border text-[10px] font-medium flex items-center justify-center text-foreground/80 ${getIntensityClass(b.parentId, b.daysPerWeek)}`}
-                      style={{ left: `${left}%`, width: `${width}%` }}
-                    >
-                      {b.daysPerWeek} d/v
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+          {/* Timeline area */}
+          <div className="flex-1 relative" style={{ width: timelineWidth }}>
+            {/* Year markers */}
+            <div className="flex h-5">
+              {months.map((m) => (
+                <div
+                  key={m.key}
+                  className="text-center text-[10px] font-semibold text-muted-foreground"
+                  style={{ width: `${100 / months.length}%` }}
+                >
+                  {m.isFirstOfYear ? m.year : ""}
+                </div>
+              ))}
+            </div>
 
-            {/* Unfulfilled red line */}
+            {/* Month labels */}
+            <div className="flex h-5 border-b border-border">
+              {months.map((m) => (
+                <div
+                  key={m.key}
+                  className="text-center text-[10px] text-muted-foreground"
+                  style={{ width: `${100 / months.length}%` }}
+                >
+                  {m.label}
+                </div>
+              ))}
+            </div>
+
+            {/* Parent rows with blocks */}
+            <div className="relative">
+              {parentRows.map((row) => (
+                <div key={row.id} className="relative h-9 bg-muted/30">
+                  {row.blocks.map((b) => {
+                    const startMs = parseDateUTC(b.startDate).getTime();
+                    const endMs = parseDateUTC(b.endDate).getTime();
+                    const left = ((startMs - timelineStart) / totalMs) * 100;
+                    const width = Math.max(((endMs - startMs) / totalMs) * 100, 2);
+                    return (
+                      <div
+                        key={b.id}
+                        className={`absolute top-1 bottom-1 rounded border text-[11px] font-medium flex items-center justify-center text-foreground/80 ${getIntensityClass(b.parentId, b.daysPerWeek)}`}
+                        style={{ left: `${left}%`, width: `${width}%`, minWidth: 32 }}
+                      >
+                        {b.daysPerWeek} d/v
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {/* Unfulfilled red line */}
+              {unfulfilledPct !== null && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="absolute top-0 w-0.5 bg-destructive z-20 cursor-help"
+                        style={{
+                          left: `${Math.min(unfulfilledPct, 100)}%`,
+                          height: `${parentRows.length * 36}px`,
+                        }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Här tar dagarna slut</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+
+            {/* Unfulfilled label row */}
             {unfulfilledPct !== null && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-destructive z-20 cursor-help"
-                      style={{ left: `${Math.min(unfulfilledPct, 100)}%` }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Här tar dagarna slut</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="relative h-5">
+                <span
+                  className="absolute text-[10px] font-medium text-destructive whitespace-nowrap"
+                  style={{ left: `${Math.min(unfulfilledPct, 95)}%`, transform: "translateX(-50%)" }}
+                >
+                  Dagarna tar slut
+                </span>
+              </div>
             )}
           </div>
         </div>
