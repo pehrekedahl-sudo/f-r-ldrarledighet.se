@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { simulatePlan } from "@/lib/simulatePlan";
 
 type Block = {
@@ -49,42 +50,89 @@ type Props = {
   onApply: (newBlocks: Block[]) => void;
 };
 
+type CurrentState = {
+  remainingSickness: number;
+  remainingLowest: number;
+  currentTotal: number;
+  avgMonthly: number;
+};
+
+type Proposal = {
+  newBlocks: Block[];
+  description: string;
+  newSickness: number;
+  newLowest: number;
+  newTotal: number;
+  deltaDays: number;
+  deltaMonthly: number;
+  newEndDate: string;
+};
+
+function getTransfers(transfer: Props["transfer"]) {
+  return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+}
+
+function calcAvgMonthly(parentsResult: any[]): number {
+  const allM = parentsResult.flatMap((pr: any) => pr.monthlyBreakdown);
+  const total = allM.reduce((s: number, m: any) => s + m.grossAmount, 0);
+  const months = allM.filter((m: any) => m.grossAmount > 0).length;
+  return months > 0 ? total / months : 0;
+}
+
+function calcRemaining(parentsResult: any[]) {
+  let sickness = 0;
+  let lowest = 0;
+  for (const pr of parentsResult) {
+    sickness += pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved;
+    lowest += pr.remaining.lowest;
+  }
+  return { remainingSickness: Math.round(sickness), remainingLowest: Math.round(lowest), currentTotal: Math.round(sickness + lowest) };
+}
+
+/** Maximum possible remaining = if all blocks had daysPerWeek=0 */
+function calcMaxRemaining(parents: Parent[], constants: Constants, transfer: Props["transfer"]): number {
+  const transfers = getTransfers(transfer);
+  const result = simulatePlan({ parents, blocks: [], transfers, constants });
+  const r = calcRemaining(result.parentsResult);
+  return r.currentTotal;
+}
+
+function getCurrentState(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"]): CurrentState {
+  const transfers = getTransfers(transfer);
+  const result = simulatePlan({ parents, blocks, transfers, constants });
+  const r = calcRemaining(result.parentsResult);
+  return { ...r, avgMonthly: calcAvgMonthly(result.parentsResult) };
+}
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Algorithm: to save X extra days, reduce daysPerWeek by 1 in the tail end
- * of the longest block, splitting it if needed. Works backward from latest blocks.
+ * Compute a block modification proposal to reach a target total remaining days.
+ * Reduces daysPerWeek in the tail of the longest block, splitting if needed.
  */
 function computeProposal(
   blocks: Block[],
   parents: Parent[],
   constants: Constants,
   transfer: Props["transfer"],
-  targetSavedDays: number,
-): { newBlocks: Block[]; description: string; savedDays: number; deltaMonthly: number; newEndDate: string } | null {
-  if (targetSavedDays <= 0 || blocks.length === 0) return null;
+  targetTotal: number,
+  current: CurrentState,
+): Proposal | null {
+  const extraToSave = targetTotal - current.currentTotal;
+  if (extraToSave <= 0 || blocks.length === 0) return null;
 
-  // Count current taken days
-  const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-  const currentResult = simulatePlan({ parents, blocks, transfers, constants });
-  const currentTaken = currentResult.parentsResult.reduce(
-    (s, pr) => s + pr.taken.sickness + pr.taken.lowest, 0
-  );
-  const currentMonthly = (() => {
-    const allM = currentResult.parentsResult.flatMap(pr => pr.monthlyBreakdown);
-    const total = allM.reduce((s, m) => s + m.grossAmount, 0);
-    const months = allM.filter(m => m.grossAmount > 0).length;
-    return months > 0 ? total / months : 0;
-  })();
-
-  // Strategy: find the longest block, split its tail to reduce daysPerWeek by 1
-  // Repeat until we've freed enough days
+  const transfers = getTransfers(transfer);
   let working = blocks.map(b => ({ ...b }));
   let freed = 0;
   let lastChange = { oldDpw: 0, newDpw: 0, fromDate: "", blockParent: "" };
   let iterations = 0;
 
-  while (freed < targetSavedDays && iterations < 10) {
+  while (freed < extraToSave && iterations < 10) {
     iterations++;
-    // Find longest block by calendar days with dpw > 1
     const candidates = working
       .filter(b => b.daysPerWeek > 1)
       .map(b => {
@@ -100,36 +148,21 @@ function computeProposal(
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
-
-    // How many withdrawal days does reducing dpw by 1 save per week?
     const weeksInBlock = calDays / 7;
     const potentialSaved = Math.floor(weeksInBlock);
-
     if (potentialSaved <= 0) break;
 
-    const needed = targetSavedDays - freed;
+    const needed = extraToSave - freed;
 
     if (potentialSaved <= needed) {
-      // Reduce entire block by 1 dpw
-      lastChange = {
-        oldDpw: target.daysPerWeek,
-        newDpw: target.daysPerWeek - 1,
-        fromDate: target.startDate,
-        blockParent: target.parentId,
-      };
+      lastChange = { oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate, blockParent: target.parentId };
       target.daysPerWeek -= 1;
       freed += potentialSaved;
     } else {
-      // Split block: keep first part at current dpw, reduce tail
       const weeksNeeded = needed;
       const splitDayOffset = calDays - weeksNeeded * 7;
       if (splitDayOffset <= 0) {
-        lastChange = {
-          oldDpw: target.daysPerWeek,
-          newDpw: target.daysPerWeek - 1,
-          fromDate: target.startDate,
-          blockParent: target.parentId,
-        };
+        lastChange = { oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate, blockParent: target.parentId };
         target.daysPerWeek -= 1;
         freed += potentialSaved;
       } else {
@@ -145,12 +178,7 @@ function computeProposal(
         };
         target.endDate = addDaysISO(splitDate, -1);
         working.push(newBlock);
-        lastChange = {
-          oldDpw: newBlock.daysPerWeek + 1,
-          newDpw: newBlock.daysPerWeek,
-          fromDate: splitDate,
-          blockParent: target.parentId,
-        };
+        lastChange = { oldDpw: newBlock.daysPerWeek + 1, newDpw: newBlock.daysPerWeek, fromDate: splitDate, blockParent: target.parentId };
         freed += weeksNeeded;
       }
     }
@@ -158,18 +186,10 @@ function computeProposal(
 
   if (freed <= 0) return null;
 
-  // Simulate with new blocks
   const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
-  const newTaken = newResult.parentsResult.reduce(
-    (s, pr) => s + pr.taken.sickness + pr.taken.lowest, 0
-  );
-  const newMonthly = (() => {
-    const allM = newResult.parentsResult.flatMap(pr => pr.monthlyBreakdown);
-    const total = allM.reduce((s, m) => s + m.grossAmount, 0);
-    const months = allM.filter(m => m.grossAmount > 0).length;
-    return months > 0 ? total / months : 0;
-  })();
+  const newR = calcRemaining(newResult.parentsResult);
+  const newAvg = calcAvgMonthly(newResult.parentsResult);
   const latestEnd = sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate);
 
   const parentName = parents.find(p => p.id === lastChange.blockParent)?.name ?? "";
@@ -178,28 +198,30 @@ function computeProposal(
   return {
     newBlocks: sorted,
     description,
-    savedDays: freed,
-    deltaMonthly: Math.round(newMonthly - currentMonthly),
+    newSickness: newR.remainingSickness,
+    newLowest: newR.remainingLowest,
+    newTotal: newR.currentTotal,
+    deltaDays: newR.currentTotal - current.currentTotal,
+    deltaMonthly: Math.round(newAvg - current.avgMonthly),
     newEndDate: latestEnd,
   };
 }
 
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
-  const [extraDays, setExtraDays] = useState(28);
+  const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
+  const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
+
+  const [targetDays, setTargetDays] = useState(current.currentTotal);
 
   useEffect(() => {
-    if (open) setExtraDays(28);
-  }, [open]);
+    if (open) setTargetDays(Math.min(current.currentTotal + 28, maxRemaining));
+  }, [open, current.currentTotal, maxRemaining]);
 
   const proposal = useMemo(
-    () => computeProposal(blocks, parents, constants, transfer, extraDays),
-    [blocks, parents, constants, transfer, extraDays],
+    () => targetDays > current.currentTotal
+      ? computeProposal(blocks, parents, constants, transfer, targetDays, current)
+      : null,
+    [blocks, parents, constants, transfer, targetDays, current],
   );
 
   const handleApply = () => {
@@ -208,39 +230,74 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     onOpenChange(false);
   };
 
+  const clamp = (v: number) => Math.max(current.currentTotal, Math.min(maxRemaining, Math.floor(v)));
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[420px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>Spara fler dagar</SheetTitle>
+          <SheetTitle>Sparade dagar</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          <div className="space-y-2">
-            <Label htmlFor="save-days-input">Hur många extra dagar vill ni spara?</Label>
-            <Input
-              id="save-days-input"
-              type="number"
-              min={1}
-              max={200}
-              value={extraDays}
-              onChange={(e) => setExtraDays(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
-            />
+          {/* Current breakdown */}
+          <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
+            <p className="text-sm font-medium">Ni har just nu:</p>
+            <div className="text-sm text-muted-foreground space-y-0.5">
+              <p>{current.remainingSickness} sjukpenningdagar</p>
+              <p>{current.remainingLowest} lägstanivådagar</p>
+            </div>
+            <p className="text-sm font-semibold">= {current.currentTotal} dagar totalt</p>
           </div>
 
+          {/* Target input */}
+          <div className="space-y-3">
+            <Label htmlFor="target-days-input">Hur många dagar vill ni ha kvar totalt när planen är slut?</Label>
+            <Input
+              id="target-days-input"
+              type="number"
+              min={current.currentTotal}
+              max={maxRemaining}
+              value={targetDays}
+              onChange={(e) => setTargetDays(clamp(Number(e.target.value) || current.currentTotal))}
+            />
+            <Slider
+              min={current.currentTotal}
+              max={maxRemaining}
+              step={1}
+              value={[targetDays]}
+              onValueChange={([v]) => setTargetDays(v)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Min {current.currentTotal} – Max {maxRemaining}
+            </p>
+          </div>
+
+          {/* Proposal preview */}
           {proposal ? (
             <div className="space-y-4">
-              <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
+              <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm font-medium">
-                  För att spara {proposal.savedDays} dagar föreslår vi:
+                  För att ha {targetDays} dagar kvar föreslår vi:
                 </p>
                 <p className="text-sm text-muted-foreground">{proposal.description}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 text-center">
+              {/* After-state breakdown */}
+              <div className="border border-border rounded-lg p-4 bg-card space-y-2">
+                <p className="text-sm font-medium">Efter ändring:</p>
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  <p>{proposal.newSickness} sjukpenningdagar kvar</p>
+                  <p>{proposal.newLowest} lägstanivådagar kvar</p>
+                </div>
+                <p className="text-sm font-semibold">= {proposal.newTotal} totalt</p>
+              </div>
+
+              {/* Delta summary */}
+              <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="border border-border rounded-lg p-3 bg-card">
                   <p className="text-xs text-muted-foreground">Sparade dagar</p>
-                  <p className="text-lg font-bold text-primary">+{proposal.savedDays}</p>
+                  <p className="text-lg font-bold text-primary">+{proposal.deltaDays}</p>
                 </div>
                 <div className="border border-border rounded-lg p-3 bg-card">
                   <p className="text-xs text-muted-foreground">Ersättning/mån</p>
@@ -249,15 +306,15 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                     {proposal.deltaMonthly.toLocaleString()} kr
                   </p>
                 </div>
-                <div className="border border-border rounded-lg p-3 bg-card">
-                  <p className="text-xs text-muted-foreground">Nytt slutdatum</p>
-                  <p className="text-sm font-bold mt-1">{proposal.newEndDate}</p>
-                </div>
               </div>
             </div>
+          ) : targetDays > current.currentTotal ? (
+            <p className="text-sm text-muted-foreground italic">
+              Kan inte spara så många dagar med nuvarande plan. Prova ett lägre antal.
+            </p>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              Kan inte spara fler dagar med nuvarande plan. Prova ett lägre antal.
+              Flytta reglaget åt höger för att spara fler dagar.
             </p>
           )}
         </div>
