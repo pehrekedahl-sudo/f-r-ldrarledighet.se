@@ -153,6 +153,38 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
     return ((d - timelineStart) / totalMs) * 100;
   }, [unfulfilledDate, timelineStart, totalMs]);
 
+  // Compute transition lines: where one parent's block ends ±1 day of another's start
+  const transitionPcts = useMemo(() => {
+    if (validBlocks.length < 2) return [];
+    const edges: { parentId: string; date: string; type: "start" | "end" }[] = [];
+    for (const b of validBlocks) {
+      edges.push({ parentId: b.parentId, date: b.startDate, type: "start" });
+      edges.push({ parentId: b.parentId, date: b.endDate, type: "end" });
+    }
+    const pcts: number[] = [];
+    const seen = new Set<string>();
+    for (const e of edges) {
+      if (e.type !== "end") continue;
+      // Look for a start from a different parent within 1 day
+      const endMs = parseDateUTC(e.date).getTime();
+      for (const s of edges) {
+        if (s.type !== "start" || s.parentId === e.parentId) continue;
+        const startMs = parseDateUTC(s.date).getTime();
+        const diff = Math.abs(startMs - endMs);
+        if (diff <= 86400000) {
+          const midMs = Math.round((endMs + startMs) / 2);
+          const pct = ((midMs - timelineStart) / totalMs) * 100;
+          const key = pct.toFixed(2);
+          if (!seen.has(key)) {
+            seen.add(key);
+            pcts.push(pct);
+          }
+        }
+      }
+    }
+    return pcts;
+  }, [validBlocks, timelineStart, totalMs]);
+
   if (validBlocks.length === 0) return null;
 
   const parentRows = parents.map((p) => ({
@@ -221,6 +253,17 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
                 />
               ) : null
             )}
+
+            {/* Transition dividers between parents */}
+            {transitionPcts.map((pct, i) => (
+              <div
+                key={`trans-${i}`}
+                className="absolute top-0 z-10"
+                style={{ left: `${pct}%`, height: totalRowHeight }}
+              >
+                <div className="w-px h-full border-l border-dashed border-foreground/15" />
+              </div>
+            ))}
 
             {parentRows.map((row) => (
               <div key={row.id} className="relative bg-muted/30" style={{ height: rowHeight }}>
