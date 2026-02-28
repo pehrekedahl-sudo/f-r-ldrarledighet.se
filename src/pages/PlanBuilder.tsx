@@ -434,10 +434,19 @@ const PlanBuilder = () => {
         const totalAll = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0);
         const unfulfilled = result.unfulfilledDaysTotal ?? 0;
 
+        const startYear = validBlocks.length > 0 ? validBlocks.reduce((min, b) => b.startDate < min ? b.startDate : min, validBlocks[0].startDate).slice(0, 4) : "";
+        const endYear = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate).slice(0, 4) : "";
+        const planTitle = parents.length >= 2
+          ? `${parents[0].name} & ${parents[1].name} – Planerad ledighet ${startYear}–${endYear}`
+          : `${parents[0].name} – Planerad ledighet ${startYear}–${endYear}`;
+
         return (
           <>
+            {/* ── PERSONALIZED HEADER ── */}
+            <p className="text-center text-sm font-medium text-muted-foreground tracking-wide pt-4">{planTitle}</p>
+
             {/* ── HERO ── */}
-            <section className="text-center space-y-6 py-8">
+            <section className="text-center space-y-6 py-4">
               <h1 className="text-3xl font-bold tracking-tight">Er plan i korthet</h1>
               <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
                 <div>
@@ -455,11 +464,13 @@ const PlanBuilder = () => {
               </div>
 
               {unfulfilled > 0 ? (
-                <div className="border border-destructive/50 rounded-lg p-4 bg-destructive/10 text-destructive font-medium text-sm max-w-md mx-auto">
-                  ⚠ Planen saknar {unfulfilled} dagar för att gå ihop.
-                </div>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  ⚠ Planen behöver justeras för att räcka hela perioden. Justera uttag eller omfördela dagar.
+                </p>
               ) : (
-                <p className="text-sm text-muted-foreground">✓ Planen går ihop.</p>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  ✓ Planen ser balanserad ut. Ni kan justera detaljer eller testa alternativa upplägg.
+                </p>
               )}
 
               <Button
@@ -472,6 +483,22 @@ const PlanBuilder = () => {
                 Justera planen
               </Button>
             </section>
+
+            {/* ── INFO PANEL ── */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                Så fungerar beräkningen
+                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3 pb-1">
+                <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
+                  <li>Vi utgår från era inkomster och gällande ersättningstak.</li>
+                  <li>Uttag beräknas per vecka (vardagar först).</li>
+                  <li>Reserverade dagar används före överförbara.</li>
+                  <li>Resultatet är en simulering och kan skilja något från Försäkringskassans slutliga beslut.</li>
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* ── TIMELINE ── */}
             <section className="space-y-3">
@@ -660,20 +687,10 @@ const PlanBuilder = () => {
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Så räknar vi */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full border-b border-border pb-2 text-sm font-semibold cursor-pointer text-muted-foreground hover:text-foreground [&[data-state=open]>svg]:rotate-180">
-                Så räknar vi
-                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-4 text-sm text-muted-foreground space-y-2">
-                <p>Varje förälder har <span className="font-medium text-foreground">240 dagar</span> totalt: 195 på sjukpenningnivå och 45 på lägstanivå (180 kr/dag).</p>
-                <p>Av sjukpenningdagarna är <span className="font-medium text-foreground">90 dagar reserverade</span> per förälder och kan inte överföras. Resterande 105 dagar kan delas.</p>
-                <p>SGI-taket är <span className="font-medium text-foreground">592 000 kr/år</span>. Inkomst över taket ger inte högre ersättning.</p>
-                <p>Utbetalningen beräknas som <span className="font-medium text-foreground">80 % × 0,97</span> (reduktionsfaktor) av din dagsinkomst.</p>
-                <p className="italic">Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.</p>
-              </CollapsibleContent>
-            </Collapsible>
+            {/* Disclaimer */}
+            <p className="text-xs text-muted-foreground italic text-center">
+              Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.
+            </p>
 
             {/* Action bar */}
             <div className="flex gap-3 pt-2">
