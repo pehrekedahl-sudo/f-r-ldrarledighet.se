@@ -46,9 +46,9 @@ type Props = {
 };
 
 const MODE_LABELS: Record<PlanningMode, string> = {
-  quick: "Snabbstart",
-  guided: "Guidad",
-  advanced: "Avancerad",
+  quick: "Grundplan",
+  guided: "Preferenser",
+  advanced: "Full kontroll",
 };
 
 function calcGuidedDpw(totalMonths: number, savedDays: number): number {
@@ -293,20 +293,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 {
                   key: "quick" as PlanningMode,
                   icon: Zap,
-                  label: "Vi vill ha ett snabbt förslag",
-                  desc: "Ni får ett balanserat standardförslag som ni kan justera senare.",
+                  label: "Vi vill ha en grundplan att börja diskutera utifrån",
+                  desc: "Vi skapar en genomtänkt grundplan baserad på era förutsättningar. Ni kan justera allt i nästa steg.",
                 },
                 {
                   key: "guided" as PlanningMode,
                   icon: Compass,
-                  label: "Vi har vissa preferenser",
-                  desc: "Vi guidar er genom de viktigaste valen.",
+                  label: "Vi har vissa preferenser vi vill ta hänsyn till",
+                  desc: "Till exempel att spara dagar eller prioritera inkomst.",
                 },
                 {
                   key: "advanced" as PlanningMode,
                   icon: SlidersHorizontal,
-                  label: "Vi vill justera allt själva",
-                  desc: "Full kontroll över alla inställningar.",
+                  label: "Vi vill styra detaljerna själva",
+                  desc: "Vi anger själva hur många dagar per vecka vi tar ut.",
                 },
               ]).map((opt) => (
                 <button
