@@ -40,7 +40,7 @@ type Constants = {
   SICKNESS_DAILY_MAX?: number;
 };
 
-type SaveSource = "both" | string; // "both" or a parentId
+type SaveSource = "both" | string;
 
 type Props = {
   open: boolean;
@@ -75,7 +75,10 @@ type Proposal = {
   deltaDays: number;
   deltaMonthly: number;
   newEndDate: string;
+  direction: "save" | "use";
 };
+
+// ── helpers ──
 
 function getTransfers(transfer: Props["transfer"]) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -124,25 +127,19 @@ function calendarDaysOf(b: Block): number {
   ) + 1;
 }
 
-/**
- * Determine parent ordering for "both" mode: parent with highest taken days goes first.
- */
-function parentOrderForBoth(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"]): string[] {
+function parentOrderByTaken(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"], descending: boolean): string[] {
   const transfers = getTransfers(transfer);
   const result = simulatePlan({ parents, blocks, transfers, constants });
   const scored = result.parentsResult.map((pr: any) => ({
     id: pr.parentId,
     taken: pr.taken.sickness + pr.taken.lowest,
   }));
-  scored.sort((a: any, b: any) => b.taken - a.taken);
+  scored.sort((a: any, b: any) => descending ? b.taken - a.taken : a.taken - b.taken);
   return scored.map((s: any) => s.id);
 }
 
-/**
- * Core reduction: reduce daysPerWeek in eligible blocks until `needed` days freed.
- * Only touches blocks matching `allowedParentIds`.
- * Returns freed count and list of changes made.
- */
+// ── reduce: save more days by lowering dpw ──
+
 function reduceBlocks(
   working: Block[],
   needed: number,
@@ -184,7 +181,7 @@ function reduceBlocks(
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
         const newBlock: Block = {
-          id: `save-split-${Date.now()}-${iterations}`,
+          id: `adj-split-${Date.now()}-${iterations}`,
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,
@@ -203,6 +200,73 @@ function reduceBlocks(
   return { freed, changes };
 }
 
+// ── increase: use more days by raising dpw ──
+
+function increaseBlocks(
+  working: Block[],
+  needed: number,
+  allowedParentIds: Set<string>,
+  parents: Parent[],
+): { consumed: number; changes: ChangeEntry[] } {
+  let consumed = 0;
+  const changes: ChangeEntry[] = [];
+  let iterations = 0;
+
+  // Sort by start date ascending – increase from earliest blocks first
+  while (consumed < needed && iterations < 20) {
+    iterations++;
+    const candidates = working
+      .filter(b => b.daysPerWeek < 7 && allowedParentIds.has(b.parentId))
+      .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
+      .sort((a, b) => a.block.startDate.localeCompare(b.block.startDate) || b.calendarDays - a.calendarDays);
+
+    if (candidates.length === 0) break;
+
+    const target = candidates[0].block;
+    const calDays = candidates[0].calendarDays;
+    const potentialConsumed = Math.floor(calDays / 7);
+    if (potentialConsumed <= 0) break;
+
+    const still = needed - consumed;
+    const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
+
+    if (potentialConsumed <= still) {
+      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
+      target.daysPerWeek += 1;
+      consumed += potentialConsumed;
+    } else {
+      // Split block: increase only head portion
+      const weeksNeeded = still;
+      const splitDayOffset = weeksNeeded * 7;
+      if (splitDayOffset >= calDays) {
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
+        target.daysPerWeek += 1;
+        consumed += potentialConsumed;
+      } else {
+        const splitDate = addDaysISO(target.startDate, splitDayOffset);
+        const tailBlock: Block = {
+          id: `adj-split-${Date.now()}-${iterations}`,
+          parentId: target.parentId,
+          startDate: splitDate,
+          endDate: target.endDate,
+          daysPerWeek: target.daysPerWeek,
+          lowestDaysPerWeek: target.lowestDaysPerWeek,
+          overlapGroupId: target.overlapGroupId,
+        };
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
+        target.endDate = addDaysISO(splitDate, -1);
+        target.daysPerWeek += 1;
+        working.push(tailBlock);
+        consumed += weeksNeeded;
+      }
+    }
+  }
+
+  return { consumed, changes };
+}
+
+// ── compute proposal (bidirectional) ──
+
 function computeProposal(
   blocks: Block[],
   parents: Parent[],
@@ -212,26 +276,45 @@ function computeProposal(
   current: CurrentState,
   source: SaveSource,
 ): Proposal | null {
-  const extraToSave = targetTotal - current.currentTotal;
-  if (extraToSave <= 0 || blocks.length === 0) return null;
+  const delta = targetTotal - current.currentTotal;
+  if (delta === 0 || blocks.length === 0) return null;
 
   const transfers = getTransfers(transfer);
   const working = blocks.map(b => ({ ...b }));
   let allChanges: ChangeEntry[] = [];
+  const direction: "save" | "use" = delta > 0 ? "save" : "use";
+  const absDelta = Math.abs(delta);
 
-  if (source === "both") {
-    const order = parentOrderForBoth(blocks, parents, constants, transfer);
-    // First parent (highest consumption)
-    const r1 = reduceBlocks(working, extraToSave, new Set([order[0]]), parents);
-    allChanges.push(...r1.changes);
-    const remaining = extraToSave - r1.freed;
-    if (remaining > 0 && order.length > 1) {
-      const r2 = reduceBlocks(working, remaining, new Set([order[1]]), parents);
-      allChanges.push(...r2.changes);
+  if (direction === "save") {
+    // Reduce dpw to save days
+    if (source === "both") {
+      const order = parentOrderByTaken(blocks, parents, constants, transfer, true); // highest taken first
+      const r1 = reduceBlocks(working, absDelta, new Set([order[0]]), parents);
+      allChanges.push(...r1.changes);
+      const remaining = absDelta - r1.freed;
+      if (remaining > 0 && order.length > 1) {
+        const r2 = reduceBlocks(working, remaining, new Set([order[1]]), parents);
+        allChanges.push(...r2.changes);
+      }
+    } else {
+      const r = reduceBlocks(working, absDelta, new Set([source]), parents);
+      allChanges.push(...r.changes);
     }
   } else {
-    const r = reduceBlocks(working, extraToSave, new Set([source]), parents);
-    allChanges.push(...r.changes);
+    // Increase dpw to use more days
+    if (source === "both") {
+      const order = parentOrderByTaken(blocks, parents, constants, transfer, false); // lowest taken first
+      const r1 = increaseBlocks(working, absDelta, new Set([order[0]]), parents);
+      allChanges.push(...r1.changes);
+      const remaining = absDelta - r1.consumed;
+      if (remaining > 0 && order.length > 1) {
+        const r2 = increaseBlocks(working, remaining, new Set([order[1]]), parents);
+        allChanges.push(...r2.changes);
+      }
+    } else {
+      const r = increaseBlocks(working, absDelta, new Set([source]), parents);
+      allChanges.push(...r.changes);
+    }
   }
 
   if (allChanges.length === 0) return null;
@@ -240,7 +323,9 @@ function computeProposal(
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
-  const latestEnd = sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate);
+  const latestEnd = sorted.length > 0
+    ? sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate)
+    : "";
 
   return {
     newBlocks: sorted,
@@ -251,8 +336,11 @@ function computeProposal(
     deltaDays: newR.currentTotal - current.currentTotal,
     deltaMonthly: Math.round(newAvg - current.avgMonthly),
     newEndDate: latestEnd,
+    direction,
   };
 }
+
+// ── component ──
 
 const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
   const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
@@ -265,24 +353,23 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   useEffect(() => {
     if (open) {
-      const initial = Math.min(current.currentTotal + 28, maxRemaining);
-      setTargetDays(initial);
-      setRawInput(String(initial));
+      setTargetDays(current.currentTotal);
+      setRawInput(String(current.currentTotal));
       setClampHint(null);
       setSource("both");
     }
-  }, [open, current.currentTotal, maxRemaining]);
+  }, [open, current.currentTotal]);
 
   const applyValue = (raw: number) => {
     if (isNaN(raw)) raw = current.currentTotal;
     if (raw > maxRemaining) {
-      setClampHint(`Max är ${maxRemaining} med nuvarande plan.`);
+      setClampHint(`Max är ${maxRemaining}.`);
       setTargetDays(maxRemaining);
       setRawInput(String(maxRemaining));
-    } else if (raw < current.currentTotal) {
-      setClampHint(`Min är ${current.currentTotal} (nuvarande nivå).`);
-      setTargetDays(current.currentTotal);
-      setRawInput(String(current.currentTotal));
+    } else if (raw < 0) {
+      setClampHint("Min är 0.");
+      setTargetDays(0);
+      setRawInput("0");
     } else {
       setClampHint(null);
       const clamped = Math.floor(raw);
@@ -292,7 +379,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   };
 
   const proposal = useMemo(
-    () => targetDays > current.currentTotal
+    () => targetDays !== current.currentTotal
       ? computeProposal(blocks, parents, constants, transfer, targetDays, current, source)
       : null,
     [blocks, parents, constants, transfer, targetDays, current, source],
@@ -329,7 +416,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
           {/* Source selector */}
           <div className="space-y-2">
-            <Label>Spara dagar från</Label>
+            <Label>Justera dagar från</Label>
             <div className="flex gap-1 rounded-lg border border-border p-1 bg-muted/30">
               {sourceOptions.map(opt => (
                 <button
@@ -350,11 +437,11 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
           {/* Target input */}
           <div className="space-y-3">
-            <Label htmlFor="target-days-input">Hur många dagar vill ni ha kvar totalt när planen är slut?</Label>
+            <Label htmlFor="target-days-input">Hur många dagar vill ni ha kvar totalt?</Label>
             <Input
               id="target-days-input"
               type="number"
-              min={current.currentTotal}
+              min={0}
               max={maxRemaining}
               value={rawInput}
               onChange={(e) => {
@@ -364,7 +451,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               onBlur={() => setRawInput(String(targetDays))}
             />
             <Slider
-              min={current.currentTotal}
+              min={0}
               max={maxRemaining}
               step={1}
               value={[targetDays]}
@@ -378,7 +465,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               <p className="text-xs text-destructive">{clampHint}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Min {current.currentTotal} – Max {maxRemaining}
+                0 – {maxRemaining} dagar
               </p>
             )}
           </div>
@@ -388,12 +475,14 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm font-medium">
-                  För att ha {targetDays} dagar kvar föreslår vi:
+                  {proposal.direction === "save"
+                    ? "För att spara fler dagar föreslår vi:"
+                    : "För att ta ut fler dagar tidigare föreslår vi:"}
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   {proposal.changes.map((c, i) => (
                     <li key={i}>
-                      Sänk uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
+                      {c.newDpw > c.oldDpw ? "Öka" : "Sänk"} uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
                     </li>
                   ))}
                 </ul>
@@ -410,8 +499,10 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="border border-border rounded-lg p-3 bg-card">
-                  <p className="text-xs text-muted-foreground">Sparade dagar</p>
-                  <p className="text-lg font-bold text-primary">+{proposal.deltaDays}</p>
+                  <p className="text-xs text-muted-foreground">Ändring i sparade dagar</p>
+                  <p className="text-lg font-bold text-primary">
+                    {proposal.deltaDays >= 0 ? "+" : ""}{proposal.deltaDays}
+                  </p>
                 </div>
                 <div className="border border-border rounded-lg p-3 bg-card">
                   <p className="text-xs text-muted-foreground">Ersättning/mån</p>
@@ -422,13 +513,13 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 </div>
               </div>
             </div>
-          ) : targetDays > current.currentTotal ? (
+          ) : targetDays === current.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">
-              Kan inte spara så många dagar med nuvarande plan. Prova ett lägre antal.
+              Flytta reglaget för att justera antal sparade dagar.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              Flytta reglaget åt höger för att spara fler dagar.
+              Kan inte nå målet med nuvarande plan. Prova ett annat värde.
             </p>
           )}
         </div>
