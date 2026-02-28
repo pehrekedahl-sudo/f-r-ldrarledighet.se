@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Sheet,
   SheetContent,
@@ -285,32 +285,54 @@ function computeProposal(
   const direction: "save" | "use" = delta > 0 ? "save" : "use";
   const absDelta = Math.abs(delta);
 
-  if (direction === "save") {
-    // Reduce dpw to save days
-    if (source === "both") {
-      const order = parentOrderByTaken(blocks, parents, constants, transfer, true); // highest taken first
-      const r1 = reduceBlocks(working, absDelta, new Set([order[0]]), parents);
+  if (source === "both" && parents.length >= 2) {
+    // Even split between both parents
+    const halfA = Math.round(absDelta / 2);
+    const halfB = absDelta - halfA;
+    const parentIds = parents.map(p => p.id);
+
+    if (direction === "save") {
+      const r1 = reduceBlocks(working, halfA, new Set([parentIds[0]]), parents);
       allChanges.push(...r1.changes);
-      const remaining = absDelta - r1.freed;
-      if (remaining > 0 && order.length > 1) {
-        const r2 = reduceBlocks(working, remaining, new Set([order[1]]), parents);
-        allChanges.push(...r2.changes);
+      const r2 = reduceBlocks(working, halfB, new Set([parentIds[1]]), parents);
+      allChanges.push(...r2.changes);
+      // Shift remainder if one parent couldn't fully adjust
+      const shortfall1 = halfA - r1.freed;
+      const shortfall2 = halfB - r2.freed;
+      if (shortfall1 > 0) {
+        const extra = reduceBlocks(working, shortfall1, new Set([parentIds[1]]), parents);
+        allChanges.push(...extra.changes);
+      }
+      if (shortfall2 > 0) {
+        const extra = reduceBlocks(working, shortfall2, new Set([parentIds[0]]), parents);
+        allChanges.push(...extra.changes);
       }
     } else {
+      const r1 = increaseBlocks(working, halfA, new Set([parentIds[0]]), parents);
+      allChanges.push(...r1.changes);
+      const r2 = increaseBlocks(working, halfB, new Set([parentIds[1]]), parents);
+      allChanges.push(...r2.changes);
+      const shortfall1 = halfA - r1.consumed;
+      const shortfall2 = halfB - r2.consumed;
+      if (shortfall1 > 0) {
+        const extra = increaseBlocks(working, shortfall1, new Set([parentIds[1]]), parents);
+        allChanges.push(...extra.changes);
+      }
+      if (shortfall2 > 0) {
+        const extra = increaseBlocks(working, shortfall2, new Set([parentIds[0]]), parents);
+        allChanges.push(...extra.changes);
+      }
+    }
+  } else if (source === "both") {
+    // Fallback for single parent
+    const r = direction === "save"
+      ? reduceBlocks(working, absDelta, new Set(parents.map(p => p.id)), parents)
+      : increaseBlocks(working, absDelta, new Set(parents.map(p => p.id)), parents);
+    allChanges.push(...(r as any).changes);
+  } else {
+    if (direction === "save") {
       const r = reduceBlocks(working, absDelta, new Set([source]), parents);
       allChanges.push(...r.changes);
-    }
-  } else {
-    // Increase dpw to use more days
-    if (source === "both") {
-      const order = parentOrderByTaken(blocks, parents, constants, transfer, false); // lowest taken first
-      const r1 = increaseBlocks(working, absDelta, new Set([order[0]]), parents);
-      allChanges.push(...r1.changes);
-      const remaining = absDelta - r1.consumed;
-      if (remaining > 0 && order.length > 1) {
-        const r2 = increaseBlocks(working, remaining, new Set([order[1]]), parents);
-        allChanges.push(...r2.changes);
-      }
     } else {
       const r = increaseBlocks(working, absDelta, new Set([source]), parents);
       allChanges.push(...r.changes);
@@ -350,6 +372,9 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const [rawInput, setRawInput] = useState<string>("");
   const [clampHint, setClampHint] = useState<string | null>(null);
   const [source, setSource] = useState<SaveSource>("both");
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [computing, setComputing] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -357,6 +382,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       setRawInput(String(current.currentTotal));
       setClampHint(null);
       setSource("both");
+      setProposal(null);
+      setComputing(false);
     }
   }, [open, current.currentTotal]);
 
@@ -378,12 +405,26 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     }
   };
 
-  const proposal = useMemo(
-    () => targetDays !== current.currentTotal
-      ? computeProposal(blocks, parents, constants, transfer, targetDays, current, source)
-      : null,
-    [blocks, parents, constants, transfer, targetDays, current, source],
-  );
+  // Debounced proposal computation
+  const computeDebounced = useCallback((target: number, src: SaveSource) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (target === current.currentTotal) {
+      setProposal(null);
+      setComputing(false);
+      return;
+    }
+    setComputing(true);
+    debounceRef.current = setTimeout(() => {
+      const result = computeProposal(blocks, parents, constants, transfer, target, current, src);
+      setProposal(result);
+      setComputing(false);
+    }, 250);
+  }, [blocks, parents, constants, transfer, current]);
+
+  useEffect(() => {
+    computeDebounced(targetDays, source);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [targetDays, source, computeDebounced]);
 
   const handleApply = () => {
     if (!proposal) return;
@@ -471,7 +512,11 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
           </div>
 
           {/* Proposal preview */}
-          {proposal ? (
+          {computing ? (
+            <p className="text-sm text-muted-foreground italic animate-pulse">
+              Beräknar…
+            </p>
+          ) : proposal ? (
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm font-medium">
