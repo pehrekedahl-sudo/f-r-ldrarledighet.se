@@ -40,6 +40,8 @@ type Constants = {
   SICKNESS_DAILY_MAX?: number;
 };
 
+type SaveSource = "both" | string; // "both" or a parentId
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,9 +59,16 @@ type CurrentState = {
   avgMonthly: number;
 };
 
+type ChangeEntry = {
+  parentName: string;
+  oldDpw: number;
+  newDpw: number;
+  fromDate: string;
+};
+
 type Proposal = {
   newBlocks: Block[];
-  description: string;
+  changes: ChangeEntry[];
   newSickness: number;
   newLowest: number;
   newTotal: number;
@@ -89,12 +98,10 @@ function calcRemaining(parentsResult: any[]) {
   return { remainingSickness: Math.round(sickness), remainingLowest: Math.round(lowest), currentTotal: Math.round(sickness + lowest) };
 }
 
-/** Maximum possible remaining = if all blocks had daysPerWeek=0 */
 function calcMaxRemaining(parents: Parent[], constants: Constants, transfer: Props["transfer"]): number {
   const transfers = getTransfers(transfer);
   const result = simulatePlan({ parents, blocks: [], transfers, constants });
-  const r = calcRemaining(result.parentsResult);
-  return r.currentTotal;
+  return calcRemaining(result.parentsResult).currentTotal;
 }
 
 function getCurrentState(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"]): CurrentState {
@@ -110,65 +117,74 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * Compute a block modification proposal to reach a target total remaining days.
- * Reduces daysPerWeek in the tail of the longest block, splitting if needed.
- */
-function computeProposal(
-  blocks: Block[],
-  parents: Parent[],
-  constants: Constants,
-  transfer: Props["transfer"],
-  targetTotal: number,
-  current: CurrentState,
-): Proposal | null {
-  const extraToSave = targetTotal - current.currentTotal;
-  if (extraToSave <= 0 || blocks.length === 0) return null;
+function calendarDaysOf(b: Block): number {
+  return Math.ceil(
+    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
+    (1000 * 60 * 60 * 24)
+  ) + 1;
+}
 
+/**
+ * Determine parent ordering for "both" mode: parent with highest taken days goes first.
+ */
+function parentOrderForBoth(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"]): string[] {
   const transfers = getTransfers(transfer);
-  let working = blocks.map(b => ({ ...b }));
+  const result = simulatePlan({ parents, blocks, transfers, constants });
+  const scored = result.parentsResult.map((pr: any) => ({
+    id: pr.parentId,
+    taken: pr.taken.sickness + pr.taken.lowest,
+  }));
+  scored.sort((a: any, b: any) => b.taken - a.taken);
+  return scored.map((s: any) => s.id);
+}
+
+/**
+ * Core reduction: reduce daysPerWeek in eligible blocks until `needed` days freed.
+ * Only touches blocks matching `allowedParentIds`.
+ * Returns freed count and list of changes made.
+ */
+function reduceBlocks(
+  working: Block[],
+  needed: number,
+  allowedParentIds: Set<string>,
+  parents: Parent[],
+): { freed: number; changes: ChangeEntry[] } {
   let freed = 0;
-  let lastChange = { oldDpw: 0, newDpw: 0, fromDate: "", blockParent: "" };
+  const changes: ChangeEntry[] = [];
   let iterations = 0;
 
-  while (freed < extraToSave && iterations < 10) {
+  while (freed < needed && iterations < 20) {
     iterations++;
     const candidates = working
-      .filter(b => b.daysPerWeek > 1)
-      .map(b => {
-        const days = Math.ceil(
-          (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
-          (1000 * 60 * 60 * 24)
-        ) + 1;
-        return { block: b, calendarDays: days };
-      })
+      .filter(b => b.daysPerWeek > 1 && allowedParentIds.has(b.parentId))
+      .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
       .sort((a, b) => b.calendarDays - a.calendarDays);
 
     if (candidates.length === 0) break;
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
-    const weeksInBlock = calDays / 7;
-    const potentialSaved = Math.floor(weeksInBlock);
+    const potentialSaved = Math.floor(calDays / 7);
     if (potentialSaved <= 0) break;
 
-    const needed = extraToSave - freed;
+    const still = needed - freed;
+    const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
 
-    if (potentialSaved <= needed) {
-      lastChange = { oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate, blockParent: target.parentId };
+    if (potentialSaved <= still) {
+      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
       target.daysPerWeek -= 1;
       freed += potentialSaved;
     } else {
-      const weeksNeeded = needed;
+      const weeksNeeded = still;
       const splitDayOffset = calDays - weeksNeeded * 7;
       if (splitDayOffset <= 0) {
-        lastChange = { oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate, blockParent: target.parentId };
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
         target.daysPerWeek -= 1;
         freed += potentialSaved;
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
         const newBlock: Block = {
-          id: `save-split-${Date.now()}`,
+          id: `save-split-${Date.now()}-${iterations}`,
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,
@@ -176,15 +192,49 @@ function computeProposal(
           lowestDaysPerWeek: target.lowestDaysPerWeek,
           overlapGroupId: target.overlapGroupId,
         };
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: newBlock.daysPerWeek, fromDate: splitDate });
         target.endDate = addDaysISO(splitDate, -1);
         working.push(newBlock);
-        lastChange = { oldDpw: newBlock.daysPerWeek + 1, newDpw: newBlock.daysPerWeek, fromDate: splitDate, blockParent: target.parentId };
         freed += weeksNeeded;
       }
     }
   }
 
-  if (freed <= 0) return null;
+  return { freed, changes };
+}
+
+function computeProposal(
+  blocks: Block[],
+  parents: Parent[],
+  constants: Constants,
+  transfer: Props["transfer"],
+  targetTotal: number,
+  current: CurrentState,
+  source: SaveSource,
+): Proposal | null {
+  const extraToSave = targetTotal - current.currentTotal;
+  if (extraToSave <= 0 || blocks.length === 0) return null;
+
+  const transfers = getTransfers(transfer);
+  const working = blocks.map(b => ({ ...b }));
+  let allChanges: ChangeEntry[] = [];
+
+  if (source === "both") {
+    const order = parentOrderForBoth(blocks, parents, constants, transfer);
+    // First parent (highest consumption)
+    const r1 = reduceBlocks(working, extraToSave, new Set([order[0]]), parents);
+    allChanges.push(...r1.changes);
+    const remaining = extraToSave - r1.freed;
+    if (remaining > 0 && order.length > 1) {
+      const r2 = reduceBlocks(working, remaining, new Set([order[1]]), parents);
+      allChanges.push(...r2.changes);
+    }
+  } else {
+    const r = reduceBlocks(working, extraToSave, new Set([source]), parents);
+    allChanges.push(...r.changes);
+  }
+
+  if (allChanges.length === 0) return null;
 
   const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
@@ -192,12 +242,9 @@ function computeProposal(
   const newAvg = calcAvgMonthly(newResult.parentsResult);
   const latestEnd = sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate);
 
-  const parentName = parents.find(p => p.id === lastChange.blockParent)?.name ?? "";
-  const description = `Sänk uttag för ${parentName} från ${lastChange.oldDpw} till ${lastChange.newDpw} dagar/vecka från ${lastChange.fromDate}.`;
-
   return {
     newBlocks: sorted,
-    description,
+    changes: allChanges,
     newSickness: newR.remainingSickness,
     newLowest: newR.remainingLowest,
     newTotal: newR.currentTotal,
@@ -214,6 +261,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const [targetDays, setTargetDays] = useState(current.currentTotal);
   const [rawInput, setRawInput] = useState<string>("");
   const [clampHint, setClampHint] = useState<string | null>(null);
+  const [source, setSource] = useState<SaveSource>("both");
 
   useEffect(() => {
     if (open) {
@@ -221,6 +269,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       setTargetDays(initial);
       setRawInput(String(initial));
       setClampHint(null);
+      setSource("both");
     }
   }, [open, current.currentTotal, maxRemaining]);
 
@@ -228,14 +277,12 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     if (isNaN(raw)) raw = current.currentTotal;
     if (raw > maxRemaining) {
       setClampHint(`Max är ${maxRemaining} med nuvarande plan.`);
-      const clamped = maxRemaining;
-      setTargetDays(clamped);
-      setRawInput(String(clamped));
+      setTargetDays(maxRemaining);
+      setRawInput(String(maxRemaining));
     } else if (raw < current.currentTotal) {
       setClampHint(`Min är ${current.currentTotal} (nuvarande nivå).`);
-      const clamped = current.currentTotal;
-      setTargetDays(clamped);
-      setRawInput(String(clamped));
+      setTargetDays(current.currentTotal);
+      setRawInput(String(current.currentTotal));
     } else {
       setClampHint(null);
       const clamped = Math.floor(raw);
@@ -246,9 +293,9 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const proposal = useMemo(
     () => targetDays > current.currentTotal
-      ? computeProposal(blocks, parents, constants, transfer, targetDays, current)
+      ? computeProposal(blocks, parents, constants, transfer, targetDays, current, source)
       : null,
-    [blocks, parents, constants, transfer, targetDays, current],
+    [blocks, parents, constants, transfer, targetDays, current, source],
   );
 
   const handleApply = () => {
@@ -256,6 +303,11 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     onApply(proposal.newBlocks);
     onOpenChange(false);
   };
+
+  const sourceOptions: { value: SaveSource; label: string }[] = [
+    ...parents.map(p => ({ value: p.id as SaveSource, label: p.name })),
+    { value: "both" as SaveSource, label: "Båda (rekommenderas)" },
+  ];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -275,6 +327,27 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <p className="text-sm font-semibold">= {current.currentTotal} dagar totalt</p>
           </div>
 
+          {/* Source selector */}
+          <div className="space-y-2">
+            <Label>Spara dagar från</Label>
+            <div className="flex gap-1 rounded-lg border border-border p-1 bg-muted/30">
+              {sourceOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSource(opt.value)}
+                  className={`flex-1 text-sm rounded-md px-2 py-1.5 transition-colors ${
+                    source === opt.value
+                      ? "bg-background text-foreground shadow-sm font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Target input */}
           <div className="space-y-3">
             <Label htmlFor="target-days-input">Hur många dagar vill ni ha kvar totalt när planen är slut?</Label>
@@ -288,9 +361,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 setRawInput(e.target.value);
                 applyValue(Number(e.target.value));
               }}
-              onBlur={() => {
-                setRawInput(String(targetDays));
-              }}
+              onBlur={() => setRawInput(String(targetDays))}
             />
             <Slider
               min={current.currentTotal}
@@ -319,10 +390,15 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 <p className="text-sm font-medium">
                   För att ha {targetDays} dagar kvar föreslår vi:
                 </p>
-                <p className="text-sm text-muted-foreground">{proposal.description}</p>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  {proposal.changes.map((c, i) => (
+                    <li key={i}>
+                      Sänk uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              {/* After-state breakdown */}
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
                 <p className="text-sm font-medium">Efter ändring:</p>
                 <div className="text-sm text-muted-foreground space-y-0.5">
@@ -332,7 +408,6 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 <p className="text-sm font-semibold">= {proposal.newTotal} totalt</p>
               </div>
 
-              {/* Delta summary */}
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="border border-border rounded-lg p-3 bg-card">
                   <p className="text-xs text-muted-foreground">Sparade dagar</p>
