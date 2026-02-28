@@ -2,8 +2,11 @@ const DRAFT_KEY = "planBuilderDraftV1";
 const PLAN_KEY = "planBuilderLastPlanV1";
 const CURRENT_VERSION = 1;
 
+export type PlanningMode = "quick" | "guided" | "advanced";
+
 export type WizardDraft = {
   version: number;
+  planningMode: PlanningMode | null;
   parent1Name: string;
   parent2Name: string;
   wantIncome: boolean | null;

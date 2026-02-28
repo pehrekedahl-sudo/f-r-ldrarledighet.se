@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,11 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, CalendarIcon, RotateCcw, Upload } from "lucide-react";
+import { ChevronDown, CalendarIcon, RotateCcw, Upload, Zap, Compass, SlidersHorizontal } from "lucide-react";
 import { format, differenceInCalendarDays, subWeeks } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { saveWizardDraft, loadWizardDraft, clearAllDrafts, type WizardDraft } from "@/lib/persistence";
+import { saveWizardDraft, loadWizardDraft, clearAllDrafts, type WizardDraft, type PlanningMode } from "@/lib/persistence";
 
 type SavingPreset = "none" | "lite" | "buffert" | "unknown";
 
@@ -22,15 +22,17 @@ const PRESET_DAYS: Record<SavingPreset, number> = {
   unknown: 30,
 };
 
+const TOTAL_BUDGET_DAYS = 480;
+
 export type WizardResult = {
   parent1Name: string;
   parent2Name: string;
   dueDate: string;
   months1: number;
   months2: number;
-  daysPerWeek1: number; // integer 0..7
-  daysPerWeek2: number; // integer 0..7
-  savedDaysTarget: number; // informational goal, integer
+  daysPerWeek1: number;
+  daysPerWeek2: number;
+  savedDaysTarget: number;
   income1: number | null;
   income2: number | null;
   has240Days1: boolean;
@@ -43,9 +45,24 @@ type Props = {
   onComplete: (result: WizardResult) => void;
 };
 
+const MODE_LABELS: Record<PlanningMode, string> = {
+  quick: "Snabbstart",
+  guided: "Guidad",
+  advanced: "Avancerad",
+};
+
+function calcGuidedDpw(totalMonths: number, savedDays: number): number {
+  const totalWeeks = totalMonths * 4.3;
+  if (totalWeeks <= 0) return 5;
+  const available = TOTAL_BUDGET_DAYS - savedDays;
+  const dpw = Math.round(available / totalWeeks);
+  return Math.max(4, Math.min(7, dpw));
+}
+
 const OnboardingWizard = ({ onComplete }: Props) => {
   const draft = loadWizardDraft();
-  const [step, setStep] = useState(draft?.step ?? 1);
+  const [step, setStep] = useState(draft?.step ?? 0);
+  const [planningMode, setPlanningMode] = useState<PlanningMode | null>(draft?.planningMode ?? null);
   // Step 1
   const [parent1Name, setParent1Name] = useState(draft?.parent1Name ?? "");
   const [parent2Name, setParent2Name] = useState(draft?.parent2Name ?? "");
@@ -75,24 +92,36 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [showSlider, setShowSlider] = useState(false);
   const [hasDraft] = useState(() => !!loadWizardDraft());
 
-  const totalSteps = 7;
+  const showDpw = planningMode === "advanced";
+  const showSavingStep = planningMode !== "quick";
 
-  // Auto-save on every state change
+  // Steps that are active for the current mode
+  const activeSteps = useMemo(() => {
+    const steps = [0, 1, 2, 3, 4, 5, 6];
+    if (showSavingStep) steps.push(7);
+    return steps;
+  }, [showSavingStep]);
+
+  const totalSteps = activeSteps.length;
+  const currentStepIndex = activeSteps.indexOf(step);
+
+  // Auto-save
   useEffect(() => {
     saveWizardDraft({
-      parent1Name, parent2Name, wantIncome, income1, income2,
+      planningMode, parent1Name, parent2Name, wantIncome, income1, income2,
       has240Days1, has240Days2, dueDate, preBirthChoice,
       preBirthDate: preBirthDate ? preBirthDate.toISOString() : null,
       months1, months2, daysPerWeek1, daysPerWeek2,
       savingPreset, savedDays, step,
     });
-  }, [parent1Name, parent2Name, wantIncome, income1, income2,
+  }, [planningMode, parent1Name, parent2Name, wantIncome, income1, income2,
     has240Days1, has240Days2, dueDate, preBirthChoice, preBirthDate,
     months1, months2, daysPerWeek1, daysPerWeek2, savingPreset, savedDays, step]);
 
   const handleReset = useCallback(() => {
     clearAllDrafts();
-    setStep(1);
+    setStep(0);
+    setPlanningMode(null);
     setParent1Name(""); setParent2Name("");
     setWantIncome(null); setIncome1(""); setIncome2("");
     setHas240Days1(true); setHas240Days2(true);
@@ -104,30 +133,66 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
   const canNext = (): boolean => {
     switch (step) {
+      case 0: return planningMode !== null;
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
       case 2: return wantIncome !== null;
       case 3: return dueDate.length > 0;
       case 4: return preBirthChoice === "no" || (preBirthChoice !== null && preBirthDate !== undefined);
-      case 5: return months1 >= 1 && !(months1 > 0 && daysPerWeek1 === 0);
-      case 6: return months2 >= 1 && !(months2 > 0 && daysPerWeek2 === 0);
+      case 5: return months1 >= 1 && !(months1 > 0 && daysPerWeek1 === 0 && showDpw);
+      case 6: return months2 >= 1 && !(months2 > 0 && daysPerWeek2 === 0 && showDpw);
       case 7: return savingPreset !== null;
       default: return false;
     }
   };
 
+  const getNextStep = (current: number): number | null => {
+    const idx = activeSteps.indexOf(current);
+    if (idx < activeSteps.length - 1) return activeSteps[idx + 1];
+    return null; // last step
+  };
+
+  const getPrevStep = (current: number): number | null => {
+    const idx = activeSteps.indexOf(current);
+    if (idx > 0) return activeSteps[idx - 1];
+    return null;
+  };
+
+  const computeFinalDpw = useCallback((): { dpw1: number; dpw2: number } => {
+    if (planningMode === "quick") {
+      return { dpw1: 6, dpw2: 6 };
+    }
+    if (planningMode === "guided") {
+      const dpw = calcGuidedDpw(months1 + months2, savedDays);
+      return { dpw1: dpw, dpw2: dpw };
+    }
+    return {
+      dpw1: Math.round(Math.max(0, Math.min(7, daysPerWeek1))),
+      dpw2: Math.round(Math.max(0, Math.min(7, daysPerWeek2))),
+    };
+  }, [planningMode, months1, months2, savedDays, daysPerWeek1, daysPerWeek2]);
+
+  const guidedPreviewDpw = useMemo(() => {
+    if (planningMode !== "guided") return null;
+    return calcGuidedDpw(months1 + months2, savedDays);
+  }, [planningMode, months1, months2, savedDays]);
+
   const handleNext = () => {
-    if (step < totalSteps) {
-      setStep(step + 1);
+    const next = getNextStep(step);
+    if (next !== null) {
+      setStep(next);
     } else {
+      // Complete
+      const { dpw1, dpw2 } = computeFinalDpw();
+      const finalSavedDays = planningMode === "quick" ? 0 : savedDays;
       onComplete({
         parent1Name,
         parent2Name,
         dueDate,
         months1,
         months2,
-        daysPerWeek1: Math.round(Math.max(0, Math.min(7, daysPerWeek1))),
-        daysPerWeek2: Math.round(Math.max(0, Math.min(7, daysPerWeek2))),
-        savedDaysTarget: savedDays,
+        daysPerWeek1: dpw1,
+        daysPerWeek2: dpw2,
+        savedDaysTarget: finalSavedDays,
         income1: wantIncome ? (Number(income1) || 0) : null,
         income2: wantIncome ? (Number(income2) || 0) : null,
         has240Days1: wantIncome ? has240Days1 : true,
@@ -141,7 +206,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    const prev = getPrevStep(step);
+    if (prev !== null) setStep(prev);
   };
 
   const selectPreset = (preset: SavingPreset) => {
@@ -149,8 +215,126 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setSavedDays(PRESET_DAYS[preset]);
   };
 
+  const isLastStep = getNextStep(step) === null;
+
+  const renderModeIndicator = () => {
+    if (!planningMode || step === 0) return null;
+    return (
+      <div className="flex items-center justify-center gap-1.5 mb-4">
+        <span className="text-xs text-muted-foreground">Planeringsläge:</span>
+        {(["quick", "guided", "advanced"] as PlanningMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setPlanningMode(m)}
+            className={cn(
+              "px-2 py-0.5 rounded-full text-xs transition-colors border",
+              planningMode === m
+                ? "border-primary bg-primary/10 text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {MODE_LABELS[m]}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderDpwSection = (
+    parentName: string,
+    dpwValue: number,
+    setDpw: (v: number) => void,
+    monthsValue: number
+  ) => {
+    if (!showDpw) return null;
+    return (
+      <div className="space-y-3">
+        <Label className="text-base">Hur många föräldradagar per vecka planerar {parentName} ta ut?</Label>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Dagar/vecka</span>
+          <span className="font-medium text-lg">{dpwValue} dagar/vecka</span>
+        </div>
+        <Slider min={0} max={7} step={1} value={[dpwValue]} onValueChange={([v]) => setDpw(v)} />
+        {dpwValue === 0 && <p className="text-sm text-amber-600">Om du väljer 0 skapas ingen ledighet för perioden.</p>}
+        {monthsValue > 0 && dpwValue === 0 && <p className="text-sm text-destructive">Välj minst 1 dag/vecka eller sätt 0 månader.</p>}
+        <div className="flex gap-2">
+          {[3, 5, 7].map((n) => (
+            <button key={n} onClick={() => setDpw(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${dpwValue === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+            Vad betyder detta?
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 text-sm text-muted-foreground space-y-1">
+            <p>Att vara hemma är inte samma sak som att ta ut dagar.</p>
+            <p>Tar ni ut 5 dagar/vecka och är hemma 7 dagar sparar ni 2 dagar/vecka.</p>
+            <p>Uttagstakt påverkar både hur länge dagarna räcker och ersättningen.</p>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    );
+  };
+
   const stepContent = () => {
     switch (step) {
+      case 0:
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Hur vill ni börja planera?</h1>
+              <p className="text-muted-foreground">Välj det som passar er bäst – ni kan alltid ändra.</p>
+            </div>
+            <div className="space-y-3">
+              {([
+                {
+                  key: "quick" as PlanningMode,
+                  icon: Zap,
+                  label: "Vi vill ha ett snabbt förslag",
+                  desc: "Ni får ett balanserat standardförslag som ni kan justera senare.",
+                },
+                {
+                  key: "guided" as PlanningMode,
+                  icon: Compass,
+                  label: "Vi har vissa preferenser",
+                  desc: "Vi guidar er genom de viktigaste valen.",
+                },
+                {
+                  key: "advanced" as PlanningMode,
+                  icon: SlidersHorizontal,
+                  label: "Vi vill justera allt själva",
+                  desc: "Full kontroll över alla inställningar.",
+                },
+              ]).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setPlanningMode(opt.key)}
+                  className={cn(
+                    "w-full text-left px-4 py-4 rounded-lg border transition-colors",
+                    planningMode === opt.key
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:bg-muted"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <opt.icon className={cn(
+                      "h-5 w-5 mt-0.5 shrink-0",
+                      planningMode === opt.key ? "text-primary" : "text-muted-foreground"
+                    )} />
+                    <div>
+                      <p className={cn("text-base", planningMode === opt.key && "font-medium")}>{opt.label}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
       case 1:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -283,35 +467,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months1} onChange={(e) => setMonths1(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
               {months1 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
             </div>
-            <div className="space-y-3">
-              <Label className="text-base">Hur många föräldradagar per vecka planerar {parent1Name} ta ut?</Label>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Dagar/vecka</span>
-                <span className="font-medium text-lg">{daysPerWeek1} dagar/vecka</span>
-              </div>
-              <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => setDpw1(v)} />
-              {daysPerWeek1 === 0 && <p className="text-sm text-amber-600">Om du väljer 0 skapas ingen ledighet för perioden.</p>}
-              {months1 > 0 && daysPerWeek1 === 0 && <p className="text-sm text-destructive">Välj minst 1 dag/vecka eller sätt 0 månader.</p>}
-              <div className="flex gap-2">
-                {[3, 5, 7].map((n) => (
-                  <button key={n} onClick={() => setDpw1(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek1 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                  Vad betyder detta?
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 text-sm text-muted-foreground space-y-1">
-                  <p>Att vara hemma är inte samma sak som att ta ut dagar.</p>
-                  <p>Tar ni ut 5 dagar/vecka och är hemma 7 dagar sparar ni 2 dagar/vecka.</p>
-                  <p>Uttagstakt påverkar både hur länge dagarna räcker och ersättningen.</p>
-                  <a href="/foraldradagar-101" className="inline-block mt-1 text-primary hover:underline">Läs mer i Föräldradagar 101 →</a>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+            {renderDpwSection(parent1Name, daysPerWeek1, setDpw1, months1)}
+            {planningMode === "quick" && (
+              <p className="text-sm text-muted-foreground italic">Ni får ett balanserat standardförslag som ni kan justera senare.</p>
+            )}
           </div>
         );
 
@@ -324,35 +483,15 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <Input type="number" min={0} max={24} className="text-lg h-12" value={months2} onChange={(e) => setMonths2(Math.max(0, Math.min(24, Number(e.target.value) || 0)))} autoFocus />
               {months2 === 0 && <p className="text-sm text-destructive">Sätt minst 1 månad för att skapa en plan.</p>}
             </div>
-            <div className="space-y-3">
-              <Label className="text-base">Hur många föräldradagar per vecka planerar {parent2Name} ta ut?</Label>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Dagar/vecka</span>
-                <span className="font-medium text-lg">{daysPerWeek2} dagar/vecka</span>
+            {renderDpwSection(parent2Name, daysPerWeek2, setDpw2, months2)}
+            {planningMode === "quick" && (
+              <p className="text-sm text-muted-foreground italic">Ni får ett balanserat standardförslag som ni kan justera senare.</p>
+            )}
+            {planningMode === "guided" && guidedPreviewDpw !== null && (
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                Baserat på era svar föreslår vi <span className="font-semibold">{guidedPreviewDpw} dagar/vecka</span>.
               </div>
-              <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => setDpw2(v)} />
-              {daysPerWeek2 === 0 && <p className="text-sm text-amber-600">Om du väljer 0 skapas ingen ledighet för perioden.</p>}
-              {months2 > 0 && daysPerWeek2 === 0 && <p className="text-sm text-destructive">Välj minst 1 dag/vecka eller sätt 0 månader.</p>}
-              <div className="flex gap-2">
-                {[3, 5, 7].map((n) => (
-                  <button key={n} onClick={() => setDpw2(n)} className={`px-3 py-1 rounded-full text-sm border transition-colors ${daysPerWeek2 === n ? "border-primary bg-primary/10 font-medium" : "border-border bg-card hover:bg-muted"}`}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                  Vad betyder detta?
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 text-sm text-muted-foreground space-y-1">
-                  <p>Att vara hemma är inte samma sak som att ta ut dagar.</p>
-                  <p>Tar ni ut 5 dagar/vecka och är hemma 7 dagar sparar ni 2 dagar/vecka.</p>
-                  <p>Uttagstakt påverkar både hur länge dagarna räcker och ersättningen.</p>
-                  <a href="/foraldradagar-101" className="inline-block mt-1 text-primary hover:underline">Läs mer i Föräldradagar 101 →</a>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+            )}
           </div>
         );
 
@@ -393,6 +532,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+            {planningMode === "guided" && guidedPreviewDpw !== null && (
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                Baserat på era svar föreslår vi <span className="font-semibold">{guidedPreviewDpw} dagar/vecka</span>.
+              </div>
+            )}
           </div>
         );
 
@@ -405,23 +549,27 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     <div className="max-w-lg mx-auto px-6 py-12 min-h-[80vh] flex flex-col">
       {/* Progress */}
       <div className="text-center mb-2">
-        <p className="text-sm text-muted-foreground">Steg {step} av {totalSteps}</p>
+        <p className="text-sm text-muted-foreground">Steg {currentStepIndex + 1} av {totalSteps}</p>
       </div>
-      <div className="flex gap-1.5 mb-12">
+      <div className="flex gap-1.5 mb-6">
         {Array.from({ length: totalSteps }, (_, i) => (
           <div
             key={i}
-            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i < step ? "bg-primary" : "bg-muted"}`}
+            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= currentStepIndex ? "bg-primary" : "bg-muted"}`}
           />
         ))}
       </div>
 
+      {/* Mode indicator */}
+      {renderModeIndicator()}
+
       {/* Draft actions */}
       <div className="flex justify-center gap-3 mb-4">
-        {hasDraft && step === 1 && (
+        {hasDraft && step === 0 && (
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => {
             const d = loadWizardDraft();
             if (d) {
+              setPlanningMode(d.planningMode);
               setParent1Name(d.parent1Name); setParent2Name(d.parent2Name);
               setWantIncome(d.wantIncome); setIncome1(d.income1); setIncome2(d.income2);
               setHas240Days1(d.has240Days1); setHas240Days2(d.has240Days2);
@@ -450,11 +598,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
       {/* Navigation */}
       <div className="flex justify-between pt-8">
-        <Button variant="ghost" onClick={handleBack} disabled={step === 1}>
+        <Button variant="ghost" onClick={handleBack} disabled={step === 0}>
           ← Tillbaka
         </Button>
         <Button size="lg" onClick={handleNext} disabled={!canNext()}>
-          {step === totalSteps ? "Se min plan →" : "Nästa →"}
+          {isLastStep ? "Se min plan →" : "Nästa →"}
         </Button>
       </div>
     </div>
