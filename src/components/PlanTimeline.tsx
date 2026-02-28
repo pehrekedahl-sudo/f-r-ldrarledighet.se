@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+
 
 type Block = {
   id: string;
@@ -85,13 +85,13 @@ function shouldShowLabel(b: MonthBoundary): boolean {
 
 function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
-    if (daysPerWeek <= 4) return "bg-blue-300/60 border-blue-400/50";
-    if (daysPerWeek === 5) return "bg-blue-400/70 border-blue-500/60";
-    return "bg-blue-500/80 border-blue-600/70";
+    if (daysPerWeek <= 4) return "bg-blue-200 border-blue-300 text-blue-900";
+    if (daysPerWeek === 5) return "bg-blue-400 border-blue-500 text-white";
+    return "bg-blue-600 border-blue-700 text-white";
   }
-  if (daysPerWeek <= 4) return "bg-emerald-300/60 border-emerald-400/50";
-  if (daysPerWeek === 5) return "bg-emerald-400/70 border-emerald-500/60";
-  return "bg-emerald-500/80 border-emerald-600/70";
+  if (daysPerWeek <= 4) return "bg-emerald-200 border-emerald-300 text-emerald-900";
+  if (daysPerWeek === 5) return "bg-emerald-400 border-emerald-500 text-white";
+  return "bg-emerald-600 border-emerald-700 text-white";
 }
 
 function findUnfulfilledDate(blocks: Block[]): string | null {
@@ -160,7 +160,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
     blocks: validBlocks.filter((b) => b.parentId === p.id),
   }));
 
-  const rowHeight = 36;
+  const rowHeight = 40;
   const totalRowHeight = parentRows.length * rowHeight;
 
   return (
@@ -176,7 +176,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
               <span className="text-xs font-medium text-muted-foreground truncate">{row.name}</span>
             </div>
           ))}
-          {unfulfilledPct !== null && <div className="h-5" />}
+          {unfulfilledPct !== null && <div className="h-6" />}
         </div>
 
         {/* Timeline area - fully responsive */}
@@ -232,11 +232,11 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
                   return (
                     <div
                       key={b.id}
-                      className={`absolute top-1 bottom-1 rounded border text-[10px] font-medium flex items-center justify-center text-foreground/80 overflow-hidden ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
+                      className={`absolute top-1.5 bottom-1.5 rounded-[10px] border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-sm ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => onBlockClick?.(b.id)}
                     >
-                      <span className="truncate px-0.5">{b.daysPerWeek}d/v</span>
+                      <span className="truncate px-1">{b.daysPerWeek}d/v</span>
                     </div>
                   );
                 })}
@@ -245,36 +245,25 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
 
             {/* Unfulfilled red line */}
             {unfulfilledPct !== null && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className="absolute top-0 w-0.5 bg-destructive z-20 cursor-help"
-                      style={{
-                        left: `${Math.min(unfulfilledPct, 100)}%`,
-                        height: totalRowHeight,
-                      }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Här tar dagarna slut</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div
+                className="absolute z-20"
+                style={{
+                  left: `${Math.min(unfulfilledPct, 100)}%`,
+                  top: -6,
+                  height: totalRowHeight + 6,
+                }}
+              >
+                {/* Red line - 2px thick */}
+                <div className="w-[2px] h-full bg-destructive" />
+                {/* Badge label positioned above */}
+                <div
+                  className="absolute -top-5 left-1/2 -translate-x-1/2 bg-destructive text-destructive-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm"
+                >
+                  Dagarna tar slut
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Unfulfilled label row */}
-          {unfulfilledPct !== null && (
-            <div className="relative h-5">
-              <span
-                className="absolute text-[9px] font-medium text-destructive whitespace-nowrap"
-                style={{ left: `${Math.min(unfulfilledPct, 95)}%`, transform: "translateX(-50%)" }}
-              >
-                Dagarna tar slut
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </div>
