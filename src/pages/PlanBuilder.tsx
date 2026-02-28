@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
+import SaveDaysDrawer from "@/components/SaveDaysDrawer";
 
 import {
   Select,
@@ -86,6 +87,7 @@ const PlanBuilder = () => {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"edit" | "create">("edit");
+  const [saveDaysOpen, setSaveDaysOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -511,6 +513,13 @@ const PlanBuilder = () => {
               />
             </section>
 
+            {/* ── SMART ADJUSTMENTS ── */}
+            <div className="flex gap-3">
+              <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
+                Spara fler dagar
+              </Button>
+            </div>
+
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
             <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
               <CollapsibleTrigger id="adjust-section" className="flex items-center justify-between w-full border border-border rounded-lg p-4 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
@@ -716,6 +725,19 @@ const PlanBuilder = () => {
         onOpenChange={setDrawerOpen}
         onSave={handleDrawerSave}
         onDelete={handleDrawerDelete}
+      />
+      <SaveDaysDrawer
+        open={saveDaysOpen}
+        onOpenChange={setSaveDaysOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+        constants={CONSTANTS}
+        transfer={transfer}
+        onApply={(newBlocks) => {
+          setBlocks(newBlocks);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
+        }}
       />
     </div>
   );
