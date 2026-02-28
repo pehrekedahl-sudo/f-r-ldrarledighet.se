@@ -516,7 +516,7 @@ const PlanBuilder = () => {
             {/* ── SMART ADJUSTMENTS ── */}
             <div className="flex gap-3">
               <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
-                Spara fler dagar
+                Sparade dagar
               </Button>
             </div>
 
