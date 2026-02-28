@@ -212,10 +212,37 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
 
   const [targetDays, setTargetDays] = useState(current.currentTotal);
+  const [rawInput, setRawInput] = useState<string>("");
+  const [clampHint, setClampHint] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setTargetDays(Math.min(current.currentTotal + 28, maxRemaining));
+    if (open) {
+      const initial = Math.min(current.currentTotal + 28, maxRemaining);
+      setTargetDays(initial);
+      setRawInput(String(initial));
+      setClampHint(null);
+    }
   }, [open, current.currentTotal, maxRemaining]);
+
+  const applyValue = (raw: number) => {
+    if (isNaN(raw)) raw = current.currentTotal;
+    if (raw > maxRemaining) {
+      setClampHint(`Max är ${maxRemaining} med nuvarande plan.`);
+      const clamped = maxRemaining;
+      setTargetDays(clamped);
+      setRawInput(String(clamped));
+    } else if (raw < current.currentTotal) {
+      setClampHint(`Min är ${current.currentTotal} (nuvarande nivå).`);
+      const clamped = current.currentTotal;
+      setTargetDays(clamped);
+      setRawInput(String(clamped));
+    } else {
+      setClampHint(null);
+      const clamped = Math.floor(raw);
+      setTargetDays(clamped);
+      setRawInput(String(clamped));
+    }
+  };
 
   const proposal = useMemo(
     () => targetDays > current.currentTotal
@@ -229,8 +256,6 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     onApply(proposal.newBlocks);
     onOpenChange(false);
   };
-
-  const clamp = (v: number) => Math.max(current.currentTotal, Math.min(maxRemaining, Math.floor(v)));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -258,19 +283,33 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               type="number"
               min={current.currentTotal}
               max={maxRemaining}
-              value={targetDays}
-              onChange={(e) => setTargetDays(clamp(Number(e.target.value) || current.currentTotal))}
+              value={rawInput}
+              onChange={(e) => {
+                setRawInput(e.target.value);
+                applyValue(Number(e.target.value));
+              }}
+              onBlur={() => {
+                setRawInput(String(targetDays));
+              }}
             />
             <Slider
               min={current.currentTotal}
               max={maxRemaining}
               step={1}
               value={[targetDays]}
-              onValueChange={([v]) => setTargetDays(v)}
+              onValueChange={([v]) => {
+                setTargetDays(v);
+                setRawInput(String(v));
+                setClampHint(null);
+              }}
             />
-            <p className="text-xs text-muted-foreground">
-              Min {current.currentTotal} – Max {maxRemaining}
-            </p>
+            {clampHint ? (
+              <p className="text-xs text-destructive">{clampHint}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Min {current.currentTotal} – Max {maxRemaining}
+              </p>
+            )}
           </div>
 
           {/* Proposal preview */}
