@@ -139,62 +139,73 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
-          {/* Dev debug */}
-          {!isCreate && block && (
-            <p className="text-[10px] font-mono text-muted-foreground/50">
-              Editing blockId: {block.id} (parent: {parentId})
+          {/* Debug line */}
+          {!isCreate && (
+            <p className="text-[10px] font-mono text-muted-foreground/50 truncate">
+              {block
+                ? `Redigerar: ${block.id} — ${parentName} — ${block.startDate} → ${block.endDate}`
+                : `⚠ Block ej hittat (id: –)`}
             </p>
           )}
-          {isCreate && (
-            <div className="space-y-1">
-              <Label>Förälder</Label>
-              <Select value={parentId} onValueChange={handleParentChange}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+
+          {!isCreate && !block ? (
+            <p className="text-sm text-destructive font-medium">
+              Blocket kunde inte hittas. Stäng och försök igen.
+            </p>
+          ) : (
+            <>
+              {isCreate && (
+                <div className="space-y-1">
+                  <Label>Förälder</Label>
+                  <Select value={parentId} onValueChange={handleParentChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {parents.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label>Startdatum</Label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Slutdatum</Label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dagar per vecka: {daysPerWeek}</Label>
+                <Slider
+                  min={0} max={7} step={1}
+                  value={[daysPerWeek]}
+                  onValueChange={([v]) => {
+                    setDaysPerWeek(v);
+                    if (lowestDaysPerWeek > v) setLowestDaysPerWeek(v);
+                  }}
+                />
+                {daysPerWeek === 0 && (
+                  <p className="text-xs text-muted-foreground italic">Denna period blir utan uttag.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Lägstanivå per vecka: {lowestDaysPerWeek}</Label>
+                <Slider
+                  min={0} max={daysPerWeek} step={1}
+                  value={[lowestDaysPerWeek]}
+                  onValueChange={([v]) => setLowestDaysPerWeek(v)}
+                  disabled={daysPerWeek === 0}
+                />
+              </div>
+
+              {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
+              {validationError && <p className="text-xs text-destructive font-medium">{validationError}</p>}
+              {maxBlocksError && <p className="text-xs text-destructive font-medium">{maxBlocksError}</p>}
+            </>
           )}
-
-          <div className="space-y-1">
-            <Label>Startdatum</Label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Slutdatum</Label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Dagar per vecka: {daysPerWeek}</Label>
-            <Slider
-              min={0} max={7} step={1}
-              value={[daysPerWeek]}
-              onValueChange={([v]) => {
-                setDaysPerWeek(v);
-                if (lowestDaysPerWeek > v) setLowestDaysPerWeek(v);
-              }}
-            />
-            {daysPerWeek === 0 && (
-              <p className="text-xs text-muted-foreground italic">Denna period blir utan uttag.</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Lägstanivå per vecka: {lowestDaysPerWeek}</Label>
-            <Slider
-              min={0} max={daysPerWeek} step={1}
-              value={[lowestDaysPerWeek]}
-              onValueChange={([v]) => setLowestDaysPerWeek(v)}
-              disabled={daysPerWeek === 0}
-            />
-          </div>
-
-          {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
-          {validationError && <p className="text-xs text-destructive font-medium">{validationError}</p>}
-          {maxBlocksError && <p className="text-xs text-destructive font-medium">{maxBlocksError}</p>}
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
