@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -37,14 +37,16 @@ type Constants = {
   SICKNESS_DAILY_MAX?: number;
 };
 
+type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   blocks: Block[];
   parents: Parent[];
   constants: Constants;
-  transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
-  onApply: (newBlocks: Block[]) => void;
+  transfer: Transfer | null;
+  onApply: (newBlocks: Block[], newTransfer: Transfer | null) => void;
 };
 
 type ChangeEntry = {
@@ -57,11 +59,14 @@ type ChangeEntry = {
 type Proposal = {
   newBlocks: Block[];
   changes: ChangeEntry[];
+  proposedTransfer: Transfer | null;
+  transferAmount: number;
   deltaMonthly: number;
   success: boolean;
+  transferOnly: boolean;
 };
 
-function getTransfers(transfer: Props["transfer"]) {
+function getTransfers(transfer: Transfer | null) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
 }
 
@@ -89,29 +94,95 @@ function computeFitProposal(
   blocks: Block[],
   parents: Parent[],
   constants: Constants,
-  transfer: Props["transfer"],
+  existingTransfer: Transfer | null,
 ): Proposal | null {
   if (blocks.length === 0) return null;
 
-  const transfers = getTransfers(transfer);
-  const origResult = simulatePlan({ parents, blocks, transfers, constants });
+  const baseTransfers = getTransfers(existingTransfer);
+  const origResult = simulatePlan({ parents, blocks, transfers: baseTransfers, constants });
   const origUnfulfilled = origResult.unfulfilledDaysTotal ?? 0;
   if (origUnfulfilled <= 0) return null;
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
+
+  // ── Step 1: Try transfers first ──
+  // Find which parent is short (has unfulfilled) and which has transferable days
+  // We identify the "needy" parent as the one consuming the most relative to budget
+  const scored = origResult.parentsResult.map((pr: any) => ({
+    id: pr.parentId,
+    name: pr.name,
+    transferable: pr.remaining.sicknessTransferable as number,
+    taken: (pr.taken.sickness + pr.taken.lowest) as number,
+    totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
+  }));
+
+  // Sort: neediest first (lowest remaining, highest taken)
+  scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.taken - a.taken);
+  const needy = scored[0];
+  const giver = scored[scored.length - 1];
+
+  let proposedTransfer: Transfer | null = null;
+  let transferAmount = 0;
+  let remainingShortage = origUnfulfilled;
+
+  if (giver.transferable > 0 && needy.id !== giver.id) {
+    // Try transferring to cover shortage
+    const maxTransfer = Math.floor(giver.transferable);
+    const tryAmount = Math.min(maxTransfer, Math.ceil(origUnfulfilled));
+
+    // Combine with existing transfer
+    const existingAmount = existingTransfer &&
+      existingTransfer.fromParentId === giver.id &&
+      existingTransfer.toParentId === needy.id
+      ? existingTransfer.sicknessDays
+      : 0;
+
+    const totalTransferAmount = existingAmount + tryAmount;
+
+    const testTransfer: Transfer = {
+      fromParentId: giver.id,
+      toParentId: needy.id,
+      sicknessDays: totalTransferAmount,
+    };
+
+    const testResult = simulatePlan({ parents, blocks, transfers: [testTransfer], constants });
+    const testUnfulfilled = testResult.unfulfilledDaysTotal ?? 0;
+
+    transferAmount = tryAmount;
+    proposedTransfer = testTransfer;
+    remainingShortage = testUnfulfilled;
+  }
+
+  // ── Step 2: If transfer alone solves it ──
+  if (remainingShortage <= 0 && proposedTransfer) {
+    const finalResult = simulatePlan({ parents, blocks, transfers: [proposedTransfer], constants });
+    const newAvg = calcAvgMonthly(finalResult.parentsResult);
+    return {
+      newBlocks: blocks,
+      changes: [],
+      proposedTransfer,
+      transferAmount,
+      deltaMonthly: Math.round(newAvg - origAvg),
+      success: true,
+      transferOnly: true,
+    };
+  }
+
+  // ── Step 3: Transfer + pace reduction ──
+  const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
   const working = blocks.map(b => ({ ...b }));
   const allChanges: ChangeEntry[] = [];
 
-  // Order parents by consumption descending
-  const scored = origResult.parentsResult
+  // Order parents by consumption descending for pace reduction
+  const consumptionOrder = origResult.parentsResult
     .map((pr: any) => ({ id: pr.parentId, taken: pr.taken.sickness + pr.taken.lowest }))
-    .sort((a: any, b: any) => b.taken - a.taken);
-  const parentOrder = scored.map((s: any) => s.id);
+    .sort((a: any, b: any) => b.taken - a.taken)
+    .map((s: any) => s.id);
 
   let iterations = 0;
-  for (const pid of parentOrder) {
+  for (const pid of consumptionOrder) {
     let currentUnfulfilled = (() => {
-      const r = simulatePlan({ parents, blocks: working, transfers, constants });
+      const r = simulatePlan({ parents, blocks: working, transfers: activeTransfers, constants });
       return r.unfulfilledDaysTotal ?? 0;
     })();
 
@@ -135,7 +206,6 @@ function computeFitProposal(
         allChanges.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
         target.daysPerWeek -= 1;
       } else {
-        // Split: only reduce the tail portion
         const weeksNeeded = currentUnfulfilled;
         const splitDayOffset = calDays - weeksNeeded * 7;
         if (splitDayOffset <= 0) {
@@ -158,23 +228,26 @@ function computeFitProposal(
         }
       }
 
-      const r = simulatePlan({ parents, blocks: working, transfers, constants });
+      const r = simulatePlan({ parents, blocks: working, transfers: activeTransfers, constants });
       currentUnfulfilled = r.unfulfilledDaysTotal ?? 0;
     }
   }
 
-  if (allChanges.length === 0) return null;
+  if (allChanges.length === 0 && transferAmount === 0) return null;
 
   const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const finalResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
+  const finalResult = simulatePlan({ parents, blocks: sorted, transfers: activeTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
   return {
     newBlocks: sorted,
     changes: allChanges,
+    proposedTransfer: proposedTransfer,
+    transferAmount,
     deltaMonthly: Math.round(newAvg - origAvg),
     success: finalUnfulfilled <= 0,
+    transferOnly: false,
   };
 }
 
@@ -199,9 +272,11 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
 
   const handleApply = () => {
     if (!proposal) return;
-    onApply(proposal.newBlocks);
+    onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
     onOpenChange(false);
   };
+
+  const fromName = (id: string) => parents.find(p => p.id === id)?.name ?? "?";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -222,6 +297,11 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm font-medium">Föreslagna ändringar:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  {proposal.proposedTransfer && proposal.transferAmount > 0 && (
+                    <li>
+                      Överför {proposal.transferAmount} dagar från {fromName(proposal.proposedTransfer.fromParentId)} till {fromName(proposal.proposedTransfer.toParentId)}.
+                    </li>
+                  )}
                   {proposal.changes.map((c, i) => (
                     <li key={i}>
                       Sänk uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
@@ -233,7 +313,11 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
                 <p className="text-sm font-medium">Resultat:</p>
                 {proposal.success ? (
-                  <p className="text-sm text-primary font-semibold">✓ Planen går ihop</p>
+                  <p className="text-sm text-primary font-semibold">
+                    {proposal.transferOnly
+                      ? "✓ Planen går ihop utan att ändra tidslinjen."
+                      : "✓ Planen går ihop"}
+                  </p>
                 ) : (
                   <p className="text-sm text-destructive font-semibold">
                     ✗ Planen kan inte helt balanseras med dessa justeringar

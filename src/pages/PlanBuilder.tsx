@@ -753,9 +753,10 @@ const PlanBuilder = () => {
         parents={parents}
         constants={CONSTANTS}
         transfer={transfer}
-        onApply={(newBlocks) => {
+        onApply={(newBlocks, newTransfer) => {
           setBlocks(newBlocks);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          setTransfer(newTransfer);
+          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
           savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
         }}
       />
