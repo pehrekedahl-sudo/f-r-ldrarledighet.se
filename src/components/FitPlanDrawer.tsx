@@ -212,47 +212,54 @@ function computeRescueProposal(
     };
   }
 
-  // ── Step 3: Week-based pace reduction ──
+  // ── Step 3: Week-based pace reduction using ONLY remainingShortage ──
   const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
   const working = blocks.map(b => ({ ...b }));
-  const requiredWeeks = remainingShortage;
+  const requiredWeeks = remainingShortage; // This is already missingDays - transferDays
   const reductionSummary: Proposal["reductionSummary"] = [];
 
-  // Distribute weeks based on mode
-  const parentWeeks: { pid: string; weeks: number }[] = [];
+  console.log("[RescueMode proposal]", {
+    missingDays: Math.ceil(origUnfulfilled),
+    transferDays: transferAmount,
+    remainingAfterTransfer: remainingShortage,
+    requiredWeeks,
+  });
 
-  if (mode === "split" && parents.length >= 2) {
-    const weeksA = Math.floor(requiredWeeks / 2);
-    const weeksB = requiredWeeks - weeksA;
-    parentWeeks.push({ pid: parents[0].id, weeks: weeksA });
-    parentWeeks.push({ pid: parents[1].id, weeks: weeksB });
-  } else if (mode === "proportional" && parents.length >= 2) {
-    const totalDays = parents.reduce((s, p) => s + calcParentRequestedDays(blocks, p.id), 0);
-    if (totalDays > 0) {
-      const share0 = calcParentRequestedDays(blocks, parents[0].id) / totalDays;
-      const weeks0 = Math.round(requiredWeeks * share0);
-      const weeks1 = requiredWeeks - weeks0;
-      parentWeeks.push({ pid: parents[0].id, weeks: weeks0 });
-      parentWeeks.push({ pid: parents[1].id, weeks: weeks1 });
-    } else {
-      // Fallback to equal split
+  // Distribute weeks based on mode — only if there are weeks to distribute
+  if (requiredWeeks > 0) {
+    const parentWeeks: { pid: string; weeks: number }[] = [];
+
+    if (mode === "split" && parents.length >= 2) {
       const weeksA = Math.floor(requiredWeeks / 2);
+      const weeksB = requiredWeeks - weeksA;
       parentWeeks.push({ pid: parents[0].id, weeks: weeksA });
-      parentWeeks.push({ pid: parents[1].id, weeks: requiredWeeks - weeksA });
+      parentWeeks.push({ pid: parents[1].id, weeks: weeksB });
+    } else if (mode === "proportional" && parents.length >= 2) {
+      const totalDays = parents.reduce((s, p) => s + calcParentRequestedDays(blocks, p.id), 0);
+      if (totalDays > 0) {
+        const share0 = calcParentRequestedDays(blocks, parents[0].id) / totalDays;
+        const weeks0 = Math.round(requiredWeeks * share0);
+        const weeks1 = requiredWeeks - weeks0;
+        parentWeeks.push({ pid: parents[0].id, weeks: weeks0 });
+        parentWeeks.push({ pid: parents[1].id, weeks: weeks1 });
+      } else {
+        const weeksA = Math.floor(requiredWeeks / 2);
+        parentWeeks.push({ pid: parents[0].id, weeks: weeksA });
+        parentWeeks.push({ pid: parents[1].id, weeks: requiredWeeks - weeksA });
+      }
+    } else {
+      const pid = mode === "proportional" || mode === "split" ? parents[0].id : mode;
+      parentWeeks.push({ pid, weeks: requiredWeeks });
     }
-  } else {
-    // Single parent mode
-    const pid = mode === "proportional" || mode === "split" ? parents[0].id : mode;
-    parentWeeks.push({ pid, weeks: requiredWeeks });
-  }
 
-  for (const { pid, weeks } of parentWeeks) {
-    if (weeks <= 0) continue;
-    const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
-    const oldDpw = sampleBlock?.daysPerWeek ?? 0;
-    applyWeekReduction(working, pid, weeks);
-    const parentName = parents.find(p => p.id === pid)?.name ?? "";
-    reductionSummary.push({ parentName, weeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
+    for (const { pid, weeks } of parentWeeks) {
+      if (weeks <= 0) continue;
+      const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
+      const oldDpw = sampleBlock?.daysPerWeek ?? 0;
+      applyWeekReduction(working, pid, weeks);
+      const parentName = parents.find(p => p.id === pid)?.name ?? "";
+      reductionSummary.push({ parentName, weeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
+    }
   }
 
   // Check if still unfulfilled and try to fix remainder
@@ -262,10 +269,15 @@ function computeRescueProposal(
   if (midUnfulfilled > 0) {
     const extraWeeks = Math.ceil(midUnfulfilled);
     for (const p of parents) {
+      const existingEntry = reductionSummary.find(r => r.parentName === p.name);
       const sampleBlock = working.find(b => b.parentId === p.id && b.daysPerWeek > 0);
       if (!sampleBlock) continue;
       applyWeekReduction(working, p.id, extraWeeks);
-      reductionSummary.push({ parentName: p.name, weeks: extraWeeks, oldDpw: sampleBlock.daysPerWeek, newDpw: Math.max(0, sampleBlock.daysPerWeek - 1) });
+      if (existingEntry) {
+        existingEntry.weeks += extraWeeks;
+      } else {
+        reductionSummary.push({ parentName: p.name, weeks: extraWeeks, oldDpw: sampleBlock.daysPerWeek, newDpw: Math.max(0, sampleBlock.daysPerWeek - 1) });
+      }
       break;
     }
   }
@@ -311,10 +323,23 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
       }));
       scored.sort((a: any, b: any) => a.totalRemaining - b.totalRemaining);
+      const needy = scored[0];
       const giver = scored[scored.length - 1];
-      const maxTransfer = Math.min(Math.floor(giver?.transferable ?? 0), unfulfilled);
-      setTransferDays(maxTransfer > 0 ? maxTransfer : 0);
-      setTotalRequiredWeeks(Math.max(0, unfulfilled - maxTransfer));
+      const maxTransfer = (giver && needy && giver.id !== needy.id)
+        ? Math.min(Math.floor(giver.transferable ?? 0), unfulfilled)
+        : 0;
+      const effectiveTransfer = maxTransfer > 0 ? maxTransfer : 0;
+      const remainingAfterTransfer = Math.max(0, unfulfilled - effectiveTransfer);
+
+      setTransferDays(effectiveTransfer);
+      setTotalRequiredWeeks(remainingAfterTransfer);
+
+      console.log("[RescueMode summary]", {
+        missingDays: unfulfilled,
+        transferDays: effectiveTransfer,
+        remainingAfterTransfer,
+        requiredWeeks: remainingAfterTransfer,
+      });
 
       setMode("proportional");
     }
