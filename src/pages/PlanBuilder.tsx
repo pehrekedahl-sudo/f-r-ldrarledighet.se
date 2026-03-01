@@ -472,7 +472,15 @@ const PlanBuilder = () => {
               {unfulfilled > 0 ? (
                 <div className="max-w-md mx-auto space-y-3">
                   <p className="text-sm text-destructive font-medium">
-                    ⚠ Planen saknar {unfulfilled} dagar för att gå ihop.
+                    ⚠ {(() => {
+                      const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+                      const hasTransfer = householdTransferable > 0;
+                      const needsWeeks = unfulfilled > Math.floor(householdTransferable);
+                      if (hasTransfer && needsWeeks) return "Planen kräver omfördelning av dagar och justering av uttagstakt för att gå ihop.";
+                      if (hasTransfer) return "Planen kräver omfördelning av dagar mellan er för att gå ihop.";
+                      if (needsWeeks) return "Planen kräver att ni minskar uttagstakten för att gå ihop.";
+                      return "Planen behöver justeras.";
+                    })()}
                   </p>
                   <div className="flex gap-3 justify-center">
                     <Button size="lg" onClick={() => setFitPlanOpen(true)}>
