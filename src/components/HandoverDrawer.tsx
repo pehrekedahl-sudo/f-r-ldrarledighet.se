@@ -69,6 +69,14 @@ function toISO(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/** Convert a local Date (from calendar picker) to YYYY-MM-DD using local fields */
+function toISOLocal(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function addDaysISO(iso: string, days: number): string {
   const d = parseDateUTC(iso);
   d.setUTCDate(d.getUTCDate() + days);
@@ -120,6 +128,8 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
     const newP1End = addDaysISO(handoverDate, -1);
     const newP2Start = handoverDate;
+
+    console.log("[HandoverDrawer]", { selectedDate: handoverDate, computedParent1EndDate: newP1End, computedParent2StartDate: newP2Start });
 
     // Validation
     if (newP1End < p1Block.startDate) return { error: `${parent1.name}s block kan inte sluta före sitt startdatum.` };
@@ -235,10 +245,11 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
+                  weekStartsOn={1}
                   selected={handoverDate ? parseDateUTC(handoverDate) : undefined}
                   onSelect={(d) => {
                     if (d) {
-                      setHandoverDate(toISO(d));
+                      setHandoverDate(toISOLocal(d));
                       setPopoverOpen(false);
                     }
                   }}
