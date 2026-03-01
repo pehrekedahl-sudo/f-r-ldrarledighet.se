@@ -1,3 +1,15 @@
+/**
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ RESCUE / AUTO-JUSTERA — SELF-CONTAINED                         │
+ * │                                                                  │
+ * │ This module must NOT import from adjustmentPolicy.ts or any     │
+ * │ "policy" module. Rescue uses its own pre-policy algorithm:      │
+ * │ transfer first → then reduce dpw by 1 for N weeks (late-first).│
+ * │                                                                  │
+ * │ Policy modules are for smart drawers only (Sparade dagar, etc). │
+ * └──────────────────────────────────────────────────────────────────┘
+ */
+
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import {
@@ -12,15 +24,20 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { simulatePlan } from "@/lib/simulatePlan";
-import {
-  normalizeBlocks,
-  applySmartChange,
-  proposeEvenSpreadReduction,
-  proposeProportionalReduction,
-  MIN_AUTO_DPW,
-  type Block,
-  type ProportionalDebug,
-} from "@/lib/adjustmentPolicy";
+import { mergeAdjacentBlocks } from "@/lib/mergeAdjacentBlocks";
+import { generateBlockId } from "@/lib/blockIdUtils";
+
+// ── Local Block type (no policy dependency) ──
+
+type Block = {
+  id: string;
+  parentId: string;
+  startDate: string;
+  endDate: string;
+  daysPerWeek: number;
+  lowestDaysPerWeek?: number;
+  overlapGroupId?: string;
+};
 
 type Parent = {
   id: string;
@@ -73,8 +90,22 @@ type Proposal = {
   debug: DebugGroundTruth;
   debugBefore: Block[];
   debugAfter: Block[];
-  proportionalDebug?: ProportionalDebug;
 };
+
+// ── Rescue-local helpers (zero policy imports) ──
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function calendarDays(b: Block): number {
+  return Math.ceil(
+    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
+    (1000 * 60 * 60 * 24)
+  ) + 1;
+}
 
 function getTransfers(transfer: Transfer | null) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -86,6 +117,90 @@ function calcAvgMonthly(parentsResult: any[]): number {
   const months = allM.filter((m: any) => m.grossAmount > 0).length;
   return months > 0 ? total / months : 0;
 }
+
+/**
+ * Rescue-local reduction: reduce dpw by 1 for `weeksNeeded` weeks,
+ * applied late-first within the given parentScope.
+ * Returns mutated blocks array and per-parent summary.
+ */
+function rescueReduceWeeks(
+  blocks: Block[],
+  parentScope: string[],
+  weeksNeeded: number,
+): { blocks: Block[]; perParent: { parentId: string; weeks: number; oldDpw: number; newDpw: number }[] } {
+  const working = blocks.map(b => ({ ...b }));
+  const allowed = new Set(parentScope);
+  let remaining = weeksNeeded;
+  const perParentMap = new Map<string, { weeks: number; oldDpw: number; newDpw: number }>();
+
+  // Get candidate blocks sorted latest-first
+  const candidates = working
+    .filter(b => allowed.has(b.parentId) && b.daysPerWeek >= 1)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+  for (const target of candidates) {
+    if (remaining <= 0) break;
+    if (target.daysPerWeek < 1) continue;
+
+    const calDays = calendarDays(target);
+    const blockWeeks = Math.floor(calDays / 7);
+    if (blockWeeks <= 0) continue;
+
+    const oldDpw = target.daysPerWeek;
+    const newDpw = oldDpw - 1;
+
+    if (blockWeeks <= remaining) {
+      // Reduce entire block
+      target.daysPerWeek = newDpw;
+      remaining -= blockWeeks;
+      const entry = perParentMap.get(target.parentId);
+      if (!entry) {
+        perParentMap.set(target.parentId, { weeks: blockWeeks, oldDpw, newDpw });
+      } else {
+        entry.weeks += blockWeeks;
+      }
+    } else {
+      // Split: keep earlier part unchanged, reduce later part
+      const headDays = calDays - remaining * 7;
+      if (headDays <= 0) {
+        target.daysPerWeek = newDpw;
+        const entry = perParentMap.get(target.parentId);
+        if (!entry) {
+          perParentMap.set(target.parentId, { weeks: blockWeeks, oldDpw, newDpw });
+        } else {
+          entry.weeks += blockWeeks;
+        }
+        remaining = 0;
+      } else {
+        const splitDate = addDaysISO(target.startDate, headDays);
+        const tailBlock: Block = {
+          id: generateBlockId("rescue"),
+          parentId: target.parentId,
+          startDate: splitDate,
+          endDate: target.endDate,
+          daysPerWeek: newDpw,
+          lowestDaysPerWeek: target.lowestDaysPerWeek,
+          overlapGroupId: target.overlapGroupId,
+        };
+        target.endDate = addDaysISO(splitDate, -1);
+        working.push(tailBlock);
+
+        const entry = perParentMap.get(target.parentId);
+        if (!entry) {
+          perParentMap.set(target.parentId, { weeks: remaining, oldDpw, newDpw });
+        } else {
+          entry.weeks += remaining;
+        }
+        remaining = 0;
+      }
+    }
+  }
+
+  const perParent = Array.from(perParentMap.entries()).map(([parentId, v]) => ({ parentId, ...v }));
+  return { blocks: mergeAdjacentBlocks(working), perParent };
+}
+
+// ── Main rescue computation ──
 
 function computeRescueProposal(
   blocks: Block[],
@@ -149,7 +264,7 @@ function computeRescueProposal(
     const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
     return {
-      newBlocks: normalizeBlocks(finalBlocks),
+      newBlocks: mergeAdjacentBlocks(finalBlocks),
       proposedTransfer,
       transferAmount: proposedTransfer.sicknessDays,
       reductionSummary: [],
@@ -165,26 +280,11 @@ function computeRescueProposal(
         budgetFlagAfter: !!(finalResult as any).warnings?.budgetInsufficient,
       },
       debugBefore,
-      debugAfter: normalizeBlocks(finalBlocks),
+      debugAfter: mergeAdjacentBlocks(finalBlocks),
     };
   }
 
-  // ── Step 3: Use shared reduction ──
-  const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
-
-  // Determine parent scope based on mode
-  let parentScope: string[];
-  if (mode === "split" && parents.length >= 2) {
-    parentScope = parents.map(p => p.id);
-  } else if (mode === "proportional" && parents.length >= 2) {
-    parentScope = parents.map(p => p.id);
-  } else if (mode !== "proportional" && mode !== "split") {
-    parentScope = [mode]; // specific parent id
-  } else {
-    parentScope = parents.map(p => p.id);
-  }
-
-  // Use iterative reduction via policy to close the gap
+  // ── Step 3: Reduce dpw by 1 for N weeks (iterative, late-first) ──
   let currentBlocks = blocks.map(b => ({ ...b }));
   let currentTransfer = proposedTransfer;
   let currentTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
@@ -193,50 +293,78 @@ function computeRescueProposal(
   let totalWeeksReduced = 0;
   const reductionSummary: Proposal["reductionSummary"] = [];
   let iterations = 0;
-  let proportionalDebugData: ProportionalDebug | undefined;
+
+  // Determine parent scope based on mode
+  const getParentScope = (): string[] => {
+    if (mode === "split" && parents.length >= 2) {
+      return parents.map(p => p.id);
+    } else if (mode === "proportional" && parents.length >= 2) {
+      return parents.map(p => p.id);
+    } else if (mode !== "proportional" && mode !== "split") {
+      return [mode]; // specific parent id
+    }
+    return parents.map(p => p.id);
+  };
 
   while (iterUnfulfilled > 0 && iterations < 50) {
     iterations++;
-    const daysToReduce = Math.max(1, Math.ceil(iterUnfulfilled));
+    const weeksToReduce = Math.max(1, Math.ceil(iterUnfulfilled));
+    const parentScope = getParentScope();
 
-    let reduction;
+    // For proportional mode: allocate weeks based on each parent's withdrawal load
+    let scopeWeeks: { parentId: string; weeks: number }[];
     if (mode === "proportional" && parents.length >= 2) {
-      // ── Proportional: allocate weeks based on entire plan's load per parent ──
-      const propResult = proposeProportionalReduction({
-        plan: currentBlocks,
-        parentIds: parentScope,
-        daysToReduce,
-      });
-      reduction = propResult;
-      // Capture debug from first (main) iteration
-      if (!proportionalDebugData) {
-        proportionalDebugData = propResult.proportionalDebug;
+      // Calculate load per parent (weeks * dpw across entire plan)
+      const loads = new Map<string, number>();
+      for (const pid of parentScope) loads.set(pid, 0);
+      for (const b of currentBlocks) {
+        if (!loads.has(b.parentId)) continue;
+        const w = Math.floor(calendarDays(b) / 7);
+        loads.set(b.parentId, loads.get(b.parentId)! + w * b.daysPerWeek);
       }
+      const totalLoad = Array.from(loads.values()).reduce((s, v) => s + v, 0);
+      const sorted = [...parentScope].sort();
+      scopeWeeks = sorted.map((pid, i) => {
+        const share = totalLoad > 0 ? loads.get(pid)! / totalLoad : 1 / sorted.length;
+        if (i === sorted.length - 1) {
+          const assigned = sorted.slice(0, -1).reduce((s, p) => s + Math.round(weeksToReduce * (totalLoad > 0 ? loads.get(p)! / totalLoad : 1 / sorted.length)), 0);
+          return { parentId: pid, weeks: Math.max(0, weeksToReduce - assigned) };
+        }
+        return { parentId: pid, weeks: Math.max(0, Math.round(weeksToReduce * share)) };
+      });
+    } else if (mode === "split" && parents.length >= 2) {
+      const half = Math.floor(weeksToReduce / 2);
+      scopeWeeks = [
+        { parentId: parents[0].id, weeks: half },
+        { parentId: parents[1].id, weeks: weeksToReduce - half },
+      ];
     } else {
-      reduction = proposeEvenSpreadReduction({
-        plan: currentBlocks,
-        parentScope,
-        daysToReduce,
-      });
+      scopeWeeks = parentScope.map(pid => ({ parentId: pid, weeks: weeksToReduce }));
     }
 
-    if (reduction.summary.weeksAffectedTotal === 0) break;
-
-    currentBlocks = reduction.nextBlocks;
-    totalWeeksReduced += reduction.summary.weeksAffectedTotal;
-
-    // Update reduction summary
-    for (const pp of reduction.summary.perParent) {
-      const parentName = parents.find(p => p.id === pp.parentId)?.name ?? "";
-      const existing = reductionSummary.find(r => r.parentName === parentName);
-      if (existing) {
-        existing.weeks += pp.weeksAffected;
-      } else {
-        reductionSummary.push({ parentName, weeks: pp.weeksAffected, oldDpw: pp.oldDpw, newDpw: pp.newDpw });
+    let anyProgress = false;
+    for (const { parentId, weeks } of scopeWeeks) {
+      if (weeks <= 0) continue;
+      const reduction = rescueReduceWeeks(currentBlocks, [parentId], weeks);
+      if (reduction.perParent.length > 0) {
+        anyProgress = true;
+        currentBlocks = reduction.blocks;
+        for (const pp of reduction.perParent) {
+          const parentName = parents.find(p => p.id === pp.parentId)?.name ?? "";
+          totalWeeksReduced += pp.weeks;
+          const existing = reductionSummary.find(r => r.parentName === parentName);
+          if (existing) {
+            existing.weeks += pp.weeks;
+          } else {
+            reductionSummary.push({ parentName, weeks: pp.weeks, oldDpw: pp.oldDpw, newDpw: pp.newDpw });
+          }
+        }
       }
     }
 
-    // Try adding more transfer
+    if (!anyProgress) break;
+
+    // Try adding more transfer after reduction
     if (currentTransfer) {
       const cr = simulatePlan({ parents, blocks: currentBlocks, transfers: [currentTransfer], constants });
       const giverResult = cr.parentsResult.find((pr: any) => pr.parentId === currentTransfer!.fromParentId);
@@ -252,7 +380,7 @@ function computeRescueProposal(
     iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
   }
 
-  const finalBlocks = normalizeBlocks(currentBlocks);
+  const finalBlocks = mergeAdjacentBlocks(currentBlocks);
   const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: currentTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
@@ -276,9 +404,10 @@ function computeRescueProposal(
     },
     debugBefore,
     debugAfter: finalBlocks,
-    proportionalDebug: proportionalDebugData,
   };
 }
+
+// ── Component ──
 
 const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
   const [mode, setMode] = useState<DistributionMode>("proportional");
@@ -306,8 +435,8 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const handleApply = () => {
     if (!proposal) return;
     const appliedTransfer = proposal.proposedTransfer ?? transfer;
-    const final = applySmartChange(blocks, proposal.newBlocks);
-    onApply(final, appliedTransfer);
+    // Use proposal.newBlocks directly — no policy normalization
+    onApply(proposal.newBlocks, appliedTransfer);
     onOpenChange(false);
   };
 
@@ -420,12 +549,12 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </div>
           )}
 
-          {/* D) Debug (policy) panel */}
+          {/* D) Debug (rescue) panel */}
           {!computing && proposal && (
             <details className="border-t border-border pt-4">
               <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
                 <ChevronDown className="h-3 w-3" />
-                DEBUG (policy)
+                DEBUG (rescue)
               </summary>
               <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3 font-mono text-[10px] text-muted-foreground max-h-60 overflow-y-auto">
                 <div>
@@ -446,31 +575,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
                   <p>transferAmount = {proposal.transferAmount}</p>
                   <p>totalWeeks = {proposal.totalRequiredWeeks}</p>
-                  <p>MIN_AUTO_DPW = {MIN_AUTO_DPW}</p>
                 </div>
-                {proposal.proportionalDebug && (
-                  <div>
-                    <p className="font-semibold text-foreground/70">Proportional allocation</p>
-                    <div className="pl-3 space-y-0.5">
-                      {proposal.proportionalDebug.loads.map((l, i) => (
-                        <p key={i}>load({l.parentId.slice(0,8)}) = {l.load}</p>
-                      ))}
-                      {proposal.proportionalDebug.shares.map((s, i) => (
-                        <p key={i}>share({s.parentId.slice(0,8)}) = {(s.share * 100).toFixed(0)}%</p>
-                      ))}
-                      <p>requiredWeeksTotal = {proposal.proportionalDebug.requiredWeeksTotal}</p>
-                      {proposal.proportionalDebug.allocatedWeeks.map((a, i) => (
-                        <p key={i}>weeks({a.parentId.slice(0,8)}) = {a.weeks}</p>
-                      ))}
-                      <p className={
-                        proposal.proportionalDebug.allocatedWeeks.reduce((s, a) => s + a.weeks, 0) === proposal.proportionalDebug.requiredWeeksTotal
-                          ? "text-primary" : "text-destructive"
-                      }>
-                        sum = {proposal.proportionalDebug.allocatedWeeks.reduce((s, a) => s + a.weeks, 0)} (target={proposal.proportionalDebug.requiredWeeksTotal})
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </details>
           )}

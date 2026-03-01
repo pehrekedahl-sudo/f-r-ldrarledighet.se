@@ -795,12 +795,12 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
-          const merged = applySmartChange(blocks, newBlocks);
-          assertUniqueBlockIds(merged, "FitPlanDrawer-apply");
-          setBlocks(merged);
+          // Rescue returns pre-merged blocks — no policy normalization
+          assertUniqueBlockIds(newBlocks, "FitPlanDrawer-apply");
+          setBlocks(newBlocks);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
         }}
       />
       <HandoverDrawer
