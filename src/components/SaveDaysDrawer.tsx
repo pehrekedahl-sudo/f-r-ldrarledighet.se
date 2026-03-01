@@ -150,6 +150,9 @@ function detectBaseline(blocks: Block[], parentId: string): number {
       bestWeight = weight;
     }
   }
+  // Default to 6 unless the dominant value is clearly 7 (>80% of calendar time)
+  const totalWeight = Array.from(dpwWeight.values()).reduce((s, w) => s + w, 0);
+  if (best === 7 && bestWeight / totalWeight < 0.8) return 6;
   return best;
 }
 
@@ -240,63 +243,16 @@ function increaseBlocksV2(
 
   while (consumed < needed && iterations < 30) {
     iterations++;
-    // Sort candidates: latest startDate first
+    // Only allow increasing UP TO baseline — never above it
     const candidates = working
       .filter(b => {
         const baseline = baselines.get(b.parentId) ?? 6;
-        // Don't exceed baseline (e.g. don't go above 6 if baseline is 6)
         return b.daysPerWeek < baseline && allowedParentIds.has(b.parentId);
       })
       .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
       .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
 
-    if (candidates.length === 0) {
-      // Fallback: allow going up to 7 if we exhausted baseline options
-      const fallbackCandidates = working
-        .filter(b => b.daysPerWeek < 7 && allowedParentIds.has(b.parentId))
-        .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-        .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
-      if (fallbackCandidates.length === 0) break;
-
-      const target = fallbackCandidates[0].block;
-      const calDays = fallbackCandidates[0].calendarDays;
-      const newDpw = target.daysPerWeek + 1;
-      const potentialConsumed = Math.floor(calDays / 7);
-      if (potentialConsumed <= 0) break;
-
-      const still = needed - consumed;
-      const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
-
-      if (potentialConsumed <= still) {
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-        target.daysPerWeek = newDpw;
-        consumed += potentialConsumed;
-      } else {
-        const weeksNeeded = still;
-        const splitDayOffset = calDays - weeksNeeded * 7;
-        if (splitDayOffset <= 0) {
-          changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-          target.daysPerWeek = newDpw;
-          consumed += potentialConsumed;
-        } else {
-          const splitDate = addDaysISO(target.startDate, splitDayOffset);
-          const tailBlock: Block = {
-            id: generateBlockId("adj-use"),
-            parentId: target.parentId,
-            startDate: splitDate,
-            endDate: target.endDate,
-            daysPerWeek: newDpw,
-            lowestDaysPerWeek: target.lowestDaysPerWeek,
-            overlapGroupId: target.overlapGroupId,
-          };
-          changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
-          target.endDate = addDaysISO(splitDate, -1);
-          working.push(tailBlock);
-          consumed += weeksNeeded;
-        }
-      }
-      continue;
-    }
+    if (candidates.length === 0) break; // Hard stop — do NOT exceed baseline
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
