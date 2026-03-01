@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -53,6 +54,13 @@ type Props = {
   onApply: (newBlocks: Block[], newTransfer: Transfer | null) => void;
 };
 
+type DebugGroundTruth = {
+  shortageBefore: number;
+  budgetFlagBefore: boolean;
+  shortageAfter: number;
+  budgetFlagAfter: boolean;
+};
+
 type Proposal = {
   newBlocks: Block[];
   proposedTransfer: Transfer | null;
@@ -63,6 +71,7 @@ type Proposal = {
   transferOnly: boolean;
   totalRequiredWeeks: number;
   missingDays: number;
+  debug: DebugGroundTruth;
 };
 
 function getTransfers(transfer: Transfer | null) {
@@ -223,6 +232,12 @@ function computeRescueProposal(
       transferOnly: true,
       totalRequiredWeeks: 0,
       missingDays,
+      debug: {
+        shortageBefore: Math.round(origUnfulfilled),
+        budgetFlagBefore: !!(origResult as any).warnings?.budgetInsufficient,
+        shortageAfter: Math.round(finalUnfulfilled),
+        budgetFlagAfter: !!(finalResult as any).warnings?.budgetInsufficient,
+      },
     };
   }
 
@@ -382,6 +397,12 @@ function computeRescueProposal(
     transferOnly: false,
     totalRequiredWeeks: finalTotalWeeks,
     missingDays,
+    debug: {
+      shortageBefore: Math.round(origUnfulfilled),
+      budgetFlagBefore: !!(origResult as any).warnings?.budgetInsufficient,
+      shortageAfter: Math.round(finalUnfulfilled),
+      budgetFlagAfter: !!(finalResult as any).warnings?.budgetInsufficient,
+    },
   };
 }
 
@@ -523,6 +544,40 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 </p>
               </div>
             </div>
+          )}
+          {/* D) Debug ground truth panel (dev/demo only) */}
+          {!computing && proposal && (
+            <details className="border-t border-border pt-4">
+              <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
+                <ChevronDown className="h-3 w-3" />
+                Debug (ground truth)
+              </summary>
+              <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-2 font-mono text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground/70">A) simulatePlan(currentPlan)</p>
+                <div className="pl-3 space-y-0.5">
+                  <p>shortageBefore = <span className="text-foreground">{proposal.debug.shortageBefore}</span></p>
+                  <p>budgetFlagBefore = <span className="text-foreground">{String(proposal.debug.budgetFlagBefore)}</span></p>
+                </div>
+                <p className="font-semibold text-foreground/70">B) simulatePlan(proposalPlan)</p>
+                <div className="pl-3 space-y-0.5">
+                  <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
+                  <p>budgetFlagAfter = <span className="text-foreground">{String(proposal.debug.budgetFlagAfter)}</span></p>
+                </div>
+                <p className="font-semibold text-foreground/70">C) UI display values</p>
+                <div className="pl-3 space-y-0.5">
+                  <p>displayedShortage = <span className="text-foreground">{proposal.missingDays}</span></p>
+                  <p>transferDaysDisplayed = <span className="text-foreground">{proposal.transferAmount}</span></p>
+                  <p>weeksTotalDisplayed = <span className="text-foreground">{proposal.totalRequiredWeeks}</span></p>
+                  <p>sum = <span className={
+                    proposal.transferAmount + proposal.totalRequiredWeeks === proposal.missingDays
+                      ? "text-primary" : "text-amber-500 font-bold"
+                  }>{proposal.transferAmount + proposal.totalRequiredWeeks}</span>
+                  {proposal.transferAmount + proposal.totalRequiredWeeks !== proposal.missingDays && (
+                    <span className="text-amber-500"> ⚠ mismatch vs shortage ({proposal.missingDays})</span>
+                  )}</p>
+                </div>
+              </div>
+            </details>
           )}
         </div>
 
