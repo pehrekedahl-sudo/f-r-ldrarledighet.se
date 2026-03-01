@@ -470,10 +470,16 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm text-foreground font-medium">
-                  Planen saknar {proposal.missingDays} dagar.
+                  Planen behöver justeras för att gå ihop.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  För att planen ska gå ihop behöver ni:
+                  {proposal.transferAmount > 0 && proposal.totalRequiredWeeks > 0
+                    ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt."
+                    : proposal.transferAmount > 0 && proposal.totalRequiredWeeks === 0
+                    ? "Planen kräver omfördelning av dagar mellan er."
+                    : proposal.totalRequiredWeeks > 0
+                    ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten."
+                    : "Planen behöver justeras."}
                 </p>
                 <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
                   {proposal.transferAmount > 0 && (
