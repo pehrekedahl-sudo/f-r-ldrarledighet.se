@@ -11,6 +11,7 @@ import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
+import FitPlanDrawer from "@/components/FitPlanDrawer";
 
 import {
   Select,
@@ -88,6 +89,7 @@ const PlanBuilder = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"edit" | "create">("edit");
   const [saveDaysOpen, setSaveDaysOpen] = useState(false);
+  const [fitPlanOpen, setFitPlanOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -514,10 +516,15 @@ const PlanBuilder = () => {
             </section>
 
             {/* ── SMART ADJUSTMENTS ── */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
                 Sparade dagar
               </Button>
+              {unfulfilled > 0 && (
+                <Button variant="outline" size="sm" className="border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => setFitPlanOpen(true)}>
+                  Få planen att gå ihop
+                </Button>
+              )}
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
@@ -729,6 +736,19 @@ const PlanBuilder = () => {
       <SaveDaysDrawer
         open={saveDaysOpen}
         onOpenChange={setSaveDaysOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+        constants={CONSTANTS}
+        transfer={transfer}
+        onApply={(newBlocks) => {
+          setBlocks(newBlocks);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
+        }}
+      />
+      <FitPlanDrawer
+        open={fitPlanOpen}
+        onOpenChange={setFitPlanOpen}
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
         constants={CONSTANTS}
