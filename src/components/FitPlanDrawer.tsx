@@ -62,6 +62,7 @@ type Proposal = {
   success: boolean;
   transferOnly: boolean;
   totalRequiredWeeks: number;
+  missingDays: number;
 };
 
 function getTransfers(transfer: Transfer | null) {
@@ -198,10 +199,11 @@ function computeRescueProposal(
 
   // ── Step 2: If transfer alone solves it ──
   if (remainingShortage <= 0 && proposedTransfer) {
-    const finalResult = simulatePlan({ parents, blocks, transfers: [proposedTransfer], constants });
+    const finalBlocks = blocks.map(b => ({ ...b }));
+    const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: [proposedTransfer], constants });
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
     return {
-      newBlocks: blocks,
+      newBlocks: finalBlocks,
       proposedTransfer,
       transferAmount,
       reductionSummary: [],
@@ -209,6 +211,7 @@ function computeRescueProposal(
       success: true,
       transferOnly: true,
       totalRequiredWeeks: 0,
+      missingDays,
     };
   }
 
@@ -296,6 +299,7 @@ function computeRescueProposal(
     success: finalUnfulfilled <= 0,
     transferOnly: false,
     totalRequiredWeeks: requiredWeeks,
+    missingDays,
   };
 }
 
@@ -303,49 +307,9 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const [mode, setMode] = useState<DistributionMode>("proportional");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [computing, setComputing] = useState(false);
-  const [missingDays, setMissingDays] = useState(0);
-  const [transferDays, setTransferDays] = useState(0);
-  const [totalRequiredWeeks, setTotalRequiredWeeks] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Compute neutral summary on open
-  useEffect(() => {
-    if (open) {
-      const baseTransfers = getTransfers(transfer);
-      const result = simulatePlan({ parents, blocks, transfers: baseTransfers, constants });
-      const unfulfilled = Math.ceil(result.unfulfilledDaysTotal ?? 0);
-      setMissingDays(unfulfilled);
-
-      // Compute transfer potential
-      const scored = result.parentsResult.map((pr: any) => ({
-        id: pr.parentId,
-        transferable: pr.remaining.sicknessTransferable as number,
-        totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
-      }));
-      scored.sort((a: any, b: any) => a.totalRemaining - b.totalRemaining);
-      const needy = scored[0];
-      const giver = scored[scored.length - 1];
-      const maxTransfer = (giver && needy && giver.id !== needy.id)
-        ? Math.min(Math.floor(giver.transferable ?? 0), unfulfilled)
-        : 0;
-      const effectiveTransfer = maxTransfer > 0 ? maxTransfer : 0;
-      const remainingAfterTransfer = Math.max(0, unfulfilled - effectiveTransfer);
-
-      setTransferDays(effectiveTransfer);
-      setTotalRequiredWeeks(remainingAfterTransfer);
-
-      console.log("[RescueMode summary]", {
-        missingDays: unfulfilled,
-        transferDays: effectiveTransfer,
-        remainingAfterTransfer,
-        requiredWeeks: remainingAfterTransfer,
-      });
-
-      setMode("proportional");
-    }
-  }, [open, blocks, parents, constants, transfer]);
-
-  // Recompute proposal when mode changes
+  // Single source of truth: compute proposal on open + mode change
   useEffect(() => {
     if (!open) return;
     setComputing(true);
@@ -359,9 +323,22 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [open, mode, blocks, parents, constants, transfer]);
 
+  // Reset mode on open
+  useEffect(() => {
+    if (open) setMode("proportional");
+  }, [open]);
+
   const handleApply = () => {
     if (!proposal) return;
+
+    // Snapshot expected daysPerWeek before applying
+    const expectedDpw = proposal.newBlocks.map(b => ({ id: b.id, dpw: b.daysPerWeek }));
+
     onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
+
+    // Dev sanity check: verify applied blocks match proposal
+    console.log("[RescueMode Apply] expected block dpw:", expectedDpw);
+
     onOpenChange(false);
   };
 
@@ -373,29 +350,37 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          {/* A) Neutral recommendation */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
-            <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
-              <p className="text-sm text-foreground font-medium">
-                Planen saknar {missingDays} dagar.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                För att planen ska gå ihop behöver ni:
-              </p>
-              <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
-                {transferDays > 0 && (
-                  <li>Överföra {transferDays} dagar mellan er</li>
-                )}
-                {totalRequiredWeeks > 0 && (
-                  <li>Minska uttaget med {totalRequiredWeeks} veckor totalt</li>
-                )}
-                {transferDays <= 0 && totalRequiredWeeks <= 0 && (
-                  <li>Inga justeringar behövs</li>
-                )}
-              </ul>
+          {/* A) Neutral recommendation — derived from proposal */}
+          {computing ? (
+            <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
+          ) : proposal ? (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
+              <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
+                <p className="text-sm text-foreground font-medium">
+                  Planen saknar {proposal.missingDays} dagar.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  För att planen ska gå ihop behöver ni:
+                </p>
+                <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
+                  {proposal.transferAmount > 0 && (
+                    <li>Överföra {proposal.transferAmount} dagar mellan er</li>
+                  )}
+                  {proposal.totalRequiredWeeks > 0 && (
+                    <li>Minska uttaget med {proposal.totalRequiredWeeks} veckor totalt</li>
+                  )}
+                  {proposal.transferAmount <= 0 && proposal.totalRequiredWeeks <= 0 && (
+                    <li>Inga justeringar behövs</li>
+                  )}
+                </ul>
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Kunde inte hitta en justering. Planen kanske redan går ihop.
+            </p>
+          )}
 
           {/* B) Distribution selection */}
           <div className="space-y-3 border-t border-border pt-5">
@@ -420,10 +405,8 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </RadioGroup>
           </div>
 
-          {/* C) Live preview */}
-          {computing ? (
-            <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
-          ) : proposal ? (
+          {/* C) Live preview — only render when proposal exists (already gated above) */}
+          {!computing && proposal && (
             <div className="space-y-4 border-t border-border pt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detta innebär</p>
 
@@ -453,10 +436,6 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 </p>
               </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">
-              Kunde inte hitta en justering. Planen kanske redan går ihop.
-            </p>
           )}
         </div>
 
