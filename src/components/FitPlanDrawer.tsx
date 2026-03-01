@@ -167,7 +167,7 @@ function computeRescueProposal(
   if (origUnfulfilled <= 0) return null;
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
-  const missingDays = Math.ceil(origUnfulfilled);
+  const missingDays = Math.round(origUnfulfilled);
 
   // ── Step 1: Try transfers first ──
   const scored = origResult.parentsResult.map((pr: any) => ({
@@ -201,23 +201,25 @@ function computeRescueProposal(
     const testResult = simulatePlan({ parents, blocks, transfers: [testTransfer], constants });
     const testUnfulfilled = testResult.unfulfilledDaysTotal ?? 0;
 
-    transferAmount = tryAmount;
+    transferAmount = existingAmount + tryAmount;
     proposedTransfer = testTransfer;
-    remainingShortage = Math.ceil(testUnfulfilled > 0 ? testUnfulfilled : 0);
+    remainingShortage = Math.round(testUnfulfilled > 0 ? testUnfulfilled : 0);
   }
 
   // ── Step 2: If transfer alone solves it ──
   if (remainingShortage <= 0 && proposedTransfer) {
     const finalBlocks = blocks.map(b => ({ ...b }));
     const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: [proposedTransfer], constants });
+    const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
+    console.log("[RescueMode transfer-only]", { transferAmount: proposedTransfer.sicknessDays, finalUnfulfilled, missingDays });
     return {
       newBlocks: finalBlocks,
       proposedTransfer,
-      transferAmount,
+      transferAmount: proposedTransfer.sicknessDays,
       reductionSummary: [],
       deltaMonthly: Math.round(newAvg - origAvg),
-      success: true,
+      success: finalUnfulfilled <= 0,
       transferOnly: true,
       totalRequiredWeeks: 0,
       missingDays,
@@ -305,7 +307,7 @@ function computeRescueProposal(
           sicknessDays: currentTransfer.sicknessDays + extraAmount,
         };
         currentTransfers = [currentTransfer];
-        transferAmount += extraAmount;
+        // transferAmount is derived from currentTransfer.sicknessDays at the end
         // Re-check
         checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
         iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
@@ -360,12 +362,20 @@ function computeRescueProposal(
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
-  console.log("[RescueMode closed-loop]", { iterations, finalUnfulfilled, finalTotalWeeks, transferAmount });
+  // Use engine-derived final transfer amount (total sicknessDays in proposal)
+  const finalTransferDays = currentTransfer ? currentTransfer.sicknessDays : 0;
+
+  console.log("[RescueMode closed-loop]", { iterations, finalUnfulfilled, finalTotalWeeks, finalTransferDays, missingDays });
+  
+  // Dev sanity: compare actions sum vs engine shortage
+  if (finalTransferDays + finalTotalWeeks !== missingDays) {
+    console.warn(`[RescueMode sanity] transferDays(${finalTransferDays}) + weeksTotal(${finalTotalWeeks}) = ${finalTransferDays + finalTotalWeeks} vs shortage(${missingDays}). Mismatch is normal due to engine rounding.`);
+  }
 
   return {
     newBlocks: finalSorted,
     proposedTransfer: currentTransfer,
-    transferAmount,
+    transferAmount: finalTransferDays,
     reductionSummary,
     deltaMonthly: Math.round(newAvg - origAvg),
     success: finalUnfulfilled <= 0,
