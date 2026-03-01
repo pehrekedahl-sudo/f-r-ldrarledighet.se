@@ -139,6 +139,12 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
+          {/* Dev debug */}
+          {!isCreate && block && (
+            <p className="text-[10px] font-mono text-muted-foreground/50">
+              Editing blockId: {block.id} (parent: {parentId})
+            </p>
+          )}
           {isCreate && (
             <div className="space-y-1">
               <Label>Förälder</Label>
