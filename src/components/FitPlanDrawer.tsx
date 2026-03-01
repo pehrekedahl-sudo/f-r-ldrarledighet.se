@@ -89,11 +89,13 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
-/** Reduce dpw by 1 for the LAST `weeks` calendar weeks of the given parent's blocks */
+/** Reduce dpw by 1 for the LAST `weeks` calendar weeks of the given parent's blocks.
+ *  Uses originalDpwMap to ensure no block is reduced by more than 1 from its original value. */
 function applyWeekReduction(
   working: Block[],
   parentId: string,
   weeks: number,
+  originalDpwMap: Map<string, number>,
 ): void {
   if (weeks <= 0) return;
 
@@ -107,26 +109,33 @@ function applyWeekReduction(
     if (remaining <= 0) break;
     if (block.daysPerWeek <= 0) continue;
 
+    // Skip blocks already reduced by 1 from original
+    const origDpw = originalDpwMap.get(block.id) ?? block.daysPerWeek;
+    if (block.daysPerWeek < origDpw) continue;
+
     const calDays = calendarDaysOf(block);
     const blockWeeks = Math.floor(calDays / 7);
     if (blockWeeks <= 0) continue;
 
     if (blockWeeks <= remaining) {
-      block.daysPerWeek -= 1;
+      block.daysPerWeek = Math.max(0, origDpw - 1);
       remaining -= blockWeeks;
     } else {
       const headDays = calDays - remaining * 7;
       const splitDate = addDaysISO(block.startDate, headDays);
+      const tailId = `rescue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const tailBlock: Block = {
-        id: `rescue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: tailId,
         parentId: block.parentId,
         startDate: splitDate,
         endDate: block.endDate,
-        daysPerWeek: block.daysPerWeek - 1,
+        daysPerWeek: Math.max(0, origDpw - 1),
         lowestDaysPerWeek: block.lowestDaysPerWeek,
         overlapGroupId: block.overlapGroupId,
       };
       block.endDate = addDaysISO(splitDate, -1);
+      // Record original dpw for the new tail block
+      originalDpwMap.set(tailId, origDpw);
       working.push(tailBlock);
       remaining = 0;
     }
@@ -218,8 +227,14 @@ function computeRescueProposal(
   // ── Step 3: Week-based pace reduction using ONLY remainingShortage ──
   const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
   const working = blocks.map(b => ({ ...b }));
-  const requiredWeeks = remainingShortage; // This is already missingDays - transferDays
+  const requiredWeeks = remainingShortage;
   const reductionSummary: Proposal["reductionSummary"] = [];
+
+  // Build original dpw map — snapshot BEFORE any mutations
+  const originalDpwMap = new Map<string, number>();
+  for (const b of working) {
+    originalDpwMap.set(b.id, b.daysPerWeek);
+  }
 
   console.log("[RescueMode proposal]", {
     missingDays: Math.ceil(origUnfulfilled),
@@ -259,36 +274,32 @@ function computeRescueProposal(
       if (weeks <= 0) continue;
       const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
       const oldDpw = sampleBlock?.daysPerWeek ?? 0;
-      applyWeekReduction(working, pid, weeks);
+      applyWeekReduction(working, pid, weeks, originalDpwMap);
       const parentName = parents.find(p => p.id === pid)?.name ?? "";
       reductionSummary.push({ parentName, weeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
     }
   }
 
-  // Check if still unfulfilled and try to fix remainder
-  const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const midResult = simulatePlan({ parents, blocks: sorted, transfers: activeTransfers, constants });
-  const midUnfulfilled = midResult.unfulfilledDaysTotal ?? 0;
-  if (midUnfulfilled > 0) {
-    const extraWeeks = Math.ceil(midUnfulfilled);
-    for (const p of parents) {
-      const existingEntry = reductionSummary.find(r => r.parentName === p.name);
-      const sampleBlock = working.find(b => b.parentId === p.id && b.daysPerWeek > 0);
-      if (!sampleBlock) continue;
-      applyWeekReduction(working, p.id, extraWeeks);
-      if (existingEntry) {
-        existingEntry.weeks += extraWeeks;
-      } else {
-        reductionSummary.push({ parentName: p.name, weeks: extraWeeks, oldDpw: sampleBlock.daysPerWeek, newDpw: Math.max(0, sampleBlock.daysPerWeek - 1) });
-      }
-      break;
+  // ── Sanity check: no block reduced by more than 1 from original ──
+  for (const b of working) {
+    const origDpw = originalDpwMap.get(b.id);
+    if (origDpw !== undefined && b.daysPerWeek < origDpw - 1) {
+      console.error(`[RescueMode] DOUBLE REDUCTION detected! Block ${b.id} (${b.parentId}): original=${origDpw}, now=${b.daysPerWeek}`);
     }
+  }
+
+  // Verify preview weeks sum
+  const previewWeeksSum = reductionSummary.reduce((s, r) => s + r.weeks, 0);
+  if (previewWeeksSum !== requiredWeeks) {
+    console.error(`[RescueMode] Week sum mismatch: preview=${previewWeeksSum}, required=${requiredWeeks}`);
   }
 
   const finalSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const finalResult = simulatePlan({ parents, blocks: finalSorted, transfers: activeTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
+
+  console.log("[RescueMode proposalPlan.transfers]", activeTransfers);
 
   return {
     newBlocks: finalSorted,
@@ -331,14 +342,12 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const handleApply = () => {
     if (!proposal) return;
 
-    // Snapshot expected daysPerWeek before applying
-    const expectedDpw = proposal.newBlocks.map(b => ({ id: b.id, dpw: b.daysPerWeek }));
+    const appliedTransfer = proposal.proposedTransfer ?? transfer;
 
-    onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
+    console.log("[RescueMode Apply] blocks:", proposal.newBlocks.map(b => ({ id: b.id, pid: b.parentId, dpw: b.daysPerWeek })));
+    console.log("[RescueMode Apply] transfer:", appliedTransfer);
 
-    // Dev sanity check: verify applied blocks match proposal
-    console.log("[RescueMode Apply] expected block dpw:", expectedDpw);
-
+    onApply(proposal.newBlocks, appliedTransfer);
     onOpenChange(false);
   };
 
@@ -412,6 +421,13 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
 
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <ul className="text-sm text-foreground space-y-1.5 list-disc list-inside">
+                  {proposal.proposedTransfer && proposal.transferAmount > 0 && (
+                    <li>
+                      Överför {proposal.transferAmount} dagar från{" "}
+                      {parents.find(p => p.id === proposal.proposedTransfer!.fromParentId)?.name ?? "?"}{" "}
+                      till {parents.find(p => p.id === proposal.proposedTransfer!.toParentId)?.name ?? "?"}
+                    </li>
+                  )}
                   {proposal.reductionSummary.map((r, i) => (
                     <li key={i}>
                       {r.parentName} minskar uttaget med 1 dag/vecka i {r.weeks} veckor
