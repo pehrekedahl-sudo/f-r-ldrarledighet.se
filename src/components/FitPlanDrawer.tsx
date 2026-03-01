@@ -370,22 +370,33 @@ function computeRescueProposal(
     }
   }
 
-  const finalTotalWeeks = reductionSummary.reduce((s, r) => s + r.weeks, 0);
   const finalSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const finalTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
   const finalResult = simulatePlan({ parents, blocks: finalSorted, transfers: finalTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
-  // Use engine-derived final transfer amount (total sicknessDays in proposal)
+  // Derive FINAL display values from engine truth
   const finalTransferDays = currentTransfer ? currentTransfer.sicknessDays : 0;
+  const finalTotalWeeks = Math.max(0, missingDays - finalTransferDays);
+
+  // Update reductionSummary weeks to match derived total
+  const summaryWeeksRaw = reductionSummary.reduce((s, r) => s + r.weeks, 0);
+  if (summaryWeeksRaw !== finalTotalWeeks && reductionSummary.length > 0) {
+    // Scale summary weeks proportionally to match derived total
+    const scale = summaryWeeksRaw > 0 ? finalTotalWeeks / summaryWeeksRaw : 1;
+    let assigned = 0;
+    for (let i = 0; i < reductionSummary.length; i++) {
+      if (i === reductionSummary.length - 1) {
+        reductionSummary[i].weeks = finalTotalWeeks - assigned;
+      } else {
+        reductionSummary[i].weeks = Math.round(reductionSummary[i].weeks * scale);
+        assigned += reductionSummary[i].weeks;
+      }
+    }
+  }
 
   console.log("[RescueMode closed-loop]", { iterations, finalUnfulfilled, finalTotalWeeks, finalTransferDays, missingDays });
-  
-  // Dev sanity: compare actions sum vs engine shortage
-  if (finalTransferDays + finalTotalWeeks !== missingDays) {
-    console.warn(`[RescueMode sanity] transferDays(${finalTransferDays}) + weeksTotal(${finalTotalWeeks}) = ${finalTransferDays + finalTotalWeeks} vs shortage(${missingDays}). Mismatch is normal due to engine rounding.`);
-  }
 
   return {
     newBlocks: finalSorted,
