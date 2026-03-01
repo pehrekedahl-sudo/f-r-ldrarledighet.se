@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
-import { mergeAdjacentBlocks } from "@/lib/mergeAdjacentBlocks";
 import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
+import { normalizeBlocks, applySmartChange } from "@/lib/adjustmentPolicy";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
@@ -182,7 +182,7 @@ const PlanBuilder = () => {
   const handleDrawerSave = (updated: Block) => {
     setHasManualEdits(true);
     if (drawerMode === "create") {
-      const newBlocks = mergeAdjacentBlocks([...blocks, updated]);
+      const newBlocks = normalizeBlocks([...blocks, updated]);
       assertUniqueBlockIds(newBlocks, "drawerSave-create");
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -190,7 +190,7 @@ const PlanBuilder = () => {
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
     } else {
       const replaced = blocks.map(b => b.id === updated.id ? updated : b);
-      const merged = mergeAdjacentBlocks(replaced);
+      const merged = normalizeBlocks(replaced);
       assertUniqueBlockIds(merged, "drawerSave-edit");
       setBlocks(merged);
       const valid = merged.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -779,7 +779,7 @@ const PlanBuilder = () => {
         transfer={transfer}
         hasManualEdits={hasManualEdits}
         onApply={(newBlocks) => {
-          const merged = mergeAdjacentBlocks(newBlocks);
+          const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           setBlocks(merged);
           setHasManualEdits(false);
@@ -795,7 +795,7 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
-          const merged = mergeAdjacentBlocks(newBlocks);
+          const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "FitPlanDrawer-apply");
           setBlocks(merged);
           setTransfer(newTransfer);
@@ -811,7 +811,7 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks) => {
-          const merged = mergeAdjacentBlocks(newBlocks);
+          const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];

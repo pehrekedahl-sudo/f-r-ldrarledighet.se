@@ -18,16 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { simulatePlan } from "@/lib/simulatePlan";
-
-type Block = {
-  id: string;
-  parentId: string;
-  startDate: string;
-  endDate: string;
-  daysPerWeek: number;
-  lowestDaysPerWeek?: number;
-  overlapGroupId?: string;
-};
+import { applySmartChange, type Block } from "@/lib/adjustmentPolicy";
 
 type Parent = {
   id: string;
@@ -201,7 +192,8 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const handleApply = () => {
     if (!proposalResult || "error" in proposalResult) return;
     console.log("[HandoverDrawer Apply]", { handoverDate });
-    onApply(proposalResult.newBlocks);
+    const final = applySmartChange(blocks, proposalResult.newBlocks);
+    onApply(final);
     onOpenChange(false);
   };
 
