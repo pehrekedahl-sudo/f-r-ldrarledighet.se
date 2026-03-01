@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { generateBlockId } from "@/lib/blockIdUtils";
+import { normalizeBlocks } from "@/lib/normalizeBlocks";
 
 type Block = {
   id: string;
@@ -51,6 +52,7 @@ type Props = {
   constants: Constants;
   transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
   onApply: (newBlocks: Block[]) => void;
+  hasManualEdits?: boolean;
 };
 
 type CurrentState = {
@@ -128,40 +130,61 @@ function calendarDaysOf(b: Block): number {
   ) + 1;
 }
 
-function parentOrderByTaken(blocks: Block[], parents: Parent[], constants: Constants, transfer: Props["transfer"], descending: boolean): string[] {
-  const transfers = getTransfers(transfer);
-  const result = simulatePlan({ parents, blocks, transfers, constants });
-  const scored = result.parentsResult.map((pr: any) => ({
-    id: pr.parentId,
-    taken: pr.taken.sickness + pr.taken.lowest,
-  }));
-  scored.sort((a: any, b: any) => descending ? b.taken - a.taken : a.taken - b.taken);
-  return scored.map((s: any) => s.id);
+/**
+ * Detect baseline daysPerWeek for a parent.
+ * Returns the most common dpw value across their blocks (weighted by calendar days).
+ */
+function detectBaseline(blocks: Block[], parentId: string): number {
+  const parentBlocks = blocks.filter(b => b.parentId === parentId);
+  if (parentBlocks.length === 0) return 6;
+  const dpwWeight = new Map<number, number>();
+  for (const b of parentBlocks) {
+    const days = calendarDaysOf(b);
+    dpwWeight.set(b.daysPerWeek, (dpwWeight.get(b.daysPerWeek) ?? 0) + days);
+  }
+  let best = 6;
+  let bestWeight = 0;
+  for (const [dpw, weight] of dpwWeight) {
+    if (weight > bestWeight) {
+      best = dpw;
+      bestWeight = weight;
+    }
+  }
+  return best;
 }
 
-// ── reduce: save more days by lowering dpw ──
+// ── V2 reduce: save more days by lowering dpw from the LATEST blocks ──
 
-function reduceBlocks(
+function reduceBlocksV2(
   working: Block[],
   needed: number,
   allowedParentIds: Set<string>,
   parents: Parent[],
+  baselines: Map<string, number>,
 ): { freed: number; changes: ChangeEntry[] } {
   let freed = 0;
   const changes: ChangeEntry[] = [];
   let iterations = 0;
 
-  while (freed < needed && iterations < 20) {
+  while (freed < needed && iterations < 30) {
     iterations++;
+    // Sort candidates: latest startDate first, then longest block
     const candidates = working
-      .filter(b => b.daysPerWeek > 1 && allowedParentIds.has(b.parentId))
+      .filter(b => b.daysPerWeek > 0 && allowedParentIds.has(b.parentId))
       .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-      .sort((a, b) => b.calendarDays - a.calendarDays);
+      .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
 
     if (candidates.length === 0) break;
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
+    const baseline = baselines.get(target.parentId) ?? 6;
+
+    // Don't go below 0
+    if (target.daysPerWeek <= 0) break;
+
+    // Prefer staying in baseline-1 range (e.g. 6→5)
+    const newDpw = target.daysPerWeek - 1;
     const potentialSaved = Math.floor(calDays / 7);
     if (potentialSaved <= 0) break;
 
@@ -169,15 +192,16 @@ function reduceBlocks(
     const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
 
     if (potentialSaved <= still) {
-      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
-      target.daysPerWeek -= 1;
+      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+      target.daysPerWeek = newDpw;
       freed += potentialSaved;
     } else {
+      // Split: only reduce the TAIL portion (latest weeks)
       const weeksNeeded = still;
       const splitDayOffset = calDays - weeksNeeded * 7;
       if (splitDayOffset <= 0) {
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
-        target.daysPerWeek -= 1;
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+        target.daysPerWeek = newDpw;
         freed += potentialSaved;
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
@@ -186,11 +210,11 @@ function reduceBlocks(
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,
-          daysPerWeek: target.daysPerWeek - 1,
+          daysPerWeek: newDpw,
           lowestDaysPerWeek: target.lowestDaysPerWeek,
           overlapGroupId: target.overlapGroupId,
         };
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: newBlock.daysPerWeek, fromDate: splitDate });
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
         target.endDate = addDaysISO(splitDate, -1);
         working.push(newBlock);
         freed += weeksNeeded;
@@ -201,30 +225,82 @@ function reduceBlocks(
   return { freed, changes };
 }
 
-// ── increase: use more days by raising dpw ──
+// ── V2 increase: use more days by raising dpw, cap at baseline ──
 
-function increaseBlocks(
+function increaseBlocksV2(
   working: Block[],
   needed: number,
   allowedParentIds: Set<string>,
   parents: Parent[],
+  baselines: Map<string, number>,
 ): { consumed: number; changes: ChangeEntry[] } {
   let consumed = 0;
   const changes: ChangeEntry[] = [];
   let iterations = 0;
 
-  // Sort by start date ascending – increase from earliest blocks first
-  while (consumed < needed && iterations < 20) {
+  while (consumed < needed && iterations < 30) {
     iterations++;
+    // Sort candidates: latest startDate first
     const candidates = working
-      .filter(b => b.daysPerWeek < 7 && allowedParentIds.has(b.parentId))
+      .filter(b => {
+        const baseline = baselines.get(b.parentId) ?? 6;
+        // Don't exceed baseline (e.g. don't go above 6 if baseline is 6)
+        return b.daysPerWeek < baseline && allowedParentIds.has(b.parentId);
+      })
       .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-      .sort((a, b) => a.block.startDate.localeCompare(b.block.startDate) || b.calendarDays - a.calendarDays);
+      .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
 
-    if (candidates.length === 0) break;
+    if (candidates.length === 0) {
+      // Fallback: allow going up to 7 if we exhausted baseline options
+      const fallbackCandidates = working
+        .filter(b => b.daysPerWeek < 7 && allowedParentIds.has(b.parentId))
+        .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
+        .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
+      if (fallbackCandidates.length === 0) break;
+
+      const target = fallbackCandidates[0].block;
+      const calDays = fallbackCandidates[0].calendarDays;
+      const newDpw = target.daysPerWeek + 1;
+      const potentialConsumed = Math.floor(calDays / 7);
+      if (potentialConsumed <= 0) break;
+
+      const still = needed - consumed;
+      const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
+
+      if (potentialConsumed <= still) {
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+        target.daysPerWeek = newDpw;
+        consumed += potentialConsumed;
+      } else {
+        const weeksNeeded = still;
+        const splitDayOffset = calDays - weeksNeeded * 7;
+        if (splitDayOffset <= 0) {
+          changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+          target.daysPerWeek = newDpw;
+          consumed += potentialConsumed;
+        } else {
+          const splitDate = addDaysISO(target.startDate, splitDayOffset);
+          const tailBlock: Block = {
+            id: generateBlockId("adj-use"),
+            parentId: target.parentId,
+            startDate: splitDate,
+            endDate: target.endDate,
+            daysPerWeek: newDpw,
+            lowestDaysPerWeek: target.lowestDaysPerWeek,
+            overlapGroupId: target.overlapGroupId,
+          };
+          changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
+          target.endDate = addDaysISO(splitDate, -1);
+          working.push(tailBlock);
+          consumed += weeksNeeded;
+        }
+      }
+      continue;
+    }
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
+    const newDpw = target.daysPerWeek + 1;
     const potentialConsumed = Math.floor(calDays / 7);
     if (potentialConsumed <= 0) break;
 
@@ -232,16 +308,16 @@ function increaseBlocks(
     const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
 
     if (potentialConsumed <= still) {
-      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
-      target.daysPerWeek += 1;
+      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+      target.daysPerWeek = newDpw;
       consumed += potentialConsumed;
     } else {
-      // Split block: increase only head portion
+      // Split: only increase the TAIL portion (latest weeks)
       const weeksNeeded = still;
-      const splitDayOffset = weeksNeeded * 7;
-      if (splitDayOffset >= calDays) {
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
-        target.daysPerWeek += 1;
+      const splitDayOffset = calDays - weeksNeeded * 7;
+      if (splitDayOffset <= 0) {
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
+        target.daysPerWeek = newDpw;
         consumed += potentialConsumed;
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
@@ -250,13 +326,12 @@ function increaseBlocks(
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,
-          daysPerWeek: target.daysPerWeek,
+          daysPerWeek: newDpw,
           lowestDaysPerWeek: target.lowestDaysPerWeek,
           overlapGroupId: target.overlapGroupId,
         };
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek + 1, fromDate: target.startDate });
+        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
         target.endDate = addDaysISO(splitDate, -1);
-        target.daysPerWeek += 1;
         working.push(tailBlock);
         consumed += weeksNeeded;
       }
@@ -286,63 +361,55 @@ function computeProposal(
   const direction: "save" | "use" = delta > 0 ? "save" : "use";
   const absDelta = Math.abs(delta);
 
+  // Detect baselines per parent
+  const baselines = new Map<string, number>();
+  for (const p of parents) {
+    baselines.set(p.id, detectBaseline(blocks, p.id));
+  }
+
+  const doAdjust = (amount: number, parentIds: Set<string>) => {
+    if (direction === "save") {
+      return reduceBlocksV2(working, amount, parentIds, parents, baselines);
+    } else {
+      return increaseBlocksV2(working, amount, parentIds, parents, baselines);
+    }
+  };
+
   if (source === "both" && parents.length >= 2) {
-    // Even split between both parents
     const halfA = Math.round(absDelta / 2);
     const halfB = absDelta - halfA;
     const parentIds = parents.map(p => p.id);
 
-    if (direction === "save") {
-      const r1 = reduceBlocks(working, halfA, new Set([parentIds[0]]), parents);
-      allChanges.push(...r1.changes);
-      const r2 = reduceBlocks(working, halfB, new Set([parentIds[1]]), parents);
-      allChanges.push(...r2.changes);
-      // Shift remainder if one parent couldn't fully adjust
-      const shortfall1 = halfA - r1.freed;
-      const shortfall2 = halfB - r2.freed;
-      if (shortfall1 > 0) {
-        const extra = reduceBlocks(working, shortfall1, new Set([parentIds[1]]), parents);
-        allChanges.push(...extra.changes);
-      }
-      if (shortfall2 > 0) {
-        const extra = reduceBlocks(working, shortfall2, new Set([parentIds[0]]), parents);
-        allChanges.push(...extra.changes);
-      }
-    } else {
-      const r1 = increaseBlocks(working, halfA, new Set([parentIds[0]]), parents);
-      allChanges.push(...r1.changes);
-      const r2 = increaseBlocks(working, halfB, new Set([parentIds[1]]), parents);
-      allChanges.push(...r2.changes);
-      const shortfall1 = halfA - r1.consumed;
-      const shortfall2 = halfB - r2.consumed;
-      if (shortfall1 > 0) {
-        const extra = increaseBlocks(working, shortfall1, new Set([parentIds[1]]), parents);
-        allChanges.push(...extra.changes);
-      }
-      if (shortfall2 > 0) {
-        const extra = increaseBlocks(working, shortfall2, new Set([parentIds[0]]), parents);
-        allChanges.push(...extra.changes);
-      }
+    const r1 = doAdjust(halfA, new Set([parentIds[0]]));
+    allChanges.push(...r1.changes);
+    const r2 = doAdjust(halfB, new Set([parentIds[1]]));
+    allChanges.push(...r2.changes);
+
+    const got1 = direction === "save" ? (r1 as any).freed : (r1 as any).consumed;
+    const got2 = direction === "save" ? (r2 as any).freed : (r2 as any).consumed;
+    const shortfall1 = halfA - (got1 ?? 0);
+    const shortfall2 = halfB - (got2 ?? 0);
+    if (shortfall1 > 0) {
+      const extra = doAdjust(shortfall1, new Set([parentIds[1]]));
+      allChanges.push(...extra.changes);
+    }
+    if (shortfall2 > 0) {
+      const extra = doAdjust(shortfall2, new Set([parentIds[0]]));
+      allChanges.push(...extra.changes);
     }
   } else if (source === "both") {
-    // Fallback for single parent
-    const r = direction === "save"
-      ? reduceBlocks(working, absDelta, new Set(parents.map(p => p.id)), parents)
-      : increaseBlocks(working, absDelta, new Set(parents.map(p => p.id)), parents);
-    allChanges.push(...(r as any).changes);
+    const r = doAdjust(absDelta, new Set(parents.map(p => p.id)));
+    allChanges.push(...r.changes);
   } else {
-    if (direction === "save") {
-      const r = reduceBlocks(working, absDelta, new Set([source]), parents);
-      allChanges.push(...r.changes);
-    } else {
-      const r = increaseBlocks(working, absDelta, new Set([source]), parents);
-      allChanges.push(...r.changes);
-    }
+    const r = doAdjust(absDelta, new Set([source]));
+    allChanges.push(...r.changes);
   }
 
   if (allChanges.length === 0) return null;
 
-  const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  // Normalize: merge + absorb micro-blocks
+  const normalized = normalizeBlocks(working);
+  const sorted = normalized.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
@@ -365,7 +432,7 @@ function computeProposal(
 
 // ── component ──
 
-const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
+const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits }: Props) => {
   const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
 
@@ -446,6 +513,13 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
+          {/* Manual edits note */}
+          {hasManualEdits && (
+            <div className="border border-border rounded-lg p-3 bg-muted/30 text-xs text-muted-foreground">
+              Du har justerat planen manuellt. Vi försöker nu hålla ändringen så nära din plan som möjligt.
+            </div>
+          )}
+
           {/* Current breakdown */}
           <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
             <p className="text-sm font-medium">Ni har just nu:</p>
