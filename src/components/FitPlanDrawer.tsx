@@ -280,36 +280,97 @@ function computeRescueProposal(
     }
   }
 
+  // ── Closed-loop: iteratively fix until simulatePlan confirms 0 unfulfilled ──
+  let currentTransfer = proposedTransfer;
+  let currentTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
+  let iterSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  let checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
+  let iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
+  let iterations = 0;
+  const MAX_ITER = 200;
+
+  while (iterUnfulfilled > 0 && iterations < MAX_ITER) {
+    iterations++;
+    let fixed = false;
+
+    // a) Try adding more transfer first
+    if (currentTransfer) {
+      const checkParents = checkResult.parentsResult;
+      const giverResult = checkParents.find((pr: any) => pr.parentId === currentTransfer!.fromParentId);
+      const extraTransferable = Math.floor(giverResult?.remaining?.sicknessTransferable ?? 0);
+      if (extraTransferable > 0) {
+        const extraAmount = Math.min(extraTransferable, Math.ceil(iterUnfulfilled));
+        currentTransfer = {
+          ...currentTransfer,
+          sicknessDays: currentTransfer.sicknessDays + extraAmount,
+        };
+        currentTransfers = [currentTransfer];
+        transferAmount += extraAmount;
+        // Re-check
+        checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
+        iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
+        if (iterUnfulfilled <= 0) { fixed = true; break; }
+      }
+    }
+
+    // b) Add +1 week reduction to a parent that still has reducible blocks
+    if (!fixed) {
+      let reduced = false;
+      for (const p of parents) {
+        const hasReducible = working.some(b =>
+          b.parentId === p.id &&
+          b.daysPerWeek > 0 &&
+          b.daysPerWeek >= (originalDpwMap.get(b.id) ?? b.daysPerWeek)
+        );
+        if (hasReducible) {
+          applyWeekReduction(working, p.id, 1, originalDpwMap);
+          const parentName = p.name;
+          const existing = reductionSummary.find(r => r.parentName === parentName);
+          if (existing) {
+            existing.weeks += 1;
+          } else {
+            const sampleBlock = blocks.find(b => b.parentId === p.id);
+            const oldDpw = sampleBlock?.daysPerWeek ?? 0;
+            reductionSummary.push({ parentName, weeks: 1, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
+          }
+          reduced = true;
+          break;
+        }
+      }
+      if (!reduced) break; // No more reductions possible
+    }
+
+    iterSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
+    iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
+  }
+
   // ── Sanity check: no block reduced by more than 1 from original ──
   for (const b of working) {
     const origDpw = originalDpwMap.get(b.id);
     if (origDpw !== undefined && b.daysPerWeek < origDpw - 1) {
-      console.error(`[RescueMode] DOUBLE REDUCTION detected! Block ${b.id} (${b.parentId}): original=${origDpw}, now=${b.daysPerWeek}`);
+      console.error(`[RescueMode] DOUBLE REDUCTION! Block ${b.id}: original=${origDpw}, now=${b.daysPerWeek}`);
     }
   }
 
-  // Verify preview weeks sum
-  const previewWeeksSum = reductionSummary.reduce((s, r) => s + r.weeks, 0);
-  if (previewWeeksSum !== requiredWeeks) {
-    console.error(`[RescueMode] Week sum mismatch: preview=${previewWeeksSum}, required=${requiredWeeks}`);
-  }
-
+  const finalTotalWeeks = reductionSummary.reduce((s, r) => s + r.weeks, 0);
   const finalSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const finalResult = simulatePlan({ parents, blocks: finalSorted, transfers: activeTransfers, constants });
+  const finalTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
+  const finalResult = simulatePlan({ parents, blocks: finalSorted, transfers: finalTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
-  console.log("[RescueMode proposalPlan.transfers]", activeTransfers);
+  console.log("[RescueMode closed-loop]", { iterations, finalUnfulfilled, finalTotalWeeks, transferAmount });
 
   return {
     newBlocks: finalSorted,
-    proposedTransfer,
+    proposedTransfer: currentTransfer,
     transferAmount,
     reductionSummary,
     deltaMonthly: Math.round(newAvg - origAvg),
     success: finalUnfulfilled <= 0,
     transferOnly: false,
-    totalRequiredWeeks: requiredWeeks,
+    totalRequiredWeeks: finalTotalWeeks,
     missingDays,
   };
 }
