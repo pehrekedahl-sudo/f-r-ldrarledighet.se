@@ -299,6 +299,131 @@ export function proposeEvenSpreadReduction(opts: {
   };
 }
 
+// ── B2) proposeProportionalReduction ──
+
+/**
+ * Calculate load (total withdrawal-days) per parent across the entire plan,
+ * allocate the required reduction weeks proportionally, then apply
+ * proposeEvenSpreadReduction per parent.
+ */
+export type ProportionalDebug = {
+  loads: { parentId: string; load: number }[];
+  shares: { parentId: string; share: number }[];
+  requiredWeeksTotal: number;
+  allocatedWeeks: { parentId: string; weeks: number }[];
+};
+
+export function proposeProportionalReduction(opts: {
+  plan: Block[];
+  parentIds: string[];
+  daysToReduce: number;
+}): ReductionResult & { proportionalDebug: ProportionalDebug } {
+  const { plan, parentIds, daysToReduce } = opts;
+
+  // 1) Calculate load per parent: Σ (weeks * dpw) using floor(calDays/7)
+  const loads = new Map<string, number>();
+  for (const pid of parentIds) loads.set(pid, 0);
+  for (const b of plan) {
+    if (!loads.has(b.parentId)) continue;
+    const weeks = Math.floor(calendarDays(b) / 7);
+    loads.set(b.parentId, loads.get(b.parentId)! + weeks * b.daysPerWeek);
+  }
+
+  const totalLoad = Array.from(loads.values()).reduce((s, v) => s + v, 0);
+
+  // 2) Compute shares
+  const shares = new Map<string, number>();
+  for (const pid of parentIds) {
+    shares.set(pid, totalLoad > 0 ? loads.get(pid)! / totalLoad : 1 / parentIds.length);
+  }
+
+  // 3) Allocate weeks proportionally
+  const allocated = new Map<string, number>();
+  let assignedTotal = 0;
+  const sortedPids = [...parentIds].sort(); // deterministic
+
+  for (let i = 0; i < sortedPids.length; i++) {
+    const pid = sortedPids[i];
+    if (i === sortedPids.length - 1) {
+      // Last parent gets remainder
+      allocated.set(pid, Math.max(0, daysToReduce - assignedTotal));
+    } else {
+      const w = Math.round(daysToReduce * shares.get(pid)!);
+      allocated.set(pid, Math.max(0, w));
+      assignedTotal += Math.max(0, w);
+    }
+  }
+
+  // 4) Check capacity per parent and redistribute if needed
+  for (const pid of sortedPids) {
+    const parentBlocks = plan.filter(b => b.parentId === pid);
+    const maxCapacity = parentBlocks.reduce((s, b) => {
+      const weeks = Math.floor(calendarDays(b) / 7);
+      const reducible = Math.max(0, b.daysPerWeek - MIN_AUTO_DPW);
+      return s + weeks * reducible;
+    }, 0);
+    const wanted = allocated.get(pid)!;
+    if (wanted > maxCapacity) {
+      const overflow = wanted - maxCapacity;
+      allocated.set(pid, maxCapacity);
+      // Shift overflow to other parents
+      for (const other of sortedPids) {
+        if (other === pid) continue;
+        allocated.set(other, allocated.get(other)! + overflow);
+      }
+    }
+  }
+
+  // 5) Apply per parent using proposeEvenSpreadReduction
+  let currentPlan = plan.map(b => ({ ...b }));
+  const allPerParent: ReductionSummary["perParent"] = [];
+  let totalWeeks = 0;
+  let earliest: string | null = null;
+  let latest: string | null = null;
+
+  for (const pid of sortedPids) {
+    const weeks = allocated.get(pid)!;
+    if (weeks <= 0) continue;
+
+    const result = proposeEvenSpreadReduction({
+      plan: currentPlan,
+      parentScope: [pid],
+      daysToReduce: weeks,
+    });
+
+    currentPlan = result.nextBlocks;
+    totalWeeks += result.summary.weeksAffectedTotal;
+    allPerParent.push(...result.summary.perParent);
+    if (result.summary.startDateOfReduction) {
+      if (!earliest || result.summary.startDateOfReduction < earliest)
+        earliest = result.summary.startDateOfReduction;
+    }
+    if (result.summary.endDateOfReduction) {
+      if (!latest || result.summary.endDateOfReduction > latest)
+        latest = result.summary.endDateOfReduction;
+    }
+  }
+
+  const proportionalDebug: ProportionalDebug = {
+    loads: parentIds.map(pid => ({ parentId: pid, load: loads.get(pid)! })),
+    shares: parentIds.map(pid => ({ parentId: pid, share: Math.round((shares.get(pid)! || 0) * 100) / 100 })),
+    requiredWeeksTotal: daysToReduce,
+    allocatedWeeks: parentIds.map(pid => ({ parentId: pid, weeks: allocated.get(pid)! })),
+  };
+
+  return {
+    nextBlocks: normalizeBlocks(currentPlan),
+    summary: {
+      weeksAffectedTotal: totalWeeks,
+      reductionPerWeek: 1,
+      startDateOfReduction: earliest,
+      endDateOfReduction: latest,
+      perParent: allPerParent,
+    },
+    proportionalDebug,
+  };
+}
+
 // ── C) applySmartChange ──
 
 /**
