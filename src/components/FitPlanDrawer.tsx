@@ -313,10 +313,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          <p className="text-sm text-muted-foreground">
-            Vi föreslår minsta möjliga ändring för att planen ska räcka hela perioden.
-          </p>
-
+          {/* A) Shortage banner */}
           {missingDays > 0 && (
             <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
               <p className="text-sm font-medium text-destructive">
@@ -325,31 +322,17 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </div>
           )}
 
-          {/* Source selector */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Vem ska justera?</Label>
-            <RadioGroup value={source} onValueChange={(v) => setSource(v as RescueSource)}>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="split" id="rescue-split" />
-                <Label htmlFor="rescue-split" className="text-sm font-normal cursor-pointer">Dela lika</Label>
-              </div>
-              {parents.map(p => (
-                <div key={p.id} className="flex items-center gap-2">
-                  <RadioGroupItem value={p.id} id={`rescue-${p.id}`} />
-                  <Label htmlFor={`rescue-${p.id}`} className="text-sm font-normal cursor-pointer">Från {p.name}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          {/* Proposal */}
+          {/* B) Recommendation */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
           ) : proposal ? (
             <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
+              </div>
+
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
-                <p className="text-sm font-medium">Föreslagna ändringar:</p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <ul className="text-sm text-foreground space-y-1.5 list-disc list-inside">
                   {proposal.proposedTransfer && proposal.transferAmount > 0 && (
                     <li>
                       Överför {proposal.transferAmount} dagar från {proposal.transferFromName} till {proposal.transferToName}.
@@ -364,7 +347,6 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               </div>
 
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
-                <p className="text-sm font-medium">Resultat:</p>
                 {proposal.success ? (
                   <p className="text-sm text-primary font-semibold">
                     {proposal.transferOnly
@@ -386,6 +368,23 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               Kunde inte hitta en justering. Planen kanske redan går ihop.
             </p>
           )}
+
+          {/* C) Customization */}
+          <div className="space-y-3 border-t border-border pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Anpassa justeringen</p>
+            <RadioGroup value={source} onValueChange={(v) => setSource(v as RescueSource)}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="split" id="rescue-split" />
+                <Label htmlFor="rescue-split" className="text-sm font-normal cursor-pointer">Dela lika</Label>
+              </div>
+              {parents.map(p => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <RadioGroupItem value={p.id} id={`rescue-${p.id}`} />
+                  <Label htmlFor={`rescue-${p.id}`} className="text-sm font-normal cursor-pointer">Från {p.name}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
