@@ -94,6 +94,7 @@ const PlanBuilder = () => {
   const [saveDaysOpen, setSaveDaysOpen] = useState(false);
   const [fitPlanOpen, setFitPlanOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [hasManualEdits, setHasManualEdits] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -179,6 +180,7 @@ const PlanBuilder = () => {
   };
 
   const handleDrawerSave = (updated: Block) => {
+    setHasManualEdits(true);
     if (drawerMode === "create") {
       const newBlocks = mergeAdjacentBlocks([...blocks, updated]);
       assertUniqueBlockIds(newBlocks, "drawerSave-create");
@@ -198,6 +200,7 @@ const PlanBuilder = () => {
   };
 
   const handleDrawerDelete = (id: string) => {
+    setHasManualEdits(true);
     removeBlock(id);
     const remaining = blocks.filter(b => b.id !== id);
     const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -774,10 +777,12 @@ const PlanBuilder = () => {
         parents={parents}
         constants={CONSTANTS}
         transfer={transfer}
+        hasManualEdits={hasManualEdits}
         onApply={(newBlocks) => {
           const merged = mergeAdjacentBlocks(newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           setBlocks(merged);
+          setHasManualEdits(false);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
         }}
