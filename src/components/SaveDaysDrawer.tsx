@@ -11,19 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { generateBlockId } from "@/lib/blockIdUtils";
-import { normalizeBlocks } from "@/lib/normalizeBlocks";
-
-type Block = {
-  id: string;
-  parentId: string;
-  startDate: string;
-  endDate: string;
-  daysPerWeek: number;
-  lowestDaysPerWeek?: number;
-  overlapGroupId?: string;
-};
+import {
+  normalizeBlocks,
+  applySmartChange,
+  proposeEvenSpreadReduction,
+  MIN_AUTO_DPW,
+  type Block,
+  type ReductionSummary,
+} from "@/lib/adjustmentPolicy";
 
 type Parent = {
   id: string;
@@ -62,16 +60,9 @@ type CurrentState = {
   avgMonthly: number;
 };
 
-type ChangeEntry = {
-  parentName: string;
-  oldDpw: number;
-  newDpw: number;
-  fromDate: string;
-};
-
 type Proposal = {
   newBlocks: Block[];
-  changes: ChangeEntry[];
+  summary: ReductionSummary | null;
   newSickness: number;
   newLowest: number;
   newTotal: number;
@@ -79,6 +70,8 @@ type Proposal = {
   deltaMonthly: number;
   newEndDate: string;
   direction: "save" | "use";
+  debugBefore: Block[];
+  debugAfter: Block[];
 };
 
 // ── helpers ──
@@ -130,10 +123,6 @@ function calendarDaysOf(b: Block): number {
   ) + 1;
 }
 
-/**
- * Detect baseline daysPerWeek for a parent.
- * Returns the most common dpw value across their blocks (weighted by calendar days).
- */
 function detectBaseline(blocks: Block[], parentId: string): number {
   const parentBlocks = blocks.filter(b => b.parentId === parentId);
   if (parentBlocks.length === 0) return 6;
@@ -150,82 +139,9 @@ function detectBaseline(blocks: Block[], parentId: string): number {
       bestWeight = weight;
     }
   }
-  // Default to 6 unless the dominant value is clearly 7 (>80% of calendar time)
   const totalWeight = Array.from(dpwWeight.values()).reduce((s, w) => s + w, 0);
   if (best === 7 && bestWeight / totalWeight < 0.8) return 6;
   return best;
-}
-
-// ── V2 reduce: save more days by lowering dpw from the LATEST blocks ──
-
-function reduceBlocksV2(
-  working: Block[],
-  needed: number,
-  allowedParentIds: Set<string>,
-  parents: Parent[],
-  baselines: Map<string, number>,
-): { freed: number; changes: ChangeEntry[] } {
-  let freed = 0;
-  const changes: ChangeEntry[] = [];
-  let iterations = 0;
-
-  while (freed < needed && iterations < 30) {
-    iterations++;
-    // Sort candidates: latest startDate first, then longest block
-    const candidates = working
-      .filter(b => b.daysPerWeek > 0 && allowedParentIds.has(b.parentId))
-      .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-      .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
-
-    if (candidates.length === 0) break;
-
-    const target = candidates[0].block;
-    const calDays = candidates[0].calendarDays;
-    const baseline = baselines.get(target.parentId) ?? 6;
-
-    // Don't go below 0
-    if (target.daysPerWeek <= 0) break;
-
-    // Prefer staying in baseline-1 range (e.g. 6→5)
-    const newDpw = target.daysPerWeek - 1;
-    const potentialSaved = Math.floor(calDays / 7);
-    if (potentialSaved <= 0) break;
-
-    const still = needed - freed;
-    const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
-
-    if (potentialSaved <= still) {
-      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-      target.daysPerWeek = newDpw;
-      freed += potentialSaved;
-    } else {
-      // Split: only reduce the TAIL portion (latest weeks)
-      const weeksNeeded = still;
-      const splitDayOffset = calDays - weeksNeeded * 7;
-      if (splitDayOffset <= 0) {
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-        target.daysPerWeek = newDpw;
-        freed += potentialSaved;
-      } else {
-        const splitDate = addDaysISO(target.startDate, splitDayOffset);
-        const newBlock: Block = {
-          id: generateBlockId("adj-save"),
-          parentId: target.parentId,
-          startDate: splitDate,
-          endDate: target.endDate,
-          daysPerWeek: newDpw,
-          lowestDaysPerWeek: target.lowestDaysPerWeek,
-          overlapGroupId: target.overlapGroupId,
-        };
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
-        target.endDate = addDaysISO(splitDate, -1);
-        working.push(newBlock);
-        freed += weeksNeeded;
-      }
-    }
-  }
-
-  return { freed, changes };
 }
 
 // ── V2 increase: use more days by raising dpw, cap at baseline ──
@@ -236,14 +152,13 @@ function increaseBlocksV2(
   allowedParentIds: Set<string>,
   parents: Parent[],
   baselines: Map<string, number>,
-): { consumed: number; changes: ChangeEntry[] } {
+): { consumed: number; changes: { parentName: string; oldDpw: number; newDpw: number; fromDate: string }[] } {
   let consumed = 0;
-  const changes: ChangeEntry[] = [];
+  const changes: { parentName: string; oldDpw: number; newDpw: number; fromDate: string }[] = [];
   let iterations = 0;
 
   while (consumed < needed && iterations < 30) {
     iterations++;
-    // Only allow increasing UP TO baseline — never above it
     const candidates = working
       .filter(b => {
         const baseline = baselines.get(b.parentId) ?? 6;
@@ -252,7 +167,7 @@ function increaseBlocksV2(
       .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
       .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
 
-    if (candidates.length === 0) break; // Hard stop — do NOT exceed baseline
+    if (candidates.length === 0) break;
 
     const target = candidates[0].block;
     const calDays = candidates[0].calendarDays;
@@ -268,7 +183,6 @@ function increaseBlocksV2(
       target.daysPerWeek = newDpw;
       consumed += potentialConsumed;
     } else {
-      // Split: only increase the TAIL portion (latest weeks)
       const weeksNeeded = still;
       const splitDayOffset = calDays - weeksNeeded * 7;
       if (splitDayOffset <= 0) {
@@ -312,10 +226,10 @@ function computeProposal(
   if (delta === 0 || blocks.length === 0) return null;
 
   const transfers = getTransfers(transfer);
-  const working = blocks.map(b => ({ ...b }));
-  let allChanges: ChangeEntry[] = [];
   const direction: "save" | "use" = delta > 0 ? "save" : "use";
   const absDelta = Math.abs(delta);
+
+  const debugBefore = blocks.map(b => ({ ...b }));
 
   // Detect baselines per parent
   const baselines = new Map<string, number>();
@@ -323,49 +237,81 @@ function computeProposal(
     baselines.set(p.id, detectBaseline(blocks, p.id));
   }
 
-  const doAdjust = (amount: number, parentIds: Set<string>) => {
-    if (direction === "save") {
-      return reduceBlocksV2(working, amount, parentIds, parents, baselines);
+  let resultBlocks: Block[];
+  let summary: ReductionSummary | null = null;
+
+  if (direction === "save") {
+    // SAVE: use shared proposeEvenSpreadReduction policy
+    const parentScope = source === "both"
+      ? parents.map(p => p.id)
+      : [source];
+
+    // If "both", split evenly between parents
+    if (source === "both" && parents.length >= 2) {
+      const halfA = Math.round(absDelta / 2);
+      const halfB = absDelta - halfA;
+
+      const r1 = proposeEvenSpreadReduction({ plan: blocks, parentScope: [parents[0].id], daysToReduce: halfA });
+      const r2 = proposeEvenSpreadReduction({ plan: r1.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfB });
+
+      // Check for shortfalls and redistribute
+      const got1 = r1.summary.weeksAffectedTotal;
+      const got2 = r2.summary.weeksAffectedTotal;
+      if (got1 < halfA) {
+        const extra = proposeEvenSpreadReduction({ plan: r2.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfA - got1 });
+        resultBlocks = extra.nextBlocks;
+      } else if (got2 < halfB) {
+        const extra = proposeEvenSpreadReduction({ plan: r2.nextBlocks, parentScope: [parents[0].id], daysToReduce: halfB - got2 });
+        resultBlocks = extra.nextBlocks;
+      } else {
+        resultBlocks = r2.nextBlocks;
+      }
+
+      // Combine summaries
+      const allPerParent = [...r1.summary.perParent, ...r2.summary.perParent];
+      summary = {
+        weeksAffectedTotal: allPerParent.reduce((s, p) => s + p.weeksAffected, 0),
+        reductionPerWeek: 1,
+        startDateOfReduction: r1.summary.startDateOfReduction && r2.summary.startDateOfReduction
+          ? (r1.summary.startDateOfReduction < r2.summary.startDateOfReduction ? r1.summary.startDateOfReduction : r2.summary.startDateOfReduction)
+          : r1.summary.startDateOfReduction || r2.summary.startDateOfReduction,
+        endDateOfReduction: r1.summary.endDateOfReduction && r2.summary.endDateOfReduction
+          ? (r1.summary.endDateOfReduction > r2.summary.endDateOfReduction ? r1.summary.endDateOfReduction : r2.summary.endDateOfReduction)
+          : r1.summary.endDateOfReduction || r2.summary.endDateOfReduction,
+        perParent: allPerParent,
+      };
     } else {
-      return increaseBlocksV2(working, amount, parentIds, parents, baselines);
+      const r = proposeEvenSpreadReduction({ plan: blocks, parentScope, daysToReduce: absDelta });
+      resultBlocks = r.nextBlocks;
+      summary = r.summary;
     }
-  };
-
-  if (source === "both" && parents.length >= 2) {
-    const halfA = Math.round(absDelta / 2);
-    const halfB = absDelta - halfA;
-    const parentIds = parents.map(p => p.id);
-
-    const r1 = doAdjust(halfA, new Set([parentIds[0]]));
-    allChanges.push(...r1.changes);
-    const r2 = doAdjust(halfB, new Set([parentIds[1]]));
-    allChanges.push(...r2.changes);
-
-    const got1 = direction === "save" ? (r1 as any).freed : (r1 as any).consumed;
-    const got2 = direction === "save" ? (r2 as any).freed : (r2 as any).consumed;
-    const shortfall1 = halfA - (got1 ?? 0);
-    const shortfall2 = halfB - (got2 ?? 0);
-    if (shortfall1 > 0) {
-      const extra = doAdjust(shortfall1, new Set([parentIds[1]]));
-      allChanges.push(...extra.changes);
-    }
-    if (shortfall2 > 0) {
-      const extra = doAdjust(shortfall2, new Set([parentIds[0]]));
-      allChanges.push(...extra.changes);
-    }
-  } else if (source === "both") {
-    const r = doAdjust(absDelta, new Set(parents.map(p => p.id)));
-    allChanges.push(...r.changes);
   } else {
-    const r = doAdjust(absDelta, new Set([source]));
-    allChanges.push(...r.changes);
+    // USE: increase dpw (existing logic, then normalize via policy)
+    const working = blocks.map(b => ({ ...b }));
+
+    const doIncrease = (amount: number, parentIds: Set<string>) =>
+      increaseBlocksV2(working, amount, parentIds, parents, baselines);
+
+    if (source === "both" && parents.length >= 2) {
+      const halfA = Math.round(absDelta / 2);
+      const halfB = absDelta - halfA;
+      const parentIds = parents.map(p => p.id);
+      const r1 = doIncrease(halfA, new Set([parentIds[0]]));
+      const r2 = doIncrease(halfB, new Set([parentIds[1]]));
+      if (halfA - r1.consumed > 0) doIncrease(halfA - r1.consumed, new Set([parentIds[1]]));
+      if (halfB - r2.consumed > 0) doIncrease(halfB - r2.consumed, new Set([parentIds[0]]));
+    } else if (source === "both") {
+      doIncrease(absDelta, new Set(parents.map(p => p.id)));
+    } else {
+      doIncrease(absDelta, new Set([source]));
+    }
+
+    resultBlocks = normalizeBlocks(working);
   }
 
-  if (allChanges.length === 0) return null;
+  if (resultBlocks.length === 0) return null;
 
-  // Normalize: merge + absorb micro-blocks
-  const normalized = normalizeBlocks(working);
-  const sorted = normalized.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const sorted = resultBlocks.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
@@ -375,7 +321,7 @@ function computeProposal(
 
   return {
     newBlocks: sorted,
-    changes: allChanges,
+    summary,
     newSickness: newR.remainingSickness,
     newLowest: newR.remainingLowest,
     newTotal: newR.currentTotal,
@@ -383,6 +329,8 @@ function computeProposal(
     deltaMonthly: Math.round(newAvg - current.avgMonthly),
     newEndDate: latestEnd,
     direction,
+    debugBefore,
+    debugAfter: sorted,
   };
 }
 
@@ -429,7 +377,6 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     }
   };
 
-  // Debounced proposal computation
   const computeDebounced = useCallback((target: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (target === current.currentTotal) {
@@ -452,7 +399,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const handleApply = () => {
     if (!proposal) return;
-    onApply(proposal.newBlocks);
+    const final = applySmartChange(blocks, proposal.newBlocks);
+    onApply(final);
     onOpenChange(false);
   };
 
@@ -555,13 +503,16 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                     ? "För att spara fler dagar föreslår vi:"
                     : "För att ta ut fler dagar tidigare föreslår vi:"}
                 </p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  {proposal.changes.map((c, i) => (
-                    <li key={i}>
-                      {c.newDpw > c.oldDpw ? "Öka" : "Sänk"} uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
-                    </li>
-                  ))}
-                </ul>
+                {proposal.summary && proposal.summary.weeksAffectedTotal > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Minska uttaget med 1 dag/vecka i {proposal.summary.weeksAffectedTotal} veckor
+                    {proposal.summary.startDateOfReduction ? ` från ${proposal.summary.startDateOfReduction}` : ""}.
+                  </p>
+                ) : (
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Justera uttagstakten i planen.</li>
+                  </ul>
+                )}
               </div>
 
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
@@ -588,6 +539,41 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                   </p>
                 </div>
               </div>
+
+              {/* DEBUG (policy) */}
+              <details className="border-t border-border pt-4">
+                <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
+                  <ChevronDown className="h-3 w-3" />
+                  DEBUG (policy)
+                </summary>
+                <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3 font-mono text-[10px] text-muted-foreground max-h-60 overflow-y-auto">
+                  <div>
+                    <p className="font-semibold text-foreground/70">Blocks BEFORE normalize ({proposal.debugBefore.length})</p>
+                    {proposal.debugBefore.map((b, i) => (
+                      <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground/70">Blocks AFTER normalize ({proposal.debugAfter.length})</p>
+                    {proposal.debugAfter.map((b, i) => (
+                      <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
+                    ))}
+                  </div>
+                  {proposal.summary && (
+                    <div>
+                      <p className="font-semibold text-foreground/70">Proposal Summary</p>
+                      <p>weeksAffectedTotal = {proposal.summary.weeksAffectedTotal}</p>
+                      <p>reductionPerWeek = {proposal.summary.reductionPerWeek}</p>
+                      <p>startDateOfReduction = {proposal.summary.startDateOfReduction ?? "—"}</p>
+                      <p>endDateOfReduction = {proposal.summary.endDateOfReduction ?? "—"}</p>
+                      <p>MIN_AUTO_DPW = {MIN_AUTO_DPW}</p>
+                      {proposal.summary.perParent.map((pp, i) => (
+                        <p key={i}>  {pp.parentId}: {pp.weeksAffected}w, {pp.oldDpw}→{pp.newDpw}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </details>
             </div>
           ) : targetDays === current.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">

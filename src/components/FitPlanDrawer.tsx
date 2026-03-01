@@ -12,17 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { simulatePlan } from "@/lib/simulatePlan";
-import { generateBlockId } from "@/lib/blockIdUtils";
-
-type Block = {
-  id: string;
-  parentId: string;
-  startDate: string;
-  endDate: string;
-  daysPerWeek: number;
-  lowestDaysPerWeek?: number;
-  overlapGroupId?: string;
-};
+import {
+  normalizeBlocks,
+  applySmartChange,
+  proposeEvenSpreadReduction,
+  MIN_AUTO_DPW,
+  type Block,
+} from "@/lib/adjustmentPolicy";
 
 type Parent = {
   id: string;
@@ -43,7 +39,7 @@ type Constants = {
 
 type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
 
-type DistributionMode = "proportional" | "split" | string; // "proportional", "split", or parent id
+type DistributionMode = "proportional" | "split" | string;
 
 type Props = {
   open: boolean;
@@ -73,23 +69,12 @@ type Proposal = {
   totalRequiredWeeks: number;
   missingDays: number;
   debug: DebugGroundTruth;
+  debugBefore: Block[];
+  debugAfter: Block[];
 };
 
 function getTransfers(transfer: Transfer | null) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-}
-
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function calendarDaysOf(b: Block): number {
-  return Math.ceil(
-    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
-    (1000 * 60 * 60 * 24)
-  ) + 1;
 }
 
 function calcAvgMonthly(parentsResult: any[]): number {
@@ -97,69 +82,6 @@ function calcAvgMonthly(parentsResult: any[]): number {
   const total = allM.reduce((s: number, m: any) => s + m.grossAmount, 0);
   const months = allM.filter((m: any) => m.grossAmount > 0).length;
   return months > 0 ? total / months : 0;
-}
-
-/** Reduce dpw by 1 for the LAST `weeks` calendar weeks of the given parent's blocks.
- *  Uses originalDpwMap to ensure no block is reduced by more than 1 from its original value. */
-function applyWeekReduction(
-  working: Block[],
-  parentId: string,
-  weeks: number,
-  originalDpwMap: Map<string, number>,
-): void {
-  if (weeks <= 0) return;
-
-  const parentBlocks = working
-    .filter(b => b.parentId === parentId && b.daysPerWeek > 0)
-    .sort((a, b) => b.startDate.localeCompare(a.startDate));
-
-  let remaining = weeks;
-
-  for (const block of parentBlocks) {
-    if (remaining <= 0) break;
-    if (block.daysPerWeek <= 0) continue;
-
-    // Skip blocks already reduced by 1 from original
-    const origDpw = originalDpwMap.get(block.id) ?? block.daysPerWeek;
-    if (block.daysPerWeek < origDpw) continue;
-
-    const calDays = calendarDaysOf(block);
-    const blockWeeks = Math.floor(calDays / 7);
-    if (blockWeeks <= 0) continue;
-
-    if (blockWeeks <= remaining) {
-      block.daysPerWeek = Math.max(0, origDpw - 1);
-      remaining -= blockWeeks;
-    } else {
-      const headDays = calDays - remaining * 7;
-      const splitDate = addDaysISO(block.startDate, headDays);
-      const tailId = generateBlockId("rescue");
-      const tailBlock: Block = {
-        id: tailId,
-        parentId: block.parentId,
-        startDate: splitDate,
-        endDate: block.endDate,
-        daysPerWeek: Math.max(0, origDpw - 1),
-        lowestDaysPerWeek: block.lowestDaysPerWeek,
-        overlapGroupId: block.overlapGroupId,
-      };
-      block.endDate = addDaysISO(splitDate, -1);
-      // Record original dpw for the new tail block
-      originalDpwMap.set(tailId, origDpw);
-      working.push(tailBlock);
-      remaining = 0;
-    }
-  }
-}
-
-/** Calculate each parent's planned withdrawal days from blocks */
-function calcParentRequestedDays(blocks: Block[], parentId: string): number {
-  return blocks
-    .filter(b => b.parentId === parentId)
-    .reduce((sum, b) => {
-      const weeks = Math.floor(calendarDaysOf(b) / 7);
-      return sum + weeks * b.daysPerWeek;
-    }, 0);
 }
 
 function computeRescueProposal(
@@ -178,6 +100,7 @@ function computeRescueProposal(
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const missingDays = Math.round(origUnfulfilled);
+  const debugBefore = blocks.map(b => ({ ...b }));
 
   // ── Step 1: Try transfers first ──
   const scored = origResult.parentsResult.map((pr: any) => ({
@@ -222,9 +145,8 @@ function computeRescueProposal(
     const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: [proposedTransfer], constants });
     const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
-    console.log("[RescueMode transfer-only]", { transferAmount: proposedTransfer.sicknessDays, finalUnfulfilled, missingDays });
     return {
-      newBlocks: finalBlocks,
+      newBlocks: normalizeBlocks(finalBlocks),
       proposedTransfer,
       transferAmount: proposedTransfer.sicknessDays,
       reductionSummary: [],
@@ -239,175 +161,93 @@ function computeRescueProposal(
         shortageAfter: Math.round(finalUnfulfilled),
         budgetFlagAfter: !!(finalResult as any).warnings?.budgetInsufficient,
       },
+      debugBefore,
+      debugAfter: normalizeBlocks(finalBlocks),
     };
   }
 
-  // ── Step 3: Week-based pace reduction using ONLY remainingShortage ──
+  // ── Step 3: Use shared proposeEvenSpreadReduction ──
   const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
-  const working = blocks.map(b => ({ ...b }));
-  const requiredWeeks = remainingShortage;
-  const reductionSummary: Proposal["reductionSummary"] = [];
 
-  // Build original dpw map — snapshot BEFORE any mutations
-  const originalDpwMap = new Map<string, number>();
-  for (const b of working) {
-    originalDpwMap.set(b.id, b.daysPerWeek);
+  // Determine parent scope based on mode
+  let parentScope: string[];
+  if (mode === "split" && parents.length >= 2) {
+    parentScope = parents.map(p => p.id);
+  } else if (mode === "proportional" && parents.length >= 2) {
+    parentScope = parents.map(p => p.id);
+  } else if (mode !== "proportional" && mode !== "split") {
+    parentScope = [mode]; // specific parent id
+  } else {
+    parentScope = parents.map(p => p.id);
   }
 
-  console.log("[RescueMode proposal]", {
-    missingDays: Math.ceil(origUnfulfilled),
-    transferDays: transferAmount,
-    remainingAfterTransfer: remainingShortage,
-    requiredWeeks,
-  });
-
-  // Distribute weeks based on mode — only if there are weeks to distribute
-  if (requiredWeeks > 0) {
-    const parentWeeks: { pid: string; weeks: number }[] = [];
-
-    if (mode === "split" && parents.length >= 2) {
-      const weeksA = Math.floor(requiredWeeks / 2);
-      const weeksB = requiredWeeks - weeksA;
-      parentWeeks.push({ pid: parents[0].id, weeks: weeksA });
-      parentWeeks.push({ pid: parents[1].id, weeks: weeksB });
-    } else if (mode === "proportional" && parents.length >= 2) {
-      const totalDays = parents.reduce((s, p) => s + calcParentRequestedDays(blocks, p.id), 0);
-      if (totalDays > 0) {
-        const share0 = calcParentRequestedDays(blocks, parents[0].id) / totalDays;
-        const weeks0 = Math.round(requiredWeeks * share0);
-        const weeks1 = requiredWeeks - weeks0;
-        parentWeeks.push({ pid: parents[0].id, weeks: weeks0 });
-        parentWeeks.push({ pid: parents[1].id, weeks: weeks1 });
-      } else {
-        const weeksA = Math.floor(requiredWeeks / 2);
-        parentWeeks.push({ pid: parents[0].id, weeks: weeksA });
-        parentWeeks.push({ pid: parents[1].id, weeks: requiredWeeks - weeksA });
-      }
-    } else {
-      const pid = mode === "proportional" || mode === "split" ? parents[0].id : mode;
-      parentWeeks.push({ pid, weeks: requiredWeeks });
-    }
-
-    for (const { pid, weeks } of parentWeeks) {
-      if (weeks <= 0) continue;
-      const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
-      const oldDpw = sampleBlock?.daysPerWeek ?? 0;
-      applyWeekReduction(working, pid, weeks, originalDpwMap);
-      const parentName = parents.find(p => p.id === pid)?.name ?? "";
-      reductionSummary.push({ parentName, weeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
-    }
-  }
-
-  // ── Closed-loop: iteratively fix until simulatePlan confirms 0 unfulfilled ──
+  // Use iterative reduction via policy to close the gap
+  let currentBlocks = blocks.map(b => ({ ...b }));
   let currentTransfer = proposedTransfer;
   let currentTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
-  let iterSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  let checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
+  let checkResult = simulatePlan({ parents, blocks: currentBlocks, transfers: currentTransfers, constants });
   let iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
+  let totalWeeksReduced = 0;
+  const reductionSummary: Proposal["reductionSummary"] = [];
   let iterations = 0;
-  const MAX_ITER = 200;
 
-  while (iterUnfulfilled > 0 && iterations < MAX_ITER) {
+  while (iterUnfulfilled > 0 && iterations < 50) {
     iterations++;
-    let fixed = false;
+    const daysToReduce = Math.max(1, Math.ceil(iterUnfulfilled));
 
-    // a) Try adding more transfer first
+    const reduction = proposeEvenSpreadReduction({
+      plan: currentBlocks,
+      parentScope,
+      daysToReduce,
+    });
+
+    if (reduction.summary.weeksAffectedTotal === 0) break;
+
+    currentBlocks = reduction.nextBlocks;
+    totalWeeksReduced += reduction.summary.weeksAffectedTotal;
+
+    // Update reduction summary
+    for (const pp of reduction.summary.perParent) {
+      const parentName = parents.find(p => p.id === pp.parentId)?.name ?? "";
+      const existing = reductionSummary.find(r => r.parentName === parentName);
+      if (existing) {
+        existing.weeks += pp.weeksAffected;
+      } else {
+        reductionSummary.push({ parentName, weeks: pp.weeksAffected, oldDpw: pp.oldDpw, newDpw: pp.newDpw });
+      }
+    }
+
+    // Try adding more transfer
     if (currentTransfer) {
-      const checkParents = checkResult.parentsResult;
-      const giverResult = checkParents.find((pr: any) => pr.parentId === currentTransfer!.fromParentId);
+      const cr = simulatePlan({ parents, blocks: currentBlocks, transfers: [currentTransfer], constants });
+      const giverResult = cr.parentsResult.find((pr: any) => pr.parentId === currentTransfer!.fromParentId);
       const extraTransferable = Math.floor(giverResult?.remaining?.sicknessTransferable ?? 0);
-      if (extraTransferable > 0) {
-        const extraAmount = Math.min(extraTransferable, Math.ceil(iterUnfulfilled));
-        currentTransfer = {
-          ...currentTransfer,
-          sicknessDays: currentTransfer.sicknessDays + extraAmount,
-        };
+      if (extraTransferable > 0 && (cr.unfulfilledDaysTotal ?? 0) > 0) {
+        const extraAmount = Math.min(extraTransferable, Math.ceil(cr.unfulfilledDaysTotal ?? 0));
+        currentTransfer = { ...currentTransfer, sicknessDays: currentTransfer.sicknessDays + extraAmount };
         currentTransfers = [currentTransfer];
-        // transferAmount is derived from currentTransfer.sicknessDays at the end
-        // Re-check
-        checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
-        iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
-        if (iterUnfulfilled <= 0) { fixed = true; break; }
       }
     }
 
-    // b) Add +1 week reduction to a parent that still has reducible blocks
-    if (!fixed) {
-      let reduced = false;
-      for (const p of parents) {
-        const hasReducible = working.some(b =>
-          b.parentId === p.id &&
-          b.daysPerWeek > 0 &&
-          b.daysPerWeek >= (originalDpwMap.get(b.id) ?? b.daysPerWeek)
-        );
-        if (hasReducible) {
-          applyWeekReduction(working, p.id, 1, originalDpwMap);
-          const parentName = p.name;
-          const existing = reductionSummary.find(r => r.parentName === parentName);
-          if (existing) {
-            existing.weeks += 1;
-          } else {
-            const sampleBlock = blocks.find(b => b.parentId === p.id);
-            const oldDpw = sampleBlock?.daysPerWeek ?? 0;
-            reductionSummary.push({ parentName, weeks: 1, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
-          }
-          reduced = true;
-          break;
-        }
-      }
-      if (!reduced) break; // No more reductions possible
-    }
-
-    iterSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    checkResult = simulatePlan({ parents, blocks: iterSorted, transfers: currentTransfers, constants });
+    checkResult = simulatePlan({ parents, blocks: currentBlocks, transfers: currentTransfers, constants });
     iterUnfulfilled = checkResult.unfulfilledDaysTotal ?? 0;
   }
 
-  // ── Sanity check: no block reduced by more than 1 from original ──
-  for (const b of working) {
-    const origDpw = originalDpwMap.get(b.id);
-    if (origDpw !== undefined && b.daysPerWeek < origDpw - 1) {
-      console.error(`[RescueMode] DOUBLE REDUCTION! Block ${b.id}: original=${origDpw}, now=${b.daysPerWeek}`);
-    }
-  }
-
-  const finalSorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const finalTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
-  const finalResult = simulatePlan({ parents, blocks: finalSorted, transfers: finalTransfers, constants });
+  const finalBlocks = normalizeBlocks(currentBlocks);
+  const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: currentTransfers, constants });
   const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
-
-  // Derive FINAL display values from engine truth
   const finalTransferDays = currentTransfer ? currentTransfer.sicknessDays : 0;
-  const finalTotalWeeks = Math.max(0, missingDays - finalTransferDays);
-
-  // Update reductionSummary weeks to match derived total
-  const summaryWeeksRaw = reductionSummary.reduce((s, r) => s + r.weeks, 0);
-  if (summaryWeeksRaw !== finalTotalWeeks && reductionSummary.length > 0) {
-    // Scale summary weeks proportionally to match derived total
-    const scale = summaryWeeksRaw > 0 ? finalTotalWeeks / summaryWeeksRaw : 1;
-    let assigned = 0;
-    for (let i = 0; i < reductionSummary.length; i++) {
-      if (i === reductionSummary.length - 1) {
-        reductionSummary[i].weeks = finalTotalWeeks - assigned;
-      } else {
-        reductionSummary[i].weeks = Math.round(reductionSummary[i].weeks * scale);
-        assigned += reductionSummary[i].weeks;
-      }
-    }
-  }
-
-  console.log("[RescueMode closed-loop]", { iterations, finalUnfulfilled, finalTotalWeeks, finalTransferDays, missingDays });
 
   return {
-    newBlocks: finalSorted,
+    newBlocks: finalBlocks,
     proposedTransfer: currentTransfer,
     transferAmount: finalTransferDays,
     reductionSummary,
     deltaMonthly: Math.round(newAvg - origAvg),
     success: finalUnfulfilled <= 0,
     transferOnly: false,
-    totalRequiredWeeks: finalTotalWeeks,
+    totalRequiredWeeks: totalWeeksReduced,
     missingDays,
     debug: {
       shortageBefore: Math.round(origUnfulfilled),
@@ -415,6 +255,8 @@ function computeRescueProposal(
       shortageAfter: Math.round(finalUnfulfilled),
       budgetFlagAfter: !!(finalResult as any).warnings?.budgetInsufficient,
     },
+    debugBefore,
+    debugAfter: finalBlocks,
   };
 }
 
@@ -424,7 +266,6 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Single source of truth: compute proposal on open + mode change
   useEffect(() => {
     if (!open) return;
     setComputing(true);
@@ -438,20 +279,15 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [open, mode, blocks, parents, constants, transfer]);
 
-  // Reset mode on open
   useEffect(() => {
     if (open) setMode("proportional");
   }, [open]);
 
   const handleApply = () => {
     if (!proposal) return;
-
     const appliedTransfer = proposal.proposedTransfer ?? transfer;
-
-    console.log("[RescueMode Apply] blocks:", proposal.newBlocks.map(b => ({ id: b.id, pid: b.parentId, dpw: b.daysPerWeek })));
-    console.log("[RescueMode Apply] transfer:", appliedTransfer);
-
-    onApply(proposal.newBlocks, appliedTransfer);
+    const final = applySmartChange(blocks, proposal.newBlocks);
+    onApply(final, appliedTransfer);
     onOpenChange(false);
   };
 
@@ -463,7 +299,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          {/* A) Neutral recommendation — derived from proposal */}
+          {/* A) Neutral recommendation */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
           ) : proposal ? (
@@ -487,7 +323,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <li>Överföra {proposal.transferAmount} dagar mellan er</li>
                   )}
                   {proposal.totalRequiredWeeks > 0 && (
-                    <li>Minska uttaget med {proposal.totalRequiredWeeks} veckor totalt</li>
+                    <li>Minska uttaget med 1 dag/vecka i {proposal.totalRequiredWeeks} veckor</li>
                   )}
                   {proposal.transferAmount <= 0 && proposal.totalRequiredWeeks <= 0 && (
                     <li>Inga justeringar behövs</li>
@@ -524,7 +360,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </RadioGroup>
           </div>
 
-          {/* C) Live preview — only render when proposal exists (already gated above) */}
+          {/* C) Live preview */}
           {!computing && proposal && (
             <div className="space-y-4 border-t border-border pt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detta innebär</p>
@@ -563,36 +399,34 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               </div>
             </div>
           )}
-          {/* D) Debug ground truth panel (dev/demo only) */}
+
+          {/* D) Debug (policy) panel */}
           {!computing && proposal && (
             <details className="border-t border-border pt-4">
               <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
                 <ChevronDown className="h-3 w-3" />
-                Debug (ground truth)
+                DEBUG (policy)
               </summary>
-              <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-2 font-mono text-xs text-muted-foreground">
-                <p className="font-semibold text-foreground/70">A) simulatePlan(currentPlan)</p>
-                <div className="pl-3 space-y-0.5">
-                  <p>shortageBefore = <span className="text-foreground">{proposal.debug.shortageBefore}</span></p>
-                  <p>budgetFlagBefore = <span className="text-foreground">{String(proposal.debug.budgetFlagBefore)}</span></p>
+              <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3 font-mono text-[10px] text-muted-foreground max-h-60 overflow-y-auto">
+                <div>
+                  <p className="font-semibold text-foreground/70">Blocks BEFORE ({proposal.debugBefore.length})</p>
+                  {proposal.debugBefore.map((b, i) => (
+                    <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
+                  ))}
                 </div>
-                <p className="font-semibold text-foreground/70">B) simulatePlan(proposalPlan)</p>
+                <div>
+                  <p className="font-semibold text-foreground/70">Blocks AFTER ({proposal.debugAfter.length})</p>
+                  {proposal.debugAfter.map((b, i) => (
+                    <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
+                  ))}
+                </div>
+                <p className="font-semibold text-foreground/70">Ground truth</p>
                 <div className="pl-3 space-y-0.5">
+                  <p>shortageBefore = {proposal.debug.shortageBefore}</p>
                   <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
-                  <p>budgetFlagAfter = <span className="text-foreground">{String(proposal.debug.budgetFlagAfter)}</span></p>
-                </div>
-                <p className="font-semibold text-foreground/70">C) UI display values</p>
-                <div className="pl-3 space-y-0.5">
-                  <p>displayedShortage = <span className="text-foreground">{proposal.missingDays}</span></p>
-                  <p>transferDaysDisplayed = <span className="text-foreground">{proposal.transferAmount}</span></p>
-                  <p>weeksTotalDisplayed = <span className="text-foreground">{proposal.totalRequiredWeeks}</span></p>
-                  <p>sum = <span className={
-                    proposal.transferAmount + proposal.totalRequiredWeeks === proposal.missingDays
-                      ? "text-primary" : "text-amber-500 font-bold"
-                  }>{proposal.transferAmount + proposal.totalRequiredWeeks}</span>
-                  {proposal.transferAmount + proposal.totalRequiredWeeks !== proposal.missingDays && (
-                    <span className="text-amber-500"> ⚠ mismatch vs shortage ({proposal.missingDays})</span>
-                  )}</p>
+                  <p>transferAmount = {proposal.transferAmount}</p>
+                  <p>totalWeeks = {proposal.totalRequiredWeeks}</p>
+                  <p>MIN_AUTO_DPW = {MIN_AUTO_DPW}</p>
                 </div>
               </div>
             </details>
