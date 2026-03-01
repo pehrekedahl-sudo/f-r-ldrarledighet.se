@@ -282,12 +282,12 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[420px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>Få planen att gå ihop</SheetTitle>
+          <SheetTitle>Auto-justera så planen går ihop</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
           <p className="text-sm text-muted-foreground">
-            Vi föreslår minsta möjliga justering för att planen ska räcka hela perioden.
+            Vi föreslår minsta möjliga ändring för att planen ska räcka hela perioden.
           </p>
 
           {computing ? (

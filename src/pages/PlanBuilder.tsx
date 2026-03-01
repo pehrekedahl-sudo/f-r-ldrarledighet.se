@@ -468,24 +468,42 @@ const PlanBuilder = () => {
               </div>
 
               {unfulfilled > 0 ? (
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  ⚠ Planen behöver justeras för att räcka hela perioden. Justera uttag eller omfördela dagar.
-                </p>
+                <div className="max-w-md mx-auto space-y-3">
+                  <p className="text-sm text-destructive font-medium">
+                    ⚠ Planen saknar {unfulfilled} dagar för att gå ihop.
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button size="lg" onClick={() => setFitPlanOpen(true)}>
+                      Auto-justera
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => {
+                        setAdjustOpen(true);
+                        setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                      }}
+                    >
+                      Justera manuellt
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  ✓ Planen ser balanserad ut. Ni kan justera detaljer eller testa alternativa upplägg.
-                </p>
+                <>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    ✓ Planen ser balanserad ut. Ni kan justera detaljer eller testa alternativa upplägg.
+                  </p>
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      setAdjustOpen(true);
+                      setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                    }}
+                  >
+                    Justera planen
+                  </Button>
+                </>
               )}
-
-              <Button
-                size="lg"
-                onClick={() => {
-                  setAdjustOpen(true);
-                  setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
-                }}
-              >
-                Justera planen
-              </Button>
             </section>
 
             {/* ── INFO PANEL ── */}
@@ -520,11 +538,6 @@ const PlanBuilder = () => {
               <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
                 Sparade dagar
               </Button>
-              {unfulfilled > 0 && (
-                <Button variant="outline" size="sm" className="border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => setFitPlanOpen(true)}>
-                  Få planen att gå ihop
-                </Button>
-              )}
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
