@@ -192,7 +192,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
     blocks: validBlocks.filter((b) => b.parentId === p.id),
   }));
 
-  const rowHeight = 40;
+  const rowHeight = 48; // Extra space for debug overlay
   const totalRowHeight = parentRows.length * rowHeight;
 
   return (
@@ -275,11 +275,20 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
                   return (
                     <div
                       key={b.id}
+                      data-block-id={b.id}
+                      data-parent-id={b.parentId}
                       className={`absolute top-1.5 bottom-1.5 rounded-[10px] border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-sm ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
-                      onClick={() => onBlockClick?.(b.id)}
+                      onClick={() => {
+                        console.log("CLICK block", { id: b.id, parentId: b.parentId, startDate: b.startDate, endDate: b.endDate, daysPerWeek: b.daysPerWeek });
+                        onBlockClick?.(b.id);
+                      }}
                     >
                       <span className="truncate px-1">{b.daysPerWeek}d/v</span>
+                      {/* Debug overlay */}
+                      <span className="absolute -bottom-3 left-0 text-[7px] font-mono text-muted-foreground/60 whitespace-nowrap pointer-events-none">
+                        {b.id.slice(0, 8)}|{b.parentId}
+                      </span>
                     </div>
                   );
                 })}

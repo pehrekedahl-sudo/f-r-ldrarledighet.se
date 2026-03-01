@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { simulatePlan } from "@/lib/simulatePlan";
+import { generateBlockId } from "@/lib/blockIdUtils";
 
 type Block = {
   id: string;
@@ -181,7 +182,7 @@ function reduceBlocks(
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
         const newBlock: Block = {
-          id: `adj-split-${Date.now()}-${iterations}`,
+          id: generateBlockId("adj-save"),
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,
@@ -245,7 +246,7 @@ function increaseBlocks(
       } else {
         const splitDate = addDaysISO(target.startDate, splitDayOffset);
         const tailBlock: Block = {
-          id: `adj-split-${Date.now()}-${iterations}`,
+          id: generateBlockId("adj-use"),
           parentId: target.parentId,
           startDate: splitDate,
           endDate: target.endDate,

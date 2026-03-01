@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { simulatePlan } from "@/lib/simulatePlan";
+import { generateBlockId } from "@/lib/blockIdUtils";
 
 type Block = {
   id: string;
@@ -132,7 +133,7 @@ function applyWeekReduction(
     } else {
       const headDays = calDays - remaining * 7;
       const splitDate = addDaysISO(block.startDate, headDays);
-      const tailId = `rescue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const tailId = generateBlockId("rescue");
       const tailBlock: Block = {
         id: tailId,
         parentId: block.parentId,

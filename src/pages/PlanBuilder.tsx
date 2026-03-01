@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import { mergeAdjacentBlocks } from "@/lib/mergeAdjacentBlocks";
+import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
@@ -180,6 +181,7 @@ const PlanBuilder = () => {
   const handleDrawerSave = (updated: Block) => {
     if (drawerMode === "create") {
       const newBlocks = mergeAdjacentBlocks([...blocks, updated]);
+      assertUniqueBlockIds(newBlocks, "drawerSave-create");
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -187,6 +189,7 @@ const PlanBuilder = () => {
     } else {
       const replaced = blocks.map(b => b.id === updated.id ? updated : b);
       const merged = mergeAdjacentBlocks(replaced);
+      assertUniqueBlockIds(merged, "drawerSave-edit");
       setBlocks(merged);
       const valid = merged.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -773,6 +776,7 @@ const PlanBuilder = () => {
         transfer={transfer}
         onApply={(newBlocks) => {
           const merged = mergeAdjacentBlocks(newBlocks);
+          assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
@@ -787,6 +791,7 @@ const PlanBuilder = () => {
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
           const merged = mergeAdjacentBlocks(newBlocks);
+          assertUniqueBlockIds(merged, "FitPlanDrawer-apply");
           setBlocks(merged);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
@@ -802,6 +807,7 @@ const PlanBuilder = () => {
         transfer={transfer}
         onApply={(newBlocks) => {
           const merged = mergeAdjacentBlocks(newBlocks);
+          assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
