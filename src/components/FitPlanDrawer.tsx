@@ -8,6 +8,8 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { simulatePlan } from "@/lib/simulatePlan";
 
 type Block = {
@@ -39,6 +41,8 @@ type Constants = {
 
 type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
 
+type RescueSource = "split" | string; // "split" or parent id
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,18 +53,13 @@ type Props = {
   onApply: (newBlocks: Block[], newTransfer: Transfer | null) => void;
 };
 
-type ChangeEntry = {
-  parentName: string;
-  oldDpw: number;
-  newDpw: number;
-  fromDate: string;
-};
-
 type Proposal = {
   newBlocks: Block[];
-  changes: ChangeEntry[];
   proposedTransfer: Transfer | null;
   transferAmount: number;
+  transferFromName: string;
+  transferToName: string;
+  reductionSummary: { parentName: string; weeks: number; oldDpw: number; newDpw: number }[];
   deltaMonthly: number;
   success: boolean;
   transferOnly: boolean;
@@ -90,11 +89,59 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
-function computeFitProposal(
+/** Reduce dpw by 1 for the LAST `weeks` calendar weeks of the given parent's blocks */
+function applyWeekReduction(
+  working: Block[],
+  parentId: string,
+  weeks: number,
+): void {
+  if (weeks <= 0) return;
+
+  // Get this parent's blocks sorted by start date descending (latest first)
+  const parentBlocks = working
+    .filter(b => b.parentId === parentId && b.daysPerWeek > 0)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+  let remaining = weeks;
+
+  for (const block of parentBlocks) {
+    if (remaining <= 0) break;
+    if (block.daysPerWeek <= 0) continue;
+
+    const calDays = calendarDaysOf(block);
+    const blockWeeks = Math.floor(calDays / 7);
+    if (blockWeeks <= 0) continue;
+
+    if (blockWeeks <= remaining) {
+      // Reduce entire block
+      block.daysPerWeek -= 1;
+      remaining -= blockWeeks;
+    } else {
+      // Split: keep head at original dpw, reduce tail
+      const headDays = calDays - remaining * 7;
+      const splitDate = addDaysISO(block.startDate, headDays);
+      const tailBlock: Block = {
+        id: `rescue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        parentId: block.parentId,
+        startDate: splitDate,
+        endDate: block.endDate,
+        daysPerWeek: block.daysPerWeek - 1,
+        lowestDaysPerWeek: block.lowestDaysPerWeek,
+        overlapGroupId: block.overlapGroupId,
+      };
+      block.endDate = addDaysISO(splitDate, -1);
+      working.push(tailBlock);
+      remaining = 0;
+    }
+  }
+}
+
+function computeRescueProposal(
   blocks: Block[],
   parents: Parent[],
   constants: Constants,
   existingTransfer: Transfer | null,
+  source: RescueSource,
 ): Proposal | null {
   if (blocks.length === 0) return null;
 
@@ -104,10 +151,9 @@ function computeFitProposal(
   if (origUnfulfilled <= 0) return null;
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
+  const missingDays = Math.ceil(origUnfulfilled);
 
   // ── Step 1: Try transfers first ──
-  // Find which parent is short (has unfulfilled) and which has transferable days
-  // We identify the "needy" parent as the one consuming the most relative to budget
   const scored = origResult.parentsResult.map((pr: any) => ({
     id: pr.parentId,
     name: pr.name,
@@ -115,42 +161,33 @@ function computeFitProposal(
     taken: (pr.taken.sickness + pr.taken.lowest) as number,
     totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
   }));
-
-  // Sort: neediest first (lowest remaining, highest taken)
   scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.taken - a.taken);
   const needy = scored[0];
   const giver = scored[scored.length - 1];
 
   let proposedTransfer: Transfer | null = null;
   let transferAmount = 0;
-  let remainingShortage = origUnfulfilled;
+  let remainingShortage = missingDays;
 
   if (giver.transferable > 0 && needy.id !== giver.id) {
-    // Try transferring to cover shortage
     const maxTransfer = Math.floor(giver.transferable);
-    const tryAmount = Math.min(maxTransfer, Math.ceil(origUnfulfilled));
-
-    // Combine with existing transfer
+    const tryAmount = Math.min(maxTransfer, missingDays);
     const existingAmount = existingTransfer &&
       existingTransfer.fromParentId === giver.id &&
       existingTransfer.toParentId === needy.id
-      ? existingTransfer.sicknessDays
-      : 0;
-
-    const totalTransferAmount = existingAmount + tryAmount;
+      ? existingTransfer.sicknessDays : 0;
 
     const testTransfer: Transfer = {
       fromParentId: giver.id,
       toParentId: needy.id,
-      sicknessDays: totalTransferAmount,
+      sicknessDays: existingAmount + tryAmount,
     };
-
     const testResult = simulatePlan({ parents, blocks, transfers: [testTransfer], constants });
     const testUnfulfilled = testResult.unfulfilledDaysTotal ?? 0;
 
     transferAmount = tryAmount;
     proposedTransfer = testTransfer;
-    remainingShortage = testUnfulfilled;
+    remainingShortage = Math.ceil(testUnfulfilled > 0 ? testUnfulfilled : 0);
   }
 
   // ── Step 2: If transfer alone solves it ──
@@ -159,81 +196,59 @@ function computeFitProposal(
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
     return {
       newBlocks: blocks,
-      changes: [],
       proposedTransfer,
       transferAmount,
+      transferFromName: giver.name,
+      transferToName: needy.name,
+      reductionSummary: [],
       deltaMonthly: Math.round(newAvg - origAvg),
       success: true,
       transferOnly: true,
     };
   }
 
-  // ── Step 3: Transfer + pace reduction ──
+  // ── Step 3: Week-based pace reduction ──
   const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
   const working = blocks.map(b => ({ ...b }));
-  const allChanges: ChangeEntry[] = [];
+  const requiredWeeks = remainingShortage; // 1 day saved per week when reducing by 1 dpw
+  const reductionSummary: Proposal["reductionSummary"] = [];
 
-  // Order parents by consumption descending for pace reduction
-  const consumptionOrder = origResult.parentsResult
-    .map((pr: any) => ({ id: pr.parentId, taken: pr.taken.sickness + pr.taken.lowest }))
-    .sort((a: any, b: any) => b.taken - a.taken)
-    .map((s: any) => s.id);
+  if (source === "split" && parents.length >= 2) {
+    const weeksA = Math.round(requiredWeeks / 2);
+    const weeksB = requiredWeeks - weeksA;
 
-  let iterations = 0;
-  for (const pid of consumptionOrder) {
-    let currentUnfulfilled = (() => {
-      const r = simulatePlan({ parents, blocks: working, transfers: activeTransfers, constants });
-      return r.unfulfilledDaysTotal ?? 0;
-    })();
-
-    while (currentUnfulfilled > 0 && iterations < 50) {
-      iterations++;
-      const candidates = working
-        .filter(b => b.daysPerWeek > 0 && b.parentId === pid)
-        .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-        .sort((a, b) => b.calendarDays - a.calendarDays);
-
-      if (candidates.length === 0) break;
-
-      const target = candidates[0].block;
-      const calDays = candidates[0].calendarDays;
-      const potentialSaved = Math.floor(calDays / 7);
-      if (potentialSaved <= 0) break;
-
-      const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
-
-      if (potentialSaved <= currentUnfulfilled) {
-        allChanges.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
-        target.daysPerWeek -= 1;
-      } else {
-        const weeksNeeded = currentUnfulfilled;
-        const splitDayOffset = calDays - weeksNeeded * 7;
-        if (splitDayOffset <= 0) {
-          allChanges.push({ parentName, oldDpw: target.daysPerWeek, newDpw: target.daysPerWeek - 1, fromDate: target.startDate });
-          target.daysPerWeek -= 1;
-        } else {
-          const splitDate = addDaysISO(target.startDate, splitDayOffset);
-          const newBlock: Block = {
-            id: `fit-split-${Date.now()}-${iterations}`,
-            parentId: target.parentId,
-            startDate: splitDate,
-            endDate: target.endDate,
-            daysPerWeek: target.daysPerWeek - 1,
-            lowestDaysPerWeek: target.lowestDaysPerWeek,
-            overlapGroupId: target.overlapGroupId,
-          };
-          allChanges.push({ parentName, oldDpw: target.daysPerWeek, newDpw: newBlock.daysPerWeek, fromDate: splitDate });
-          target.endDate = addDaysISO(splitDate, -1);
-          working.push(newBlock);
-        }
-      }
-
-      const r = simulatePlan({ parents, blocks: working, transfers: activeTransfers, constants });
-      currentUnfulfilled = r.unfulfilledDaysTotal ?? 0;
+    for (const [pid, weeks] of [[parents[0].id, weeksA], [parents[1].id, weeksB]] as [string, number][]) {
+      if (weeks <= 0) continue;
+      const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
+      const oldDpw = sampleBlock?.daysPerWeek ?? 0;
+      applyWeekReduction(working, pid, weeks);
+      const parentName = parents.find(p => p.id === pid)?.name ?? "";
+      reductionSummary.push({ parentName, weeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
     }
-  }
 
-  if (allChanges.length === 0 && transferAmount === 0) return null;
+    // If one parent couldn't fully reduce, shift remainder
+    const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const midResult = simulatePlan({ parents, blocks: sorted, transfers: activeTransfers, constants });
+    const midUnfulfilled = midResult.unfulfilledDaysTotal ?? 0;
+    if (midUnfulfilled > 0) {
+      const extraWeeks = Math.ceil(midUnfulfilled);
+      for (const p of parents) {
+        if (extraWeeks <= 0) break;
+        const sampleBlock = working.find(b => b.parentId === p.id && b.daysPerWeek > 0);
+        if (!sampleBlock) continue;
+        applyWeekReduction(working, p.id, extraWeeks);
+        reductionSummary.push({ parentName: p.name, weeks: extraWeeks, oldDpw: sampleBlock.daysPerWeek, newDpw: Math.max(0, sampleBlock.daysPerWeek - 1) });
+        break;
+      }
+    }
+  } else {
+    const pid = source === "split" ? parents[0].id : source;
+    const sampleBlock = working.find(b => b.parentId === pid && b.daysPerWeek > 0);
+    const oldDpw = sampleBlock?.daysPerWeek ?? 0;
+    applyWeekReduction(working, pid, requiredWeeks);
+    const parentName = parents.find(p => p.id === pid)?.name ?? "";
+    reductionSummary.push({ parentName, weeks: requiredWeeks, oldDpw, newDpw: Math.max(0, oldDpw - 1) });
+  }
 
   const sorted = working.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const finalResult = simulatePlan({ parents, blocks: sorted, transfers: activeTransfers, constants });
@@ -242,9 +257,11 @@ function computeFitProposal(
 
   return {
     newBlocks: sorted,
-    changes: allChanges,
-    proposedTransfer: proposedTransfer,
+    proposedTransfer,
     transferAmount,
+    transferFromName: giver.name,
+    transferToName: needy.name,
+    reductionSummary,
     deltaMonthly: Math.round(newAvg - origAvg),
     success: finalUnfulfilled <= 0,
     transferOnly: false,
@@ -252,31 +269,41 @@ function computeFitProposal(
 }
 
 const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
+  const [source, setSource] = useState<RescueSource>("split");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [computing, setComputing] = useState(false);
+  const [missingDays, setMissingDays] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Compute missing days on open
   useEffect(() => {
     if (open) {
-      setComputing(true);
-      setProposal(null);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        const result = computeFitProposal(blocks, parents, constants, transfer);
-        setProposal(result);
-        setComputing(false);
-      }, 100);
+      const baseTransfers = getTransfers(transfer);
+      const result = simulatePlan({ parents, blocks, transfers: baseTransfers, constants });
+      setMissingDays(Math.ceil(result.unfulfilledDaysTotal ?? 0));
+      setSource("split");
     }
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [open, blocks, parents, constants, transfer]);
+
+  // Recompute proposal when source changes
+  useEffect(() => {
+    if (!open) return;
+    setComputing(true);
+    setProposal(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const result = computeRescueProposal(blocks, parents, constants, transfer, source);
+      setProposal(result);
+      setComputing(false);
+    }, 150);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [open, source, blocks, parents, constants, transfer]);
 
   const handleApply = () => {
     if (!proposal) return;
     onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
     onOpenChange(false);
   };
-
-  const fromName = (id: string) => parents.find(p => p.id === id)?.name ?? "?";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -290,6 +317,32 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             Vi föreslår minsta möjliga ändring för att planen ska räcka hela perioden.
           </p>
 
+          {missingDays > 0 && (
+            <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
+              <p className="text-sm font-medium text-destructive">
+                Planen saknar {missingDays} dagar.
+              </p>
+            </div>
+          )}
+
+          {/* Source selector */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Vem ska justera?</Label>
+            <RadioGroup value={source} onValueChange={(v) => setSource(v as RescueSource)}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="split" id="rescue-split" />
+                <Label htmlFor="rescue-split" className="text-sm font-normal cursor-pointer">Dela lika</Label>
+              </div>
+              {parents.map(p => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <RadioGroupItem value={p.id} id={`rescue-${p.id}`} />
+                  <Label htmlFor={`rescue-${p.id}`} className="text-sm font-normal cursor-pointer">Från {p.name}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Proposal */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
           ) : proposal ? (
@@ -299,12 +352,12 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   {proposal.proposedTransfer && proposal.transferAmount > 0 && (
                     <li>
-                      Överför {proposal.transferAmount} dagar från {fromName(proposal.proposedTransfer.fromParentId)} till {fromName(proposal.proposedTransfer.toParentId)}.
+                      Överför {proposal.transferAmount} dagar från {proposal.transferFromName} till {proposal.transferToName}.
                     </li>
                   )}
-                  {proposal.changes.map((c, i) => (
+                  {proposal.reductionSummary.map((r, i) => (
                     <li key={i}>
-                      Sänk uttag för {c.parentName} från {c.oldDpw} till {c.newDpw} dagar/vecka från {c.fromDate}.
+                      Sänk uttaget med 1 dag/vecka för {r.parentName} under {r.weeks} veckor ({r.oldDpw} → {r.newDpw} dagar/vecka).
                     </li>
                   ))}
                 </ul>
