@@ -16,8 +16,10 @@ import {
   normalizeBlocks,
   applySmartChange,
   proposeEvenSpreadReduction,
+  proposeProportionalReduction,
   MIN_AUTO_DPW,
   type Block,
+  type ProportionalDebug,
 } from "@/lib/adjustmentPolicy";
 
 type Parent = {
@@ -71,6 +73,7 @@ type Proposal = {
   debug: DebugGroundTruth;
   debugBefore: Block[];
   debugAfter: Block[];
+  proportionalDebug?: ProportionalDebug;
 };
 
 function getTransfers(transfer: Transfer | null) {
@@ -166,7 +169,7 @@ function computeRescueProposal(
     };
   }
 
-  // ── Step 3: Use shared proposeEvenSpreadReduction ──
+  // ── Step 3: Use shared reduction ──
   const activeTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
 
   // Determine parent scope based on mode
@@ -190,16 +193,32 @@ function computeRescueProposal(
   let totalWeeksReduced = 0;
   const reductionSummary: Proposal["reductionSummary"] = [];
   let iterations = 0;
+  let proportionalDebugData: ProportionalDebug | undefined;
 
   while (iterUnfulfilled > 0 && iterations < 50) {
     iterations++;
     const daysToReduce = Math.max(1, Math.ceil(iterUnfulfilled));
 
-    const reduction = proposeEvenSpreadReduction({
-      plan: currentBlocks,
-      parentScope,
-      daysToReduce,
-    });
+    let reduction;
+    if (mode === "proportional" && parents.length >= 2) {
+      // ── Proportional: allocate weeks based on entire plan's load per parent ──
+      const propResult = proposeProportionalReduction({
+        plan: currentBlocks,
+        parentIds: parentScope,
+        daysToReduce,
+      });
+      reduction = propResult;
+      // Capture debug from first (main) iteration
+      if (!proportionalDebugData) {
+        proportionalDebugData = propResult.proportionalDebug;
+      }
+    } else {
+      reduction = proposeEvenSpreadReduction({
+        plan: currentBlocks,
+        parentScope,
+        daysToReduce,
+      });
+    }
 
     if (reduction.summary.weeksAffectedTotal === 0) break;
 
@@ -257,6 +276,7 @@ function computeRescueProposal(
     },
     debugBefore,
     debugAfter: finalBlocks,
+    proportionalDebug: proportionalDebugData,
   };
 }
 
@@ -428,6 +448,29 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   <p>totalWeeks = {proposal.totalRequiredWeeks}</p>
                   <p>MIN_AUTO_DPW = {MIN_AUTO_DPW}</p>
                 </div>
+                {proposal.proportionalDebug && (
+                  <div>
+                    <p className="font-semibold text-foreground/70">Proportional allocation</p>
+                    <div className="pl-3 space-y-0.5">
+                      {proposal.proportionalDebug.loads.map((l, i) => (
+                        <p key={i}>load({l.parentId.slice(0,8)}) = {l.load}</p>
+                      ))}
+                      {proposal.proportionalDebug.shares.map((s, i) => (
+                        <p key={i}>share({s.parentId.slice(0,8)}) = {(s.share * 100).toFixed(0)}%</p>
+                      ))}
+                      <p>requiredWeeksTotal = {proposal.proportionalDebug.requiredWeeksTotal}</p>
+                      {proposal.proportionalDebug.allocatedWeeks.map((a, i) => (
+                        <p key={i}>weeks({a.parentId.slice(0,8)}) = {a.weeks}</p>
+                      ))}
+                      <p className={
+                        proposal.proportionalDebug.allocatedWeeks.reduce((s, a) => s + a.weeks, 0) === proposal.proportionalDebug.requiredWeeksTotal
+                          ? "text-primary" : "text-destructive"
+                      }>
+                        sum = {proposal.proportionalDebug.allocatedWeeks.reduce((s, a) => s + a.weeks, 0)} (target={proposal.proportionalDebug.requiredWeeksTotal})
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </details>
           )}
