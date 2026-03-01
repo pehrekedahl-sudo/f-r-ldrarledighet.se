@@ -12,6 +12,7 @@ import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
 import FitPlanDrawer from "@/components/FitPlanDrawer";
+import HandoverDrawer from "@/components/HandoverDrawer";
 
 import {
   Select,
@@ -90,6 +91,7 @@ const PlanBuilder = () => {
   const [drawerMode, setDrawerMode] = useState<"edit" | "create">("edit");
   const [saveDaysOpen, setSaveDaysOpen] = useState(false);
   const [fitPlanOpen, setFitPlanOpen] = useState(false);
+  const [handoverOpen, setHandoverOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -538,6 +540,11 @@ const PlanBuilder = () => {
               <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
                 Sparade dagar
               </Button>
+              {parents.length >= 2 && (
+                <Button variant="outline" size="sm" onClick={() => setHandoverOpen(true)}>
+                  Justera växlingsdatum
+                </Button>
+              )}
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
@@ -770,6 +777,19 @@ const PlanBuilder = () => {
           setBlocks(newBlocks);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
+        }}
+      />
+      <HandoverDrawer
+        open={handoverOpen}
+        onOpenChange={setHandoverOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+        constants={CONSTANTS}
+        transfer={transfer}
+        onApply={(newBlocks) => {
+          setBlocks(newBlocks);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
         }}
       />
