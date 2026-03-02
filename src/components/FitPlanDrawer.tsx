@@ -77,6 +77,17 @@ type DebugGroundTruth = {
   budgetFlagAfter: boolean;
 };
 
+/** Decomposition: transferDays + paceDays === missingDaysTotal */
+type Decomposition = {
+  missingDaysTotal: number;
+  missingAfterTransferOnly: number;
+  missingAfterFull: number;
+  transferDays: number;
+  paceDays: number;
+  paceWeeks: number;
+  consistent: boolean; // transferDays + paceDays === missingDaysTotal
+};
+
 type Proposal = {
   newBlocks: Block[];
   proposedTransfer: Transfer | null;
@@ -87,6 +98,7 @@ type Proposal = {
   transferOnly: boolean;
   totalRequiredWeeks: number;
   missingDays: number;
+  decomposition: Decomposition;
   debug: DebugGroundTruth;
   debugBefore: Block[];
   debugAfter: Block[];
@@ -263,6 +275,9 @@ function computeRescueProposal(
     const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: [proposedTransfer], constants });
     const finalUnfulfilled = finalResult.unfulfilledDaysTotal ?? 0;
     const newAvg = calcAvgMonthly(finalResult.parentsResult);
+    // Decomposition: transfer solved everything
+    const transferDays = missingDays;
+    const paceDays = 0;
     return {
       newBlocks: mergeAdjacentBlocks(finalBlocks),
       proposedTransfer,
@@ -273,6 +288,15 @@ function computeRescueProposal(
       transferOnly: true,
       totalRequiredWeeks: 0,
       missingDays,
+      decomposition: {
+        missingDaysTotal: missingDays,
+        missingAfterTransferOnly: 0,
+        missingAfterFull: Math.round(finalUnfulfilled),
+        transferDays,
+        paceDays,
+        paceWeeks: paceDays,
+        consistent: transferDays + paceDays === missingDays,
+      },
       debug: {
         shortageBefore: Math.round(origUnfulfilled),
         budgetFlagBefore: !!(origResult as any).warnings?.budgetInsufficient,
@@ -386,6 +410,14 @@ function computeRescueProposal(
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
   const finalTransferDays = currentTransfer ? currentTransfer.sicknessDays : 0;
 
+  // ── Decomposition: simulate transfer-only (original blocks + proposed transfer) ──
+  const transferOnlyTransfers = currentTransfer ? [currentTransfer] : baseTransfers;
+  const transferOnlyRes = simulatePlan({ parents, blocks, transfers: transferOnlyTransfers, constants });
+  const missingAfterTransferOnly = Math.round(transferOnlyRes.unfulfilledDaysTotal ?? 0);
+  const missingAfterFull = Math.round(finalUnfulfilled);
+  const derivedTransferDays = missingDays - missingAfterTransferOnly;
+  const derivedPaceDays = missingAfterTransferOnly - missingAfterFull;
+
   return {
     newBlocks: finalBlocks,
     proposedTransfer: currentTransfer,
@@ -396,6 +428,15 @@ function computeRescueProposal(
     transferOnly: false,
     totalRequiredWeeks: totalWeeksReduced,
     missingDays,
+    decomposition: {
+      missingDaysTotal: missingDays,
+      missingAfterTransferOnly,
+      missingAfterFull,
+      transferDays: derivedTransferDays,
+      paceDays: derivedPaceDays,
+      paceWeeks: derivedPaceDays,
+      consistent: derivedTransferDays + derivedPaceDays === missingDays,
+    },
     debug: {
       shortageBefore: Math.round(origUnfulfilled),
       budgetFlagBefore: !!(origResult as any).warnings?.budgetInsufficient,
@@ -456,25 +497,25 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm text-foreground font-medium">
-                  Planen behöver justeras för att gå ihop.
+                  Planen saknar {proposal.decomposition.missingDaysTotal} dagar.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {proposal.transferAmount > 0 && proposal.totalRequiredWeeks > 0
+                  {proposal.decomposition.transferDays > 0 && proposal.decomposition.paceWeeks > 0
                     ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt."
-                    : proposal.transferAmount > 0 && proposal.totalRequiredWeeks === 0
+                    : proposal.decomposition.transferDays > 0 && proposal.decomposition.paceWeeks === 0
                     ? "Planen kräver omfördelning av dagar mellan er."
-                    : proposal.totalRequiredWeeks > 0
+                    : proposal.decomposition.paceWeeks > 0
                     ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten."
                     : "Planen behöver justeras."}
                 </p>
                 <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
-                  {proposal.transferAmount > 0 && (
-                    <li>Överföra {proposal.transferAmount} dagar mellan er</li>
+                  {proposal.decomposition.transferDays > 0 && (
+                    <li>Omfördela {proposal.decomposition.transferDays} dagar mellan er</li>
                   )}
-                  {proposal.totalRequiredWeeks > 0 && (
-                    <li>Minska uttaget med 1 dag/vecka i {proposal.totalRequiredWeeks} veckor</li>
+                  {proposal.decomposition.paceWeeks > 0 && (
+                    <li>Minska uttaget med {proposal.decomposition.paceWeeks} veckor totalt (−1 dag/vecka)</li>
                   )}
-                  {proposal.transferAmount <= 0 && proposal.totalRequiredWeeks <= 0 && (
+                  {proposal.decomposition.transferDays <= 0 && proposal.decomposition.paceWeeks <= 0 && (
                     <li>Inga justeringar behövs</li>
                   )}
                 </ul>
@@ -516,14 +557,14 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
 
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <ul className="text-sm text-foreground space-y-1.5 list-disc list-inside">
-                  {proposal.proposedTransfer && proposal.transferAmount > 0 && (
+                  {proposal.decomposition.transferDays > 0 && proposal.proposedTransfer && (
                     <li>
-                      Överför {proposal.transferAmount} dagar från{" "}
+                      Överför {proposal.decomposition.transferDays} dagar från{" "}
                       {parents.find(p => p.id === proposal.proposedTransfer!.fromParentId)?.name ?? "?"}{" "}
                       till {parents.find(p => p.id === proposal.proposedTransfer!.toParentId)?.name ?? "?"}
                     </li>
                   )}
-                  {proposal.reductionSummary.map((r, i) => (
+                  {proposal.reductionSummary.filter(r => r.weeks > 0).map((r, i) => (
                     <li key={i}>
                       {r.parentName} minskar uttaget med 1 dag/vecka i {r.weeks} veckor
                     </li>
@@ -569,12 +610,23 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
                   ))}
                 </div>
-                <p className="font-semibold text-foreground/70">Ground truth</p>
+                <p className="font-semibold text-foreground/70">Decomposition</p>
+                <div className="pl-3 space-y-0.5">
+                  <p>missingDaysTotal = {proposal.decomposition.missingDaysTotal}</p>
+                  <p>missingAfterTransferOnly = {proposal.decomposition.missingAfterTransferOnly}</p>
+                  <p>missingAfterFull = {proposal.decomposition.missingAfterFull}</p>
+                  <p>transferDays = {proposal.decomposition.transferDays}</p>
+                  <p>paceDays = {proposal.decomposition.paceDays}</p>
+                  <p>proposal.transferAmount = {proposal.transferAmount}</p>
+                  <p>proposal.totalWeeks = {proposal.totalRequiredWeeks}</p>
+                  <p className={proposal.decomposition.consistent ? "text-primary" : "text-destructive font-bold"}>
+                    Check: {proposal.decomposition.transferDays} + {proposal.decomposition.paceDays} = {proposal.decomposition.transferDays + proposal.decomposition.paceDays} {proposal.decomposition.consistent ? "✓" : `≠ ${proposal.decomposition.missingDaysTotal} ⚠ MISMATCH`}
+                  </p>
+                </div>
+                <p className="font-semibold text-foreground/70 mt-2">Ground truth</p>
                 <div className="pl-3 space-y-0.5">
                   <p>shortageBefore = {proposal.debug.shortageBefore}</p>
                   <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
-                  <p>transferAmount = {proposal.transferAmount}</p>
-                  <p>totalWeeks = {proposal.totalRequiredWeeks}</p>
                 </div>
               </div>
             </details>
