@@ -177,29 +177,22 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
                   ))}
                 </div>
-                <p className="font-semibold text-foreground/70">Decomposition</p>
+                <p className="font-semibold text-foreground/70">Engine truth</p>
                 <div className="pl-3 space-y-0.5">
-                  <p>missingDaysTotal = {proposal.missingDaysTotal}</p>
+                  <p>shortageBefore = {proposal.debug.shortageBefore}</p>
                   <p>maxTransfer = {proposal.debug.maxTransfer}</p>
                   <p>transferDays = {proposal.transferDays}</p>
-                  <p>missingAfterTransferOnly = {proposal.missingAfterTransferOnly}</p>
-                  <p>weeksTotal = {proposal.weeksTotal}</p>
+                  <p>shortageAfterTransfer = {proposal.debug.shortageAfterTransfer}</p>
+                  <p>weeksTotal (applied) = {proposal.weeksTotal}</p>
                   <p>perParentWeeks = {JSON.stringify(proposal.perParentWeeks)}</p>
                   <p>sumPerParentWeeks = {proposal.debug.sumPerParentWeeks}</p>
-                  <p>rawReductionWeeks = {proposal.debug.rawReductionWeeks}</p>
-                  <p className={proposal.debug.consistent ? "text-primary" : "text-destructive font-bold"}>
-                    Check: {proposal.transferDays} + {proposal.weeksTotal} = {proposal.transferDays + proposal.weeksTotal} {proposal.debug.consistent ? "✓" : `≠ ${proposal.missingDaysTotal} ⚠ MISMATCH`}
+                  <p>iterations = {proposal.debug.iterationsUsed}</p>
+                  <p className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
+                    unfulfilledAfterFull = {proposal.debug.unfulfilledAfterFull} {proposal.debug.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
                   </p>
                   <p className={proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "text-primary" : "text-destructive font-bold"}>
                     Σ perParent = {proposal.debug.sumPerParentWeeks} {proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "✓" : `≠ ${proposal.weeksTotal} ⚠ MISMATCH`}
                   </p>
-                </div>
-                <p className="font-semibold text-foreground/70 mt-2">Ground truth</p>
-                <div className="pl-3 space-y-0.5">
-                  <p>shortageBefore = {proposal.debug.shortageBefore}</p>
-                  <p>missingAfterTransferOnly = {proposal.missingAfterTransferOnly}</p>
-                  <p>unfulfilledAfterFull = <span className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.unfulfilledAfterFull}</span></p>
-                  <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
                 </div>
               </div>
             </details>
