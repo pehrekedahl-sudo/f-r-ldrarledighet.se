@@ -423,49 +423,12 @@ export function computeRescueProposal(
     }
   }
 
-  // ── Step 5: Merge and verify ──
-  let finalBlocks = mergeAdjacentBlocks(workingBlocks);
-  let { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
+  // ── Step 5: Merge and verify (NO iteration — deterministic) ──
+  const finalBlocks = mergeAdjacentBlocks(workingBlocks);
+  const { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
 
-  // If engine still shows shortage, add extra weeks one at a time (engine-verified).
-  // Respect the mode: only add to parents that mode allows, or proportionally.
-  let iterations = 0;
-  const MAX_EXTRA = 20;
-  while (finalShortage > 0 && iterations < MAX_EXTRA) {
-    // Determine eligible parents for extra weeks based on mode
-    let eligibleParents: Parent[];
-    if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
-      // "Endast" mode: prefer the selected parent, fall back to others
-      const primary = parents.find(p => p.id === mode)!;
-      const hasCapPrimary = finalBlocks.some(b =>
-        b.parentId === primary.id && b.daysPerWeek >= 2 &&
-        originalDpwMap.get(b.id) !== undefined && b.daysPerWeek === originalDpwMap.get(b.id)
-      );
-      eligibleParents = hasCapPrimary ? [primary] : parents.filter(p => p.id !== mode);
-    } else {
-      eligibleParents = [...parents];
-    }
-
-    let added = false;
-    for (const p of eligibleParents) {
-      const hasReducible = finalBlocks.some(b => {
-        if (b.parentId !== p.id || b.daysPerWeek < 2) return false;
-        const orig = originalDpwMap.get(b.id);
-        return orig !== undefined && b.daysPerWeek === orig;
-      });
-      if (hasReducible) {
-        finalBlocks = applyReductionsForParent(finalBlocks, p.id, 1, originalDpwMap);
-        finalBlocks = mergeAdjacentBlocks(finalBlocks);
-        perParentWeeks[p.id] = (perParentWeeks[p.id] ?? 0) + 1;
-        added = true;
-        break;
-      }
-    }
-    if (!added) break;
-    iterations++;
-    const check = getShortage(parents, finalBlocks, transferList, constants);
-    finalShortage = check.shortage;
-    finalResult = check.result;
+  if (finalShortage > 0) {
+    console.warn(`[rescue] After deterministic reduction, engine still shows shortage=${finalShortage}. NOT adding extra iterations.`);
   }
 
   // Sanity check
@@ -519,7 +482,7 @@ export function computeRescueProposal(
       shortageAfter: finalShortage,
       maxTransfer,
       sumPerParentWeeks: weeksTotal,
-      iterationsUsed: iterations,
+      iterationsUsed: 0,
       unfulfilledAfterFull: finalShortage,
     },
     debugBefore,
