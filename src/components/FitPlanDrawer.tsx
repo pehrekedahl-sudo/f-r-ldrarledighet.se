@@ -84,16 +84,13 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
-                <p className="text-sm text-foreground font-medium">
-                  Planen saknar {proposal.missingDaysTotal} dagar.
-                </p>
                 <p className="text-sm text-muted-foreground">
                   {proposal.transferDays > 0 && proposal.weeksTotal > 0
-                    ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt."
+                    ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt för att gå ihop."
                     : proposal.transferDays > 0
-                    ? "Planen kräver omfördelning av dagar mellan er."
+                    ? "Planen kräver omfördelning av dagar mellan er för att gå ihop."
                     : proposal.weeksTotal > 0
-                    ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten."
+                    ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten för att gå ihop."
                     : "Planen behöver justeras."}
                 </p>
                 <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
@@ -142,11 +139,16 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               </div>
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
                 {proposal.success ? (
-                  <p className="text-sm text-primary font-semibold">✓ Planen går ihop</p>
+                  <p className="text-sm text-primary font-semibold">✅ Planen går ihop</p>
                 ) : (
-                  <p className="text-sm text-destructive font-semibold">
-                    ✗ Planen kan inte helt balanseras med dessa justeringar
-                  </p>
+                  <>
+                    <p className="text-sm text-destructive font-semibold">
+                      ❌ Planen går inte helt ihop
+                    </p>
+                    <p className="text-sm text-destructive/80">
+                      Kvar att lösa: {proposal.debug.unfulfilledAfterFull} dagar
+                    </p>
+                  </>
                 )}
                 <p className="text-sm text-muted-foreground">
                   {proposal.deltaMonthly >= 0 ? "+" : ""}{proposal.deltaMonthly.toLocaleString()} kr/mån i genomsnitt
