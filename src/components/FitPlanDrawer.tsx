@@ -1,12 +1,9 @@
 /**
  * ┌──────────────────────────────────────────────────────────────────┐
- * │ RESCUE / AUTO-JUSTERA — SELF-CONTAINED                         │
+ * │ RESCUE / AUTO-JUSTERA — UI COMPONENT                            │
  * │                                                                  │
- * │ This module must NOT import from adjustmentPolicy.ts or any     │
- * │ "policy" module. Rescue uses its own pre-policy algorithm:      │
- * │ transfer first → then reduce dpw by 1 for N weeks (late-first).│
- * │                                                                  │
- * │ Policy modules are for smart drawers only (Sparade dagar, etc). │
+ * │ All computation lives in src/lib/rescue/computeRescueProposal.  │
+ * │ This file is UI-only. No policy imports.                        │
  * └──────────────────────────────────────────────────────────────────┘
  */
 
@@ -23,42 +20,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { simulatePlan } from "@/lib/simulatePlan";
-import { mergeAdjacentBlocks } from "@/lib/mergeAdjacentBlocks";
-import { generateBlockId } from "@/lib/blockIdUtils";
-
-// ── Local Block type (no policy dependency) ──
-
-type Block = {
-  id: string;
-  parentId: string;
-  startDate: string;
-  endDate: string;
-  daysPerWeek: number;
-  lowestDaysPerWeek?: number;
-  overlapGroupId?: string;
-};
-
-type Parent = {
-  id: string;
-  name: string;
-  monthlyIncomeFixed: number;
-  monthlyIncomeVariableAvg?: number;
-  has240Days: boolean;
-};
-
-type Constants = {
-  SGI_CAP_ANNUAL: number;
-  LOWEST_LEVEL_DAILY_AMOUNT: number;
-  BASIC_LEVEL_DAILY_AMOUNT: number;
-  SICKNESS_RATE: number;
-  REDUCTION: number;
-  SICKNESS_DAILY_MAX?: number;
-};
-
-type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
-
-type DistributionMode = "proportional" | "split" | string;
+import {
+  computeRescueProposal,
+  type Block,
+  type Parent,
+  type Constants,
+  type Transfer,
+  type DistributionMode,
+  type Proposal,
+} from "@/lib/rescue/computeRescueProposal";
 
 type Props = {
   open: boolean;
@@ -69,331 +39,6 @@ type Props = {
   transfer: Transfer | null;
   onApply: (newBlocks: Block[], newTransfer: Transfer | null) => void;
 };
-
-type Proposal = {
-  newBlocks: Block[];
-  proposedTransfer: Transfer | null;
-  // ── Single source of truth numbers ──
-  missingDaysTotal: number;
-  transferDays: number;
-  missingAfterTransferOnly: number;
-  weeksTotal: number; // === missingAfterTransferOnly
-  perParentWeeks: Record<string, number>; // sum MUST === weeksTotal
-  // ── UI text built from above ──
-  actionsText: string[]; // top summary bullets
-  detailText: string[];  // "detta innebär" bullets
-  // ── Other ──
-  deltaMonthly: number;
-  success: boolean;
-  transferOnly: boolean;
-  debug: {
-    shortageBefore: number;
-    shortageAfter: number;
-    missingAfterFull: number;
-    sumPerParentWeeks: number;
-    consistent: boolean;
-    rawReductionWeeks: number; // what the iterative loop actually produced
-  };
-  debugBefore: Block[];
-  debugAfter: Block[];
-};
-
-// ── Rescue-local helpers (zero policy imports) ──
-
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function calendarDays(b: Block): number {
-  return Math.ceil(
-    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
-    (1000 * 60 * 60 * 24)
-  ) + 1;
-}
-
-function getTransfers(transfer: Transfer | null) {
-  return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-}
-
-function calcAvgMonthly(parentsResult: any[]): number {
-  const allM = parentsResult.flatMap((pr: any) => pr.monthlyBreakdown);
-  const total = allM.reduce((s: number, m: any) => s + m.grossAmount, 0);
-  const months = allM.filter((m: any) => m.grossAmount > 0).length;
-  return months > 0 ? total / months : 0;
-}
-
-/**
- * Rescue-local reduction: reduce dpw by 1 for `weeksNeeded` weeks,
- * applied late-first within the given parentScope.
- * Returns mutated blocks array and per-parent summary.
- */
-function rescueReduceWeeks(
-  blocks: Block[],
-  parentScope: string[],
-  weeksNeeded: number,
-): { blocks: Block[]; perParent: { parentId: string; weeks: number; oldDpw: number; newDpw: number }[] } {
-  const working = blocks.map(b => ({ ...b }));
-  const allowed = new Set(parentScope);
-  let remaining = weeksNeeded;
-  const perParentMap = new Map<string, { weeks: number; oldDpw: number; newDpw: number }>();
-
-  // Get candidate blocks sorted latest-first
-  const candidates = working
-    .filter(b => allowed.has(b.parentId) && b.daysPerWeek >= 1)
-    .sort((a, b) => b.startDate.localeCompare(a.startDate));
-
-  for (const target of candidates) {
-    if (remaining <= 0) break;
-    if (target.daysPerWeek < 1) continue;
-
-    const calDays = calendarDays(target);
-    const blockWeeks = Math.floor(calDays / 7);
-    if (blockWeeks <= 0) continue;
-
-    const oldDpw = target.daysPerWeek;
-    const newDpw = oldDpw - 1;
-
-    if (blockWeeks <= remaining) {
-      // Reduce entire block
-      target.daysPerWeek = newDpw;
-      remaining -= blockWeeks;
-      const entry = perParentMap.get(target.parentId);
-      if (!entry) {
-        perParentMap.set(target.parentId, { weeks: blockWeeks, oldDpw, newDpw });
-      } else {
-        entry.weeks += blockWeeks;
-      }
-    } else {
-      // Split: keep earlier part unchanged, reduce later part
-      const headDays = calDays - remaining * 7;
-      if (headDays <= 0) {
-        target.daysPerWeek = newDpw;
-        const entry = perParentMap.get(target.parentId);
-        if (!entry) {
-          perParentMap.set(target.parentId, { weeks: blockWeeks, oldDpw, newDpw });
-        } else {
-          entry.weeks += blockWeeks;
-        }
-        remaining = 0;
-      } else {
-        const splitDate = addDaysISO(target.startDate, headDays);
-        const tailBlock: Block = {
-          id: generateBlockId("rescue"),
-          parentId: target.parentId,
-          startDate: splitDate,
-          endDate: target.endDate,
-          daysPerWeek: newDpw,
-          lowestDaysPerWeek: target.lowestDaysPerWeek,
-          overlapGroupId: target.overlapGroupId,
-        };
-        target.endDate = addDaysISO(splitDate, -1);
-        working.push(tailBlock);
-
-        const entry = perParentMap.get(target.parentId);
-        if (!entry) {
-          perParentMap.set(target.parentId, { weeks: remaining, oldDpw, newDpw });
-        } else {
-          entry.weeks += remaining;
-        }
-        remaining = 0;
-      }
-    }
-  }
-
-  const perParent = Array.from(perParentMap.entries()).map(([parentId, v]) => ({ parentId, ...v }));
-  return { blocks: mergeAdjacentBlocks(working), perParent };
-}
-
-// ── Distribution helpers ──
-
-function calcParentLoad(blocks: Block[], parentId: string): number {
-  return blocks
-    .filter(b => b.parentId === parentId)
-    .reduce((s, b) => s + Math.floor(calendarDays(b) / 7) * b.daysPerWeek, 0);
-}
-
-/** Largest-remainder method: distribute `total` into integer shares summing exactly to `total`. */
-function distributeWeeks(
-  total: number,
-  weights: { id: string; weight: number }[],
-): Record<string, number> {
-  if (total <= 0 || weights.length === 0) {
-    return Object.fromEntries(weights.map(w => [w.id, 0]));
-  }
-  const sumW = weights.reduce((s, w) => s + w.weight, 0);
-  if (sumW <= 0) {
-    // Equal distribution fallback
-    const base = Math.floor(total / weights.length);
-    let rem = total - base * weights.length;
-    return Object.fromEntries(weights.map(w => {
-      const v = base + (rem > 0 ? 1 : 0);
-      if (rem > 0) rem--;
-      return [w.id, v];
-    }));
-  }
-  const raw = weights.map(w => ({ id: w.id, exact: (w.weight / sumW) * total, floor: 0, remainder: 0 }));
-  for (const r of raw) { r.floor = Math.floor(r.exact); r.remainder = r.exact - r.floor; }
-  let assigned = raw.reduce((s, r) => s + r.floor, 0);
-  // Sort by descending remainder
-  const sorted = [...raw].sort((a, b) => b.remainder - a.remainder);
-  for (const r of sorted) {
-    if (assigned >= total) break;
-    r.floor++;
-    assigned++;
-  }
-  return Object.fromEntries(raw.map(r => [r.id, Math.max(0, r.floor)]));
-}
-
-// ── Main rescue computation ──
-
-function computeRescueProposal(
-  blocks: Block[],
-  parents: Parent[],
-  constants: Constants,
-  existingTransfer: Transfer | null,
-  mode: DistributionMode,
-): Proposal | null {
-  if (blocks.length === 0) return null;
-
-  const baseTransfers = getTransfers(existingTransfer);
-  const origResult = simulatePlan({ parents, blocks, transfers: baseTransfers, constants });
-  const origUnfulfilled = origResult.unfulfilledDaysTotal ?? 0;
-  if (origUnfulfilled <= 0) return null;
-
-  const origAvg = calcAvgMonthly(origResult.parentsResult);
-  const missingDaysTotal = Math.round(origUnfulfilled);
-  const debugBefore = blocks.map(b => ({ ...b }));
-
-  // ── Step 1: Compute transfer ──
-  const scored = origResult.parentsResult.map((pr: any) => ({
-    id: pr.parentId,
-    name: pr.name,
-    transferable: pr.remaining.sicknessTransferable as number,
-    taken: (pr.taken.sickness + pr.taken.lowest) as number,
-    totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
-  }));
-  scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.taken - a.taken);
-  const needy = scored[0];
-  const giver = scored[scored.length - 1];
-
-  let proposedTransfer: Transfer | null = null;
-  let transferDays = 0;
-
-  if (giver.transferable > 0 && needy.id !== giver.id) {
-    const maxTransfer = Math.floor(giver.transferable);
-    const tryAmount = Math.min(maxTransfer, missingDaysTotal);
-    const existingAmount = existingTransfer &&
-      existingTransfer.fromParentId === giver.id &&
-      existingTransfer.toParentId === needy.id
-      ? existingTransfer.sicknessDays : 0;
-
-    proposedTransfer = {
-      fromParentId: giver.id,
-      toParentId: needy.id,
-      sicknessDays: existingAmount + tryAmount,
-    };
-    // Derive transferDays from simulation
-    const transferOnlyRes = simulatePlan({ parents, blocks, transfers: [proposedTransfer], constants });
-    const missingAfterTO = Math.round(transferOnlyRes.unfulfilledDaysTotal ?? 0);
-    transferDays = missingDaysTotal - Math.max(0, missingAfterTO);
-  }
-
-  const missingAfterTransferOnly = Math.max(0, missingDaysTotal - transferDays);
-  const weeksTotal = missingAfterTransferOnly; // 1 week reduction = 1 day saved
-
-  // ── Step 2: Distribute weeksTotal by mode ──
-  let perParentWeeks: Record<string, number>;
-  if (weeksTotal <= 0) {
-    perParentWeeks = Object.fromEntries(parents.map(p => [p.id, 0]));
-  } else if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
-    // "only this parent" mode
-    perParentWeeks = Object.fromEntries(parents.map(p => [p.id, p.id === mode ? weeksTotal : 0]));
-  } else if (mode === "split" && parents.length >= 2) {
-    const half = Math.floor(weeksTotal / 2);
-    // Give remainder to parent with more planned leave
-    const load0 = calcParentLoad(blocks, parents[0].id);
-    const load1 = calcParentLoad(blocks, parents[1].id);
-    const first = half;
-    const second = weeksTotal - half;
-    perParentWeeks = {
-      [parents[0].id]: load0 >= load1 ? second : first,
-      [parents[1].id]: load0 >= load1 ? first : second,
-    };
-  } else {
-    // proportional (default)
-    const weights = parents.map(p => ({ id: p.id, weight: calcParentLoad(blocks, p.id) }));
-    perParentWeeks = distributeWeeks(weeksTotal, weights);
-  }
-
-  // ── Step 3: Apply reductions using rescueReduceWeeks ──
-  let currentBlocks = blocks.map(b => ({ ...b }));
-  let rawReductionWeeks = 0;
-
-  for (const p of parents) {
-    const w = perParentWeeks[p.id] ?? 0;
-    if (w <= 0) continue;
-    const reduction = rescueReduceWeeks(currentBlocks, [p.id], w);
-    currentBlocks = reduction.blocks;
-    for (const pp of reduction.perParent) rawReductionWeeks += pp.weeks;
-  }
-
-  // Use proposed transfer for final sim
-  const currentTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
-  const finalBlocks = mergeAdjacentBlocks(currentBlocks);
-  const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: currentTransfers, constants });
-  const finalUnfulfilled = Math.round(finalResult.unfulfilledDaysTotal ?? 0);
-  const newAvg = calcAvgMonthly(finalResult.parentsResult);
-
-  // ── Step 4: Build text from numbers ──
-  const actionsText: string[] = [];
-  if (transferDays > 0) actionsText.push(`Omfördela ${transferDays} dagar mellan er`);
-  if (weeksTotal > 0) actionsText.push(`Minska uttaget med ${weeksTotal} veckor totalt (−1 dag/vecka)`);
-
-  const detailText: string[] = [];
-  if (transferDays > 0 && proposedTransfer) {
-    const fromName = parents.find(p => p.id === proposedTransfer!.fromParentId)?.name ?? "?";
-    const toName = parents.find(p => p.id === proposedTransfer!.toParentId)?.name ?? "?";
-    detailText.push(`Överför ${transferDays} dagar från ${fromName} till ${toName}`);
-  }
-  for (const p of parents) {
-    const w = perParentWeeks[p.id] ?? 0;
-    if (w > 0) detailText.push(`${p.name} minskar uttaget med 1 dag/vecka i ${w} veckor`);
-  }
-  if (weeksTotal === 0 && transferDays > 0) {
-    detailText.push("Enbart överföring av dagar löser bristen");
-  }
-
-  const sumPerParentWeeks = Object.values(perParentWeeks).reduce((s, v) => s + v, 0);
-
-  return {
-    newBlocks: finalBlocks,
-    proposedTransfer,
-    missingDaysTotal,
-    transferDays,
-    missingAfterTransferOnly,
-    weeksTotal,
-    perParentWeeks,
-    actionsText,
-    detailText,
-    deltaMonthly: Math.round(newAvg - origAvg),
-    success: finalUnfulfilled <= 0,
-    transferOnly: weeksTotal === 0,
-    debug: {
-      shortageBefore: missingDaysTotal,
-      shortageAfter: finalUnfulfilled,
-      missingAfterFull: finalUnfulfilled,
-      sumPerParentWeeks,
-      consistent: sumPerParentWeeks === weeksTotal && (transferDays + weeksTotal === missingDaysTotal),
-      rawReductionWeeks,
-    },
-    debugBefore,
-    debugAfter: finalBlocks,
-  };
-}
-
-// ── Component ──
 
 const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
   const [mode, setMode] = useState<DistributionMode>("proportional");
@@ -420,8 +65,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
 
   const handleApply = () => {
     if (!proposal) return;
-    const appliedTransfer = proposal.proposedTransfer ?? transfer;
-    onApply(proposal.newBlocks, appliedTransfer);
+    onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
     onOpenChange(false);
   };
 
@@ -433,7 +77,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          {/* A) Neutral recommendation — from proposal.actionsText */}
+          {/* A) Summary */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
           ) : proposal ? (
@@ -487,17 +131,15 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </RadioGroup>
           </div>
 
-          {/* C) Live preview — from proposal.detailText */}
+          {/* C) Detail preview */}
           {!computing && proposal && (
             <div className="space-y-4 border-t border-border pt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detta innebär</p>
-
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <ul className="text-sm text-foreground space-y-1.5 list-disc list-inside">
                   {proposal.detailText.map((t, i) => <li key={i}>{t}</li>)}
                 </ul>
               </div>
-
               <div className="border border-border rounded-lg p-4 bg-card space-y-2">
                 {proposal.success ? (
                   <p className="text-sm text-primary font-semibold">✓ Planen går ihop</p>
@@ -513,7 +155,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </div>
           )}
 
-          {/* D) Debug (rescue) panel */}
+          {/* D) Debug panel */}
           {!computing && proposal && (
             <details className="border-t border-border pt-4">
               <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
@@ -536,6 +178,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 <p className="font-semibold text-foreground/70">Decomposition</p>
                 <div className="pl-3 space-y-0.5">
                   <p>missingDaysTotal = {proposal.missingDaysTotal}</p>
+                  <p>maxTransfer = {proposal.debug.maxTransfer}</p>
                   <p>transferDays = {proposal.transferDays}</p>
                   <p>missingAfterTransferOnly = {proposal.missingAfterTransferOnly}</p>
                   <p>weeksTotal = {proposal.weeksTotal}</p>
