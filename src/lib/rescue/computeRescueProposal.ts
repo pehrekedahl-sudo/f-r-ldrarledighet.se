@@ -329,7 +329,10 @@ export function computeRescueProposal(
   }
 
   // ── Step 3: Calculate weeks needed and distribute ──
-  const weekReductionsNeeded = shortageAfterTransfer;
+  // INVARIANT: use arithmetic decomposition, NOT engine's shortageAfterTransfer
+  // This ensures transferDays + weekReductionsNeeded == missingDaysTotal ALWAYS.
+  const missingAfterTransferArithmetic = missingDaysTotal - transferDays;
+  const weekReductionsNeeded = Math.max(0, missingAfterTransferArithmetic);
 
   // Compute max reducible weeks per parent (blocks with dpw >= 2 at original state)
   const maxPerParent: Record<string, number> = Object.fromEntries(
@@ -502,7 +505,7 @@ export function computeRescueProposal(
     proposedTransfer,
     missingDaysTotal,
     transferDays,
-    missingAfterTransferOnly: shortageAfterTransfer,
+    missingAfterTransferOnly: missingAfterTransferArithmetic,
     weeksTotal,
     perParentWeeks,
     actionsText,
@@ -512,7 +515,7 @@ export function computeRescueProposal(
     transferOnly: weeksTotal === 0,
     debug: {
       shortageBefore: missingDaysTotal,
-      shortageAfterTransfer,
+      shortageAfterTransfer: missingAfterTransferArithmetic,
       shortageAfter: finalShortage,
       maxTransfer,
       sumPerParentWeeks: weeksTotal,
