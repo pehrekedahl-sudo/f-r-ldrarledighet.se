@@ -69,7 +69,8 @@ export type Proposal = {
     shortageAfter: number;
     maxTransfer: number;
     sumPerParentWeeks: number;
-    iterationsUsed: number;
+    initialReductionWeeks: number;
+    extraReductionWeeks: number;
     unfulfilledAfterFull: number;
   };
   debugBefore: Block[];
@@ -320,7 +321,8 @@ export function computeRescueProposal(
         shortageAfter: 0,
         maxTransfer,
         sumPerParentWeeks: 0,
-        iterationsUsed: 0,
+        initialReductionWeeks: 0,
+        extraReductionWeeks: 0,
         unfulfilledAfterFull: 0,
       },
       debugBefore,
@@ -423,20 +425,62 @@ export function computeRescueProposal(
     }
   }
 
-  // ── Step 5: Merge and verify (NO iteration — deterministic) ──
-  const finalBlocks = mergeAdjacentBlocks(workingBlocks);
-  const { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
+  const initialReductionWeeks = Object.values(perParentWeeks).reduce((s, v) => s + v, 0);
 
-  if (finalShortage > 0) {
-    console.warn(`[rescue] After deterministic reduction, engine still shows shortage=${finalShortage}. NOT adding extra iterations.`);
+  // ── Step 5: Engine-verify and apply extra reductions if initial batch had no-op weeks ──
+  let finalBlocks = mergeAdjacentBlocks(workingBlocks);
+  let { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
+
+  let extraReductionWeeks = 0;
+  const MAX_EXTRA = 100;
+
+  while (finalShortage > 0 && extraReductionWeeks < MAX_EXTRA) {
+    // Pick parent to reduce based on mode
+    const hasCapacity = (pid: string) =>
+      finalBlocks.some(b => b.parentId === pid && b.daysPerWeek >= 2 &&
+        Math.floor(calendarDays(b.startDate, b.endDate) / 7) > 0);
+
+    let targetPid: string | null = null;
+
+    if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
+      targetPid = hasCapacity(mode) ? mode :
+        parents.find(p => p.id !== mode && hasCapacity(p.id))?.id ?? null;
+    } else if (mode === "split" && parents.length >= 2) {
+      const w0 = perParentWeeks[parents[0].id] ?? 0;
+      const w1 = perParentWeeks[parents[1].id] ?? 0;
+      const prefer = w0 <= w1 ? parents[0].id : parents[1].id;
+      targetPid = hasCapacity(prefer) ? prefer :
+        parents.find(p => p.id !== prefer && hasCapacity(p.id))?.id ?? null;
+    } else {
+      let bestRatio = Infinity;
+      for (const p of parents) {
+        if (!hasCapacity(p.id)) continue;
+        const load = calcParentLoad(blocks, p.id);
+        const ratio = load > 0 ? (perParentWeeks[p.id] ?? 0) / load : Infinity;
+        if (ratio < bestRatio) { bestRatio = ratio; targetPid = p.id; }
+      }
+    }
+
+    if (!targetPid) break;
+
+    // Apply 1 week reduction — allow stacking by using current dpw as "original"
+    const freshDpwMap = new Map<string, number>();
+    for (const b of finalBlocks) freshDpwMap.set(b.id, b.daysPerWeek);
+
+    const reduced = applyReductionsForParent(
+      finalBlocks.map(b => ({ ...b })), targetPid, 1, freshDpwMap
+    );
+    finalBlocks = mergeAdjacentBlocks(reduced);
+
+    const check = getShortage(parents, finalBlocks, transferList, constants);
+    perParentWeeks[targetPid] = (perParentWeeks[targetPid] ?? 0) + 1;
+    finalShortage = check.shortage;
+    finalResult = check.result;
+    extraReductionWeeks++;
   }
 
-  // Sanity check
-  for (const b of finalBlocks) {
-    const origBlock = blocks.find(ob => ob.id === b.id);
-    if (origBlock && b.daysPerWeek < origBlock.daysPerWeek - 1) {
-      console.warn(`[rescue] Block ${b.id} has dpw=${b.daysPerWeek}, original was ${origBlock.daysPerWeek}. Stacking detected!`);
-    }
+  if (finalShortage > 0) {
+    console.warn(`[rescue] After ${extraReductionWeeks} extra iterations, engine still shows shortage=${finalShortage}.`);
   }
 
   // Derive all display values from the single proposal state
@@ -482,7 +526,8 @@ export function computeRescueProposal(
       shortageAfter: finalShortage,
       maxTransfer,
       sumPerParentWeeks: weeksTotal,
-      iterationsUsed: 0,
+      initialReductionWeeks,
+      extraReductionWeeks,
       unfulfilledAfterFull: finalShortage,
     },
     debugBefore,
