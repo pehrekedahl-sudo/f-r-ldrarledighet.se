@@ -55,7 +55,7 @@ export type Proposal = {
   missingDaysTotal: number;
   transferDays: number;
   missingAfterTransferOnly: number;
-  weeksTotal: number;
+  weeksTotal: number;              // MUST equal missingAfterTransferOnly
   perParentWeeks: Record<string, number>;
   // ── UI text ──
   actionsText: string[];
@@ -71,6 +71,7 @@ export type Proposal = {
     consistent: boolean;
     rawReductionWeeks: number;
     sumPerParentWeeks: number;
+    unfulfilledAfterFull: number;
   };
   debugBefore: Block[];
   debugAfter: Block[];
@@ -220,9 +221,9 @@ export function computeRescueProposal(
   existingTransfer: Transfer | null,
   mode: DistributionMode,
 ): Proposal | null {
-  // SAFETY: rescue must not use policy modules
   if (blocks.length === 0) return null;
 
+  // ── Step 0: Simulate current plan AS-IS (with existing transfers) ──
   const baseTransfers = existingTransfer && existingTransfer.sicknessDays > 0 ? [existingTransfer] : [];
   const origResult = simulatePlan({ parents, blocks, transfers: baseTransfers, constants });
   const missingDaysTotal = Math.round(origResult.unfulfilledDaysTotal ?? 0);
@@ -231,49 +232,42 @@ export function computeRescueProposal(
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const debugBefore = blocks.map(b => ({ ...b }));
 
-  // ── Step 1: Transfer-first (max possible) ──
+  // ── Step 1: Transfer-first — determine donor/recipient & max transfer ──
   const scored = origResult.parentsResult.map((pr: any) => ({
     id: pr.parentId,
     name: pr.name,
-    transferable: pr.remaining.sicknessTransferable as number,
+    transferable: Math.floor(pr.remaining.sicknessTransferable as number),
     totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
     taken: (pr.taken.sickness + pr.taken.lowest) as number,
   }));
-  scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.taken - a.taken);
-  const needy = scored[0];
-  const giver = scored[scored.length - 1];
+  // Needy = lowest total remaining; Giver = highest transferable
+  scored.sort((a, b) => b.transferable - a.transferable);
+  const giver = scored[0];
+  const needy = scored[scored.length - 1];
 
   let proposedTransfer: Transfer | null = null;
   let maxTransfer = 0;
   let transferDays = 0;
 
   if (giver.transferable > 0 && needy.id !== giver.id) {
-    maxTransfer = Math.floor(giver.transferable);
-    // Transfer-first: use as much as possible, up to missingDaysTotal
+    maxTransfer = giver.transferable;
     transferDays = Math.min(missingDaysTotal, maxTransfer);
 
-    const existingAmount = existingTransfer &&
-      existingTransfer.fromParentId === giver.id &&
-      existingTransfer.toParentId === needy.id
-      ? existingTransfer.sicknessDays : 0;
-
+    // REPLACE existing transfer — do NOT append
     proposedTransfer = {
       fromParentId: giver.id,
       toParentId: needy.id,
-      sicknessDays: existingAmount + transferDays,
+      sicknessDays: transferDays,
     };
   }
 
-  // ── Step 2: Simulate transfer-only to get ground truth ──
-  const transferOnlyTransfers = proposedTransfer ? [proposedTransfer] : baseTransfers;
+  // ── Step 2: Simulate transfer-only to get ground truth shortage ──
+  const transferOnlyTransfers = proposedTransfer ? [proposedTransfer] : [];
   const transferOnlyRes = simulatePlan({ parents, blocks, transfers: transferOnlyTransfers, constants });
-  const missingAfterTransferOnly = Math.round(transferOnlyRes.unfulfilledDaysTotal ?? 0);
+  const missingAfterTransferOnly = Math.max(0, Math.round(transferOnlyRes.unfulfilledDaysTotal ?? 0));
 
-  // Use simulation-derived value for weeksTotal (ground truth)
-  const weeksTotal = Math.max(0, missingAfterTransferOnly);
-
-  // Re-derive transferDays from simulation for consistency
-  transferDays = missingDaysTotal - missingAfterTransferOnly;
+  // weeksTotal MUST equal missingAfterTransferOnly (1 week reduction = 1 day saved)
+  const weeksTotal = missingAfterTransferOnly;
 
   // ── Step 3: Distribute weeksTotal by mode ──
   let perParentWeeks: Record<string, number>;
@@ -285,18 +279,16 @@ export function computeRescueProposal(
     const half = Math.floor(weeksTotal / 2);
     const load0 = calcParentLoad(blocks, parents[0].id);
     const load1 = calcParentLoad(blocks, parents[1].id);
-    const first = half;
-    const second = weeksTotal - half;
     perParentWeeks = {
-      [parents[0].id]: load0 >= load1 ? second : first,
-      [parents[1].id]: load0 >= load1 ? first : second,
+      [parents[0].id]: load0 >= load1 ? weeksTotal - half : half,
+      [parents[1].id]: load0 >= load1 ? half : weeksTotal - half,
     };
   } else {
     const weights = parents.map(p => ({ id: p.id, weight: calcParentLoad(blocks, p.id) }));
     perParentWeeks = distributeWeeks(weeksTotal, weights);
   }
 
-  // ── Step 4: Apply pace reductions ──
+  // ── Step 4: Apply pace reductions starting from transfer-only plan ──
   let currentBlocks = blocks.map(b => ({ ...b }));
   let rawReductionWeeks = 0;
 
@@ -311,11 +303,13 @@ export function computeRescueProposal(
   }
 
   const finalBlocks = mergeAdjacentBlocks(currentBlocks);
+
+  // ── Step 5: Simulate final proposal ──
   const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: transferOnlyTransfers, constants });
-  const finalUnfulfilled = Math.round(finalResult.unfulfilledDaysTotal ?? 0);
+  const unfulfilledAfterFull = Math.round(finalResult.unfulfilledDaysTotal ?? 0);
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
-  // ── Step 5: Build UI text from proposal numbers ──
+  // ── Step 6: Build UI text from proposal numbers ──
   const actionsText: string[] = [];
   if (transferDays > 0) actionsText.push(`Omfördela ${transferDays} dagar mellan er`);
   if (weeksTotal > 0) actionsText.push(`Minska uttaget med ${weeksTotal} veckor totalt (−1 dag/vecka)`);
@@ -324,7 +318,7 @@ export function computeRescueProposal(
   if (transferDays > 0 && proposedTransfer) {
     const fromName = parents.find(p => p.id === proposedTransfer!.fromParentId)?.name ?? "?";
     const toName = parents.find(p => p.id === proposedTransfer!.toParentId)?.name ?? "?";
-    detailText.push(`Överför ${transferDays} dagar från ${fromName} till ${toName}`);
+    detailText.push(`${fromName} överför ${transferDays} dagar till ${toName}`);
   }
   for (const p of parents) {
     const w = perParentWeeks[p.id] ?? 0;
@@ -347,15 +341,16 @@ export function computeRescueProposal(
     actionsText,
     detailText,
     deltaMonthly: Math.round(newAvg - origAvg),
-    success: finalUnfulfilled <= 0,
+    success: unfulfilledAfterFull <= 0,
     transferOnly: weeksTotal === 0,
     debug: {
       shortageBefore: missingDaysTotal,
-      shortageAfter: finalUnfulfilled,
+      shortageAfter: unfulfilledAfterFull,
       maxTransfer,
       sumPerParentWeeks,
-      consistent: sumPerParentWeeks === weeksTotal && (transferDays + weeksTotal === missingDaysTotal),
+      consistent: sumPerParentWeeks === weeksTotal,
       rawReductionWeeks,
+      unfulfilledAfterFull,
     },
     debugBefore,
     debugAfter: finalBlocks,

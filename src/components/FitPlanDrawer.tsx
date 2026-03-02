@@ -195,6 +195,8 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 <p className="font-semibold text-foreground/70 mt-2">Ground truth</p>
                 <div className="pl-3 space-y-0.5">
                   <p>shortageBefore = {proposal.debug.shortageBefore}</p>
+                  <p>missingAfterTransferOnly = {proposal.missingAfterTransferOnly}</p>
+                  <p>unfulfilledAfterFull = <span className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.unfulfilledAfterFull}</span></p>
                   <p>shortageAfter = <span className={proposal.debug.shortageAfter === 0 ? "text-primary" : "text-destructive"}>{proposal.debug.shortageAfter}</span></p>
                 </div>
               </div>
