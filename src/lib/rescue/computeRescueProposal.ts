@@ -342,41 +342,51 @@ export function computeRescueProposal(
   const totalCapacity = Object.values(maxPerParent).reduce((s, v) => s + v, 0);
   const cappedWeeks = Math.min(weekReductionsNeeded, totalCapacity);
 
-  let perParentWeeks: Record<string, number>;
+  // Allocate weeks per parent based on mode — deterministic, sum-correct
+  let perParentWeeks: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
 
   if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
-    // Only one parent
-    const cap = maxPerParent[mode] ?? 0;
+    // "Endast [parent]" mode: assign all to that parent, spill to other if capacity exceeded
+    const primaryId = mode;
+    const cap = maxPerParent[primaryId] ?? 0;
     const assigned = Math.min(cappedWeeks, cap);
-    perParentWeeks = Object.fromEntries(parents.map(p => [p.id, p.id === mode ? assigned : 0]));
-    const spill = cappedWeeks - assigned;
+    perParentWeeks[primaryId] = assigned;
+    let spill = cappedWeeks - assigned;
     if (spill > 0) {
       for (const p of parents) {
-        if (p.id !== mode) {
-          perParentWeeks[p.id] = Math.min(spill, maxPerParent[p.id] ?? 0);
-          break;
+        if (p.id !== primaryId) {
+          const give = Math.min(spill, maxPerParent[p.id] ?? 0);
+          perParentWeeks[p.id] = give;
+          spill -= give;
         }
       }
     }
   } else if (mode === "split" && parents.length >= 2) {
+    // 50/50: split evenly, odd week goes to parent with more capacity (or p1 deterministically)
     const half = Math.floor(cappedWeeks / 2);
-    const remainder = cappedWeeks - half * 2;
-    let w0 = Math.min(half, maxPerParent[parents[0].id] ?? 0);
-    let w1 = Math.min(half, maxPerParent[parents[1].id] ?? 0);
-    // Give remainder to first parent that has capacity
+    const odd = cappedWeeks % 2;
+    // Determine who gets the extra week: parent with more capacity, tie → p1
+    const cap0 = maxPerParent[parents[0].id] ?? 0;
+    const cap1 = maxPerParent[parents[1].id] ?? 0;
+    let raw0 = half + (odd && cap0 >= cap1 ? 1 : 0);
+    let raw1 = half + (odd && cap0 < cap1 ? 1 : 0);
+    // Clamp to capacity and redistribute overflow
+    let w0 = Math.min(raw0, cap0);
+    let w1 = Math.min(raw1, cap1);
     let leftover = cappedWeeks - w0 - w1;
     if (leftover > 0) {
-      const extra0 = Math.min(leftover, (maxPerParent[parents[0].id] ?? 0) - w0);
+      const extra0 = Math.min(leftover, cap0 - w0);
       w0 += extra0;
       leftover -= extra0;
     }
     if (leftover > 0) {
-      const extra1 = Math.min(leftover, (maxPerParent[parents[1].id] ?? 0) - w1);
+      const extra1 = Math.min(leftover, cap1 - w1);
       w1 += extra1;
     }
-    perParentWeeks = { [parents[0].id]: w0, [parents[1].id]: w1 };
+    perParentWeeks[parents[0].id] = w0;
+    perParentWeeks[parents[1].id] = w1;
   } else {
-    // Proportional
+    // Proportional: largest-remainder allocation capped to capacity
     const weights = parents.map(p => ({ id: p.id, weight: calcParentLoad(blocks, p.id) }));
     perParentWeeks = distributeWeeks(cappedWeeks, weights);
     // Cap to capacity and redistribute overflow
@@ -399,7 +409,6 @@ export function computeRescueProposal(
   }
 
   // ── Step 4: Apply reductions (baseline-first, end-first, exactly -1) ──
-  // Track original dpw for each block to prevent stacking
   const originalDpwMap = new Map<string, number>();
   for (const b of blocks) originalDpwMap.set(b.id, b.daysPerWeek);
 
@@ -415,14 +424,27 @@ export function computeRescueProposal(
   let finalBlocks = mergeAdjacentBlocks(workingBlocks);
   let { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
 
-  // If engine still shows shortage, add extra weeks one at a time (engine-verified)
+  // If engine still shows shortage, add extra weeks one at a time (engine-verified).
+  // Respect the mode: only add to parents that mode allows, or proportionally.
   let iterations = 0;
   const MAX_EXTRA = 20;
   while (finalShortage > 0 && iterations < MAX_EXTRA) {
-    // Rebuild originalDpwMap for merged blocks based on what's still at original dpw
-    // Find any parent with blocks still at original dpw and dpw >= 2
+    // Determine eligible parents for extra weeks based on mode
+    let eligibleParents: Parent[];
+    if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
+      // "Endast" mode: prefer the selected parent, fall back to others
+      const primary = parents.find(p => p.id === mode)!;
+      const hasCapPrimary = finalBlocks.some(b =>
+        b.parentId === primary.id && b.daysPerWeek >= 2 &&
+        originalDpwMap.get(b.id) !== undefined && b.daysPerWeek === originalDpwMap.get(b.id)
+      );
+      eligibleParents = hasCapPrimary ? [primary] : parents.filter(p => p.id !== mode);
+    } else {
+      eligibleParents = [...parents];
+    }
+
     let added = false;
-    for (const p of parents) {
+    for (const p of eligibleParents) {
       const hasReducible = finalBlocks.some(b => {
         if (b.parentId !== p.id || b.daysPerWeek < 2) return false;
         const orig = originalDpwMap.get(b.id);
@@ -443,7 +465,7 @@ export function computeRescueProposal(
     finalResult = check.result;
   }
 
-  // Sanity check: warn if any rescue block has dpw < original - 1
+  // Sanity check
   for (const b of finalBlocks) {
     const origBlock = blocks.find(ob => ob.id === b.id);
     if (origBlock && b.daysPerWeek < origBlock.daysPerWeek - 1) {
@@ -451,10 +473,10 @@ export function computeRescueProposal(
     }
   }
 
+  // Derive all display values from the single proposal state
   const weeksTotal = Object.values(perParentWeeks).reduce((s, v) => s + v, 0);
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
   const success = finalShortage <= 0;
-  const sumPerParentWeeks = weeksTotal;
 
   // ── Step 6: Build UI text from the SAME proposal ──
   const actionsText: string[] = [];
@@ -493,7 +515,7 @@ export function computeRescueProposal(
       shortageAfterTransfer,
       shortageAfter: finalShortage,
       maxTransfer,
-      sumPerParentWeeks,
+      sumPerParentWeeks: weeksTotal,
       iterationsUsed: iterations,
       unfulfilledAfterFull: finalShortage,
     },
