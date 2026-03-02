@@ -1,15 +1,15 @@
 /**
  * ┌──────────────────────────────────────────────────────────────────┐
- * │ RESCUE / AUTO-JUSTERA — ENGINE-DRIVEN SOLVER                    │
+ * │ RESCUE / AUTO-JUSTERA — ENGINE-DRIVEN ITERATIVE SOLVER          │
  * │                                                                  │
  * │ This module must NOT import from adjustmentPolicy.ts or any     │
  * │ "policy" module. All shortage numbers are derived from          │
  * │ simulatePlan (engine truth), never from arithmetic assumptions. │
  * │                                                                  │
- * │ Algorithm: max transfer first → exactly -1 dpw reductions       │
- * │ spread over many weeks (baseline-first, late-first).            │
- * │ Each block is only ever reduced by exactly 1 from its ORIGINAL  │
- * │ dpw — never stacked reductions, never dpw < original-1.        │
+ * │ Algorithm: transfer-first → iteratively apply minimal -1 dpw    │
+ * │ reductions one week at a time, verifying with simulatePlan      │
+ * │ after each step. Stops when unfulfilledDaysTotal == 0.          │
+ * │ No assumption that "1 week always saves 1 day".                 │
  * └──────────────────────────────────────────────────────────────────┘
  */
 
@@ -69,8 +69,8 @@ export type Proposal = {
     shortageAfter: number;
     maxTransfer: number;
     sumPerParentWeeks: number;
-    initialReductionWeeks: number;
-    extraReductionWeeks: number;
+    stepsApplied: number;
+    noOpSkips: number;
     unfulfilledAfterFull: number;
   };
   debugBefore: Block[];
@@ -117,129 +117,113 @@ function getShortage(
   return { shortage: Math.round(raw), result };
 }
 
-/** Largest-remainder method: integers summing exactly to `total`. */
-function distributeWeeks(
-  total: number,
-  weights: { id: string; weight: number }[],
-): Record<string, number> {
-  if (total <= 0 || weights.length === 0) {
-    return Object.fromEntries(weights.map(w => [w.id, 0]));
-  }
-  const sumW = weights.reduce((s, w) => s + w.weight, 0);
-  if (sumW <= 0) {
-    const base = Math.floor(total / weights.length);
-    let rem = total - base * weights.length;
-    return Object.fromEntries(weights.map(w => {
-      const v = base + (rem > 0 ? 1 : 0);
-      if (rem > 0) rem--;
-      return [w.id, v];
-    }));
-  }
-  const raw = weights.map(w => ({ id: w.id, exact: (w.weight / sumW) * total, floor: 0, remainder: 0 }));
-  for (const r of raw) { r.floor = Math.floor(r.exact); r.remainder = r.exact - r.floor; }
-  let assigned = raw.reduce((s, r) => s + r.floor, 0);
-  const sorted = [...raw].sort((a, b) => b.remainder - a.remainder);
-  for (const r of sorted) {
-    if (assigned >= total) break;
-    r.floor++;
-    assigned++;
-  }
-  return Object.fromEntries(raw.map(r => [r.id, Math.max(0, r.floor)]));
-}
-
 /**
- * Apply exactly `weeksNeeded` weeks of -1 dpw reduction for a parent.
- * 
- * Strategy:
- * 1. Only reduce blocks still at their ORIGINAL dpw (tracked via originalDpwMap).
- *    This prevents stacking (6→5→4→...).
- * 2. Prefer highest-dpw blocks first (baseline-first).
- * 3. Within same dpw, apply from the END of the timeline backwards.
- * 4. Each affected segment becomes (originalDpw - 1). Never dpw < 1.
- * 5. Creates at most one split per block (head=original, tail=original-1).
+ * Find the latest eligible week segment for a given parent and apply -1 dpw.
+ * Returns { blocks, applied } where applied=true if a reduction was made.
+ *
+ * Scans from END of timeline backwards to find a 7-day-aligned segment
+ * where the parent has a block with dpw >= 1. Splits the block if needed
+ * to isolate exactly one 7-day week, then reduces dpw by 1.
  */
-function applyReductionsForParent(
+function applyOneWeekReduction(
   blocks: Block[],
   parentId: string,
-  weeksNeeded: number,
-  originalDpwMap: Map<string, number>,
-): Block[] {
-  if (weeksNeeded <= 0) return blocks;
-
+): { blocks: Block[]; applied: boolean } {
   const working = blocks.map(b => ({ ...b }));
-  let remaining = weeksNeeded;
 
-  // Find this parent's blocks that are still at their original dpw and dpw >= 2
-  // (so reduced dpw >= 1, never 0)
+  // Get all blocks for this parent with dpw >= 1, sorted by endDate descending (latest first)
   const candidates = working
-    .map((b, idx) => ({ b, idx }))
-    .filter(({ b }) => {
-      if (b.parentId !== parentId) return false;
-      if (b.daysPerWeek < 2) return false;
-      const origDpw = originalDpwMap.get(b.id);
-      // Only touch blocks still at original dpw (not already reduced by rescue)
-      return origDpw !== undefined && b.daysPerWeek === origDpw;
-    });
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .sort((a, b) => b.endDate.localeCompare(a.endDate));
 
-  // Sort: highest dpw first (baseline-first), then latest startDate first (end-first)
-  candidates.sort((a, b) => {
-    if (b.b.daysPerWeek !== a.b.daysPerWeek) return b.b.daysPerWeek - a.b.daysPerWeek;
-    return b.b.startDate.localeCompare(a.b.startDate);
-  });
-
-  const newBlocks: Block[] = [];
-
-  for (const { b: target } of candidates) {
-    if (remaining <= 0) break;
-
+  for (const target of candidates) {
     const calDays_ = calendarDays(target.startDate, target.endDate);
+    if (calDays_ < 7) continue; // need at least 7 days for a full week
+
     const blockWeeks = Math.floor(calDays_ / 7);
     if (blockWeeks <= 0) continue;
 
     const reducedDpw = target.daysPerWeek - 1;
 
-    if (blockWeeks <= remaining) {
-      // Reduce entire block
+    if (blockWeeks === 1) {
+      // Entire block IS one week — reduce in place
       target.daysPerWeek = reducedDpw;
       if (target.lowestDaysPerWeek !== undefined && target.lowestDaysPerWeek > reducedDpw) {
         target.lowestDaysPerWeek = reducedDpw;
       }
-      remaining -= blockWeeks;
-    } else {
-      // Split: head stays at original dpw, tail becomes dpw-1
-      const tailCalDays = remaining * 7;
-      const headCalDays = calDays_ - tailCalDays;
-
-      if (headCalDays <= 0) {
-        target.daysPerWeek = reducedDpw;
-        if (target.lowestDaysPerWeek !== undefined && target.lowestDaysPerWeek > reducedDpw) {
-          target.lowestDaysPerWeek = reducedDpw;
-        }
-        remaining = 0;
-      } else {
-        const splitDate = addDaysISO(target.startDate, headCalDays);
-        const tailBlock: Block = {
-          id: generateBlockId("rescue"),
-          parentId: target.parentId,
-          startDate: splitDate,
-          endDate: target.endDate,
-          daysPerWeek: reducedDpw,
-          lowestDaysPerWeek: target.lowestDaysPerWeek !== undefined
-            ? Math.min(target.lowestDaysPerWeek, reducedDpw)
-            : undefined,
-          overlapGroupId: target.overlapGroupId,
-        };
-        target.endDate = addDaysISO(splitDate, -1);
-        // Track new block's original dpw as reducedDpw (already reduced, don't touch again)
-        originalDpwMap.set(tailBlock.id, reducedDpw);
-        newBlocks.push(tailBlock);
-        remaining = 0;
-      }
+      return { blocks: working, applied: true };
     }
+
+    // Multiple weeks: split off the LAST 7 days as a separate block with dpw-1
+    const tailStart = addDaysISO(target.endDate, -6); // 7 days: tailStart..target.endDate
+    const headEnd = addDaysISO(tailStart, -1);
+
+    const tailBlock: Block = {
+      id: generateBlockId("rescue"),
+      parentId: target.parentId,
+      startDate: tailStart,
+      endDate: target.endDate,
+      daysPerWeek: reducedDpw,
+      lowestDaysPerWeek: target.lowestDaysPerWeek !== undefined
+        ? Math.min(target.lowestDaysPerWeek, reducedDpw)
+        : undefined,
+      overlapGroupId: target.overlapGroupId,
+    };
+
+    target.endDate = headEnd;
+    working.push(tailBlock);
+    return { blocks: working, applied: true };
   }
 
-  working.push(...newBlocks);
-  return working;
+  return { blocks: working, applied: false };
+}
+
+/**
+ * Choose which parent should receive the next reduction step based on mode.
+ */
+function chooseTargetParent(
+  mode: DistributionMode,
+  parents: Parent[],
+  blocks: Block[],
+  perParentWeeks: Record<string, number>,
+  originalBlocks: Block[],
+  stepIndex: number,
+): string | null {
+  const hasEligible = (pid: string) =>
+    blocks.some(b => b.parentId === pid && b.daysPerWeek >= 1 &&
+      calendarDays(b.startDate, b.endDate) >= 7);
+
+  // "Endast [parent]" mode
+  if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
+    if (hasEligible(mode)) return mode;
+    // Spill to other parent
+    return parents.find(p => p.id !== mode && hasEligible(p.id))?.id ?? null;
+  }
+
+  // 50/50: alternate, preferring the parent with fewer steps so far
+  if (mode === "split" && parents.length >= 2) {
+    const w0 = perParentWeeks[parents[0].id] ?? 0;
+    const w1 = perParentWeeks[parents[1].id] ?? 0;
+    // Pick the one with fewer weeks; tie → alternate by stepIndex
+    let prefer: string;
+    if (w0 < w1) prefer = parents[0].id;
+    else if (w1 < w0) prefer = parents[1].id;
+    else prefer = parents[stepIndex % 2].id;
+
+    if (hasEligible(prefer)) return prefer;
+    return parents.find(p => p.id !== prefer && hasEligible(p.id))?.id ?? null;
+  }
+
+  // Proportional: pick parent with lowest ratio of (stepsApplied / originalLoad)
+  let bestRatio = Infinity;
+  let bestPid: string | null = null;
+  for (const p of parents) {
+    if (!hasEligible(p.id)) continue;
+    const load = calcParentLoad(originalBlocks, p.id);
+    const ratio = load > 0 ? (perParentWeeks[p.id] ?? 0) / load : Infinity;
+    if (ratio < bestRatio) { bestRatio = ratio; bestPid = p.id; }
+  }
+  return bestPid;
 }
 
 // ── Main computation ──
@@ -286,12 +270,11 @@ export function computeRescueProposal(
 
   const transferList = proposedTransfer ? [proposedTransfer] : [];
 
-  // ── Step 2: Check shortage after transfer ──
-  const { shortage: shortageAfterTransfer } = getShortage(parents, blocks, transferList, constants);
+  // ── Step 2: Check shortage after transfer only ──
+  const { shortage: shortageAfterTransfer, result: afterTransferResult } = getShortage(parents, blocks, transferList, constants);
 
   if (shortageAfterTransfer <= 0) {
-    const { result: finalResult } = getShortage(parents, blocks, transferList, constants);
-    const newAvg = calcAvgMonthly(finalResult.parentsResult);
+    const newAvg = calcAvgMonthly(afterTransferResult.parentsResult);
     const perParentWeeks = Object.fromEntries(parents.map(p => [p.id, 0]));
     return {
       newBlocks: blocks.map(b => ({ ...b })),
@@ -321,8 +304,8 @@ export function computeRescueProposal(
         shortageAfter: 0,
         maxTransfer,
         sumPerParentWeeks: 0,
-        initialReductionWeeks: 0,
-        extraReductionWeeks: 0,
+        stepsApplied: 0,
+        noOpSkips: 0,
         unfulfilledAfterFull: 0,
       },
       debugBefore,
@@ -330,168 +313,73 @@ export function computeRescueProposal(
     };
   }
 
-  // ── Step 3: Calculate weeks needed and distribute ──
-  // INVARIANT: use arithmetic decomposition, NOT engine's shortageAfterTransfer
-  // This ensures transferDays + weekReductionsNeeded == missingDaysTotal ALWAYS.
-  const missingAfterTransferArithmetic = missingDaysTotal - transferDays;
-  const weekReductionsNeeded = Math.max(0, missingAfterTransferArithmetic);
+  // ── Step 3: Iterative engine-driven reduction ──
+  // Apply -1 dpw one week at a time, verify with simulatePlan after each step.
+  // Stop when engine confirms unfulfilledDaysTotal == 0.
+  const HARD_CAP = 260;
+  let currentBlocks = blocks.map(b => ({ ...b }));
+  let remaining = shortageAfterTransfer;
+  let stepsApplied = 0;
+  let noOpSkips = 0;
+  const perParentWeeks: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
 
-  // Compute max reducible weeks per parent (blocks with dpw >= 2 at original state)
-  const maxPerParent: Record<string, number> = Object.fromEntries(
-    parents.map(p => [p.id, blocks
-      .filter(b => b.parentId === p.id && b.daysPerWeek >= 2)
-      .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0)
-    ])
-  );
-
-  const totalCapacity = Object.values(maxPerParent).reduce((s, v) => s + v, 0);
-  const cappedWeeks = Math.min(weekReductionsNeeded, totalCapacity);
-
-  // Allocate weeks per parent based on mode — deterministic, sum-correct
-  let perParentWeeks: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
-
-  if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
-    // "Endast [parent]" mode: assign all to that parent, spill to other if capacity exceeded
-    const primaryId = mode;
-    const cap = maxPerParent[primaryId] ?? 0;
-    const assigned = Math.min(cappedWeeks, cap);
-    perParentWeeks[primaryId] = assigned;
-    let spill = cappedWeeks - assigned;
-    if (spill > 0) {
-      for (const p of parents) {
-        if (p.id !== primaryId) {
-          const give = Math.min(spill, maxPerParent[p.id] ?? 0);
-          perParentWeeks[p.id] = give;
-          spill -= give;
-        }
-      }
-    }
-  } else if (mode === "split" && parents.length >= 2) {
-    // 50/50: split evenly, odd week goes to parent with more capacity (or p1 deterministically)
-    const half = Math.floor(cappedWeeks / 2);
-    const odd = cappedWeeks % 2;
-    // Determine who gets the extra week: parent with more capacity, tie → p1
-    const cap0 = maxPerParent[parents[0].id] ?? 0;
-    const cap1 = maxPerParent[parents[1].id] ?? 0;
-    let raw0 = half + (odd && cap0 >= cap1 ? 1 : 0);
-    let raw1 = half + (odd && cap0 < cap1 ? 1 : 0);
-    // Clamp to capacity and redistribute overflow
-    let w0 = Math.min(raw0, cap0);
-    let w1 = Math.min(raw1, cap1);
-    let leftover = cappedWeeks - w0 - w1;
-    if (leftover > 0) {
-      const extra0 = Math.min(leftover, cap0 - w0);
-      w0 += extra0;
-      leftover -= extra0;
-    }
-    if (leftover > 0) {
-      const extra1 = Math.min(leftover, cap1 - w1);
-      w1 += extra1;
-    }
-    perParentWeeks[parents[0].id] = w0;
-    perParentWeeks[parents[1].id] = w1;
-  } else {
-    // Proportional: largest-remainder allocation capped to capacity
-    const weights = parents.map(p => ({ id: p.id, weight: calcParentLoad(blocks, p.id) }));
-    perParentWeeks = distributeWeeks(cappedWeeks, weights);
-    // Cap to capacity and redistribute overflow
-    let overflow = 0;
-    for (const p of parents) {
-      const cap = maxPerParent[p.id] ?? 0;
-      if (perParentWeeks[p.id] > cap) {
-        overflow += perParentWeeks[p.id] - cap;
-        perParentWeeks[p.id] = cap;
-      }
-    }
-    if (overflow > 0) {
-      for (const p of parents) {
-        const room = (maxPerParent[p.id] ?? 0) - perParentWeeks[p.id];
-        const give = Math.min(overflow, room);
-        perParentWeeks[p.id] += give;
-        overflow -= give;
-      }
-    }
-  }
-
-  // ── Step 4: Apply reductions (baseline-first, end-first, exactly -1) ──
-  const originalDpwMap = new Map<string, number>();
-  for (const b of blocks) originalDpwMap.set(b.id, b.daysPerWeek);
-
-  let workingBlocks = blocks.map(b => ({ ...b }));
-  for (const p of parents) {
-    const w = perParentWeeks[p.id] ?? 0;
-    if (w > 0) {
-      workingBlocks = applyReductionsForParent(workingBlocks, p.id, w, originalDpwMap);
-    }
-  }
-
-  const initialReductionWeeks = Object.values(perParentWeeks).reduce((s, v) => s + v, 0);
-
-  // ── Step 5: Engine-verify and apply extra reductions if initial batch had no-op weeks ──
-  let finalBlocks = mergeAdjacentBlocks(workingBlocks);
-  let { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
-
-  let extraReductionWeeks = 0;
-  const MAX_EXTRA = 100;
-
-  while (finalShortage > 0 && extraReductionWeeks < MAX_EXTRA) {
-    // Pick parent to reduce based on mode
-    const hasCapacity = (pid: string) =>
-      finalBlocks.some(b => b.parentId === pid && b.daysPerWeek >= 2 &&
-        Math.floor(calendarDays(b.startDate, b.endDate) / 7) > 0);
-
-    let targetPid: string | null = null;
-
-    if (mode !== "proportional" && mode !== "split" && parents.find(p => p.id === mode)) {
-      targetPid = hasCapacity(mode) ? mode :
-        parents.find(p => p.id !== mode && hasCapacity(p.id))?.id ?? null;
-    } else if (mode === "split" && parents.length >= 2) {
-      const w0 = perParentWeeks[parents[0].id] ?? 0;
-      const w1 = perParentWeeks[parents[1].id] ?? 0;
-      const prefer = w0 <= w1 ? parents[0].id : parents[1].id;
-      targetPid = hasCapacity(prefer) ? prefer :
-        parents.find(p => p.id !== prefer && hasCapacity(p.id))?.id ?? null;
-    } else {
-      let bestRatio = Infinity;
-      for (const p of parents) {
-        if (!hasCapacity(p.id)) continue;
-        const load = calcParentLoad(blocks, p.id);
-        const ratio = load > 0 ? (perParentWeeks[p.id] ?? 0) / load : Infinity;
-        if (ratio < bestRatio) { bestRatio = ratio; targetPid = p.id; }
-      }
-    }
-
-    if (!targetPid) break;
-
-    // Apply 1 week reduction — allow stacking by using current dpw as "original"
-    const freshDpwMap = new Map<string, number>();
-    for (const b of finalBlocks) freshDpwMap.set(b.id, b.daysPerWeek);
-
-    const reduced = applyReductionsForParent(
-      finalBlocks.map(b => ({ ...b })), targetPid, 1, freshDpwMap
+  while (remaining > 0 && stepsApplied + noOpSkips < HARD_CAP) {
+    // Choose target parent based on mode
+    const targetPid = chooseTargetParent(
+      mode, parents, currentBlocks, perParentWeeks, blocks, stepsApplied
     );
-    finalBlocks = mergeAdjacentBlocks(reduced);
+    if (!targetPid) {
+      console.warn(`[rescue] No eligible parent found after ${stepsApplied} steps, ${noOpSkips} skips. remaining=${remaining}`);
+      break;
+    }
 
-    const check = getShortage(parents, finalBlocks, transferList, constants);
+    // Try applying one week reduction
+    const { blocks: candidateBlocks, applied } = applyOneWeekReduction(currentBlocks, targetPid);
+    if (!applied) {
+      // This parent has no eligible weeks left; will be skipped by chooseTargetParent next iteration
+      // But to prevent infinite loop, mark all blocks for this parent as exhausted
+      console.warn(`[rescue] applyOneWeekReduction returned false for ${targetPid}`);
+      break;
+    }
+
+    // Merge and verify with engine
+    const merged = mergeAdjacentBlocks(candidateBlocks);
+    const { shortage: newRemaining } = getShortage(parents, merged, transferList, constants);
+    const effectiveDelta = remaining - newRemaining;
+
+    if (effectiveDelta <= 0) {
+      // No-op: this reduction didn't help. Rollback and skip.
+      noOpSkips++;
+      // Still apply it to avoid infinite loop (the block is modified), but don't count as effective
+      // Actually, let's keep the reduction (it changed dpw) to avoid re-picking the same week
+      currentBlocks = merged;
+      // Don't count in perParentWeeks since it was ineffective
+      continue;
+    }
+
+    // Effective step
+    currentBlocks = merged;
+    remaining = newRemaining;
+    stepsApplied++;
     perParentWeeks[targetPid] = (perParentWeeks[targetPid] ?? 0) + 1;
-    finalShortage = check.shortage;
-    finalResult = check.result;
-    extraReductionWeeks++;
   }
+
+  // Final merge and verification
+  const finalBlocks = mergeAdjacentBlocks(currentBlocks);
+  const { shortage: finalShortage, result: finalResult } = getShortage(parents, finalBlocks, transferList, constants);
 
   if (finalShortage > 0) {
-    console.warn(`[rescue] After ${extraReductionWeeks} extra iterations, engine still shows shortage=${finalShortage}.`);
+    console.warn(`[rescue] After ${stepsApplied} effective steps and ${noOpSkips} no-op skips, engine still shows shortage=${finalShortage}.`);
   }
 
-  // Derive all display values from the single proposal state
-  const weeksTotal = Object.values(perParentWeeks).reduce((s, v) => s + v, 0);
+  const weeksTotal = stepsApplied;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
   const success = finalShortage <= 0;
 
-  // ── Step 6: Build UI text from the SAME proposal ──
+  // ── Build UI text ──
   const actionsText: string[] = [];
   if (transferDays > 0) actionsText.push(`Omfördela ${transferDays} dagar mellan er`);
-  if (weeksTotal > 0) actionsText.push(`Minska uttaget med ${weeksTotal} veckor totalt (−1 dag/vecka)`);
+  if (weeksTotal > 0) actionsText.push(`Minska uttaget med 1 dag/vecka i ${weeksTotal} veckor`);
 
   const detailText: string[] = [];
   if (transferDays > 0 && proposedTransfer) {
@@ -512,7 +400,7 @@ export function computeRescueProposal(
     proposedTransfer,
     missingDaysTotal,
     transferDays,
-    missingAfterTransferOnly: missingAfterTransferArithmetic,
+    missingAfterTransferOnly: shortageAfterTransfer,
     weeksTotal,
     perParentWeeks,
     actionsText,
@@ -522,12 +410,12 @@ export function computeRescueProposal(
     transferOnly: weeksTotal === 0,
     debug: {
       shortageBefore: missingDaysTotal,
-      shortageAfterTransfer: missingAfterTransferArithmetic,
+      shortageAfterTransfer,
       shortageAfter: finalShortage,
       maxTransfer,
-      sumPerParentWeeks: weeksTotal,
-      initialReductionWeeks,
-      extraReductionWeeks,
+      sumPerParentWeeks: Object.values(perParentWeeks).reduce((s, v) => s + v, 0),
+      stepsApplied,
+      noOpSkips,
       unfulfilledAfterFull: finalShortage,
     },
     debugBefore,

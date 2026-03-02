@@ -188,8 +188,8 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   <p className={proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "text-primary" : "text-destructive font-bold"}>
                     Σ perParent = {proposal.debug.sumPerParentWeeks} {proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "✓" : `≠ ${proposal.weeksTotal} ⚠`}
                   </p>
-                  <p>initialReductionWeeks = {proposal.debug.initialReductionWeeks}</p>
-                  <p>extraReductionWeeks = {proposal.debug.extraReductionWeeks}</p>
+                  <p>stepsApplied = {proposal.debug.stepsApplied}</p>
+                  <p>noOpSkips = {proposal.debug.noOpSkips}</p>
                   <p className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
                     unfulfilledAfterFull = {proposal.debug.unfulfilledAfterFull} {proposal.debug.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
                   </p>
