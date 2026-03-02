@@ -237,10 +237,7 @@ export function computeRescueProposal(
     id: pr.parentId,
     name: pr.name,
     transferable: Math.floor(pr.remaining.sicknessTransferable as number),
-    totalRemaining: (pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest) as number,
-    taken: (pr.taken.sickness + pr.taken.lowest) as number,
   }));
-  // Needy = lowest total remaining; Giver = highest transferable
   scored.sort((a, b) => b.transferable - a.transferable);
   const giver = scored[0];
   const needy = scored[scored.length - 1];
@@ -252,8 +249,6 @@ export function computeRescueProposal(
   if (giver.transferable > 0 && needy.id !== giver.id) {
     maxTransfer = giver.transferable;
     transferDays = Math.min(missingDaysTotal, maxTransfer);
-
-    // REPLACE existing transfer — do NOT append
     proposedTransfer = {
       fromParentId: giver.id,
       toParentId: needy.id,
@@ -261,13 +256,10 @@ export function computeRescueProposal(
     };
   }
 
-  // ── Step 2: Simulate transfer-only to get ground truth shortage ──
-  const transferOnlyTransfers = proposedTransfer ? [proposedTransfer] : [];
-  const transferOnlyRes = simulatePlan({ parents, blocks, transfers: transferOnlyTransfers, constants });
-  const missingAfterTransferOnly = Math.max(0, Math.round(transferOnlyRes.unfulfilledDaysTotal ?? 0));
-
-  // weeksTotal MUST equal missingAfterTransferOnly (1 week reduction = 1 day saved)
-  const weeksTotal = missingAfterTransferOnly;
+  // ── Step 2: Derive remaining shortage ARITHMETICALLY (single source of truth) ──
+  const remainingAfterTransfer = Math.max(0, missingDaysTotal - transferDays);
+  // weeksTotal = remainingAfterTransfer because -1 day/week for 1 week saves exactly 1 day
+  const weeksTotal = remainingAfterTransfer;
 
   // ── Step 3: Distribute weeksTotal by mode ──
   let perParentWeeks: Record<string, number>;
@@ -305,7 +297,8 @@ export function computeRescueProposal(
   const finalBlocks = mergeAdjacentBlocks(currentBlocks);
 
   // ── Step 5: Simulate final proposal ──
-  const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: transferOnlyTransfers, constants });
+  const finalTransfers = proposedTransfer ? [proposedTransfer] : [];
+  const finalResult = simulatePlan({ parents, blocks: finalBlocks, transfers: finalTransfers, constants });
   const unfulfilledAfterFull = Math.round(finalResult.unfulfilledDaysTotal ?? 0);
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
@@ -335,7 +328,7 @@ export function computeRescueProposal(
     proposedTransfer,
     missingDaysTotal,
     transferDays,
-    missingAfterTransferOnly,
+    missingAfterTransferOnly: remainingAfterTransfer,
     weeksTotal,
     perParentWeeks,
     actionsText,
