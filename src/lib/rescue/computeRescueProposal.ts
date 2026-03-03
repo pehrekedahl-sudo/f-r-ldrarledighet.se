@@ -1,22 +1,21 @@
 /**
  * ┌──────────────────────────────────────────────────────────────────┐
- * │ RESCUE / AUTO-JUSTERA — ENGINE-DRIVEN DETERMINISTIC SOLVER      │
+ * │ RESCUE / AUTO-JUSTERA — SINGLE-SOURCE-OF-TRUTH SOLVER           │
  * │                                                                  │
- * │ This module must NOT import from adjustmentPolicy.ts or any     │
- * │ "policy" module. All shortage numbers are derived from          │
- * │ simulatePlan (engine truth), never from arithmetic assumptions. │
+ * │ The ONLY truth is the verified proposal object. All UI numbers  │
+ * │ (weeksTotal, perParentWeeks, detailText) are derived from the   │
+ * │ final reductions[] array AFTER engine verification.             │
  * │                                                                  │
  * │ Algorithm:                                                       │
- * │ 1. shortageBefore = simulatePlan(currentPlan)                   │
- * │ 2. Apply transfer → shortageAfterTransfer = simulatePlan(...)   │
- * │ 3. weeksTotal = shortageAfterTransfer                           │
- * │ 4. Allocate perParentWeeks by mode                              │
- * │ 5. Apply reductions, verify with engine                         │
- * │ 6. Correction loop: if still unfulfilled, add weeks to the      │
- * │    parent where reductions actually help (engine-tested)        │
+ * │ A) shortageBefore = simulatePlan(currentPlan)                   │
+ * │ B) Transfer-first → shortageAfterTransfer = simulatePlan(...)   │
+ * │ C) Initial reduction schedule from shortageAfterTransfer        │
+ * │ D) Apply + verify with simulatePlan                             │
+ * │ E) If unfulfilled > 0, extend schedule until solved or stuck    │
+ * │ F) Derive ALL output from final verified reductions[]           │
  * │                                                                  │
- * │ KEY INVARIANT: Each reduction is exactly -1 dpw on one 7-day   │
- * │ segment, applied once. No stacking. Preview === Apply.          │
+ * │ KEY INVARIANT: Each reduction = exactly -1 dpw on one 7-day    │
+ * │ segment. No stacking. Preview === Apply (same object).          │
  * └──────────────────────────────────────────────────────────────────┘
  */
 
@@ -66,32 +65,34 @@ export type ReductionRange = {
   weeksCount: number;
 };
 
+/** All numbers derived from the FINAL verified state — no separate "initial estimate" */
 export type Proposal = {
+  /** The exact blocks to apply. Preview and Apply use this same object. */
   newBlocks: Block[];
   proposedTransfer: Transfer | null;
-  missingDaysTotal: number;
-  transferDays: number;
-  missingAfterTransferOnly: number;
+  /** Derived from final reductions[].weeksCount */
   weeksTotal: number;
+  /** Derived from grouping final reductions[] by parentId */
   perParentWeeks: Record<string, number>;
+  /** The actual reduction segments applied */
   reductions: ReductionRange[];
+  /** UI text derived from reductions[] + transfer */
   actionsText: string[];
   detailText: string[];
   deltaMonthly: number;
+  /** true IFF simulatePlan(proposalPlan).unfulfilledDaysTotal === 0 */
   success: boolean;
   transferOnly: boolean;
-  debug: {
+  meta: {
     shortageBefore: number;
-    shortageAfterTransfer: number;
-    shortageAfter: number;
     maxTransfer: number;
-    sumPerParentWeeks: number;
-    stepsApplied: number;
-    noOpSkips: number;
+    transferDays: number;
+    shortageAfterTransfer: number;
     unfulfilledAfterFull: number;
+    weeksTotalApplied: number;
+    perParentWeeksApplied: Record<string, number>;
     mode: string;
     weights: { p1Id: string; p1Weight: number; p2Id: string; p2Weight: number } | null;
-    correctionSteps: number;
     transferConfig: string;
   };
   debugBefore: Block[];
@@ -132,7 +133,7 @@ export function allocateReductionWeeks(
     return result;
   }
 
-  // Proportional
+  // Proportional (largest-remainder)
   const load1 = calcParentLoad(blocks, p1.id);
   const load2 = calcParentLoad(blocks, p2.id);
   const totalLoad = load1 + load2;
@@ -200,6 +201,20 @@ function engineShortage(
   return { shortage: Math.round(result.unfulfilledDaysTotal ?? 0), result };
 }
 
+/** Derive weeksTotal and perParentWeeks from the final reductions list */
+function deriveFromReductions(
+  reductions: ReductionRange[],
+  parents: Parent[],
+): { weeksTotalApplied: number; perParentWeeksApplied: Record<string, number> } {
+  const perParent: Record<string, number> = {};
+  for (const p of parents) perParent[p.id] = 0;
+  for (const r of reductions) {
+    perParent[r.parentId] = (perParent[r.parentId] ?? 0) + r.weeksCount;
+  }
+  const total = Object.values(perParent).reduce((s, v) => s + v, 0);
+  return { weeksTotalApplied: total, perParentWeeksApplied: perParent };
+}
+
 // ── Deterministic reduction helpers ──
 
 function getReductionRangesForParent(
@@ -218,7 +233,6 @@ function getReductionRangesForParent(
 
   for (const block of parentBlocks) {
     if (weeksRemaining <= 0) break;
-
     const days = calendarDays(block.startDate, block.endDate);
     const blockWeeks = Math.floor(days / 7);
     if (blockWeeks <= 0) continue;
@@ -250,15 +264,8 @@ function applyDeterministicReductions(
   for (const range of reductions) {
     const next: Block[] = [];
     for (const b of working) {
-      if (b.parentId !== range.parentId) {
-        next.push(b);
-        continue;
-      }
-
-      if (b.endDate < range.startDate || b.startDate > range.endDate) {
-        next.push(b);
-        continue;
-      }
+      if (b.parentId !== range.parentId) { next.push(b); continue; }
+      if (b.endDate < range.startDate || b.startDate > range.endDate) { next.push(b); continue; }
 
       const overlapStart = b.startDate > range.startDate ? b.startDate : range.startDate;
       const overlapEnd = b.endDate < range.endDate ? b.endDate : range.endDate;
@@ -275,25 +282,18 @@ function applyDeterministicReductions(
         endDate: overlapEnd,
         daysPerWeek: newDpw,
         lowestDaysPerWeek: b.lowestDaysPerWeek !== undefined
-          ? Math.min(b.lowestDaysPerWeek, newDpw)
-          : undefined,
+          ? Math.min(b.lowestDaysPerWeek, newDpw) : undefined,
       });
 
       if (b.endDate > overlapEnd) {
-        next.push({
-          ...b,
-          id: generateBlockId("rescue"),
-          startDate: addDaysISO(overlapEnd, 1),
-        });
+        next.push({ ...b, id: generateBlockId("rescue"), startDate: addDaysISO(overlapEnd, 1) });
       }
     }
     working = next;
   }
-
   return working;
 }
 
-/** Build all reduction ranges from perParentWeeks allocation */
 function buildReductionsFromAllocation(
   blocks: Block[],
   parents: Parent[],
@@ -308,13 +308,15 @@ function buildReductionsFromAllocation(
   return all;
 }
 
-/** Apply reductions to blocks and merge, returning final blocks */
-function buildProposalBlocks(
-  blocks: Block[],
-  reductions: ReductionRange[],
-): Block[] {
-  const reduced = applyDeterministicReductions(blocks, reductions);
-  return mergeAdjacentBlocks(reduced);
+function buildProposalBlocks(blocks: Block[], reductions: ReductionRange[]): Block[] {
+  return mergeAdjacentBlocks(applyDeterministicReductions(blocks, reductions));
+}
+
+/** How many reducible whole-weeks does this parent have in the original blocks */
+function parentCapacity(blocks: Block[], parentId: string): number {
+  return blocks
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
 }
 
 // ── Main computation ──
@@ -328,9 +330,9 @@ export function computeRescueProposal(
 ): Proposal | null {
   if (blocks.length === 0) return null;
 
-  // ══════════════════════════════════════════════════════════════
-  // Step A: Engine truth — current plan shortage
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════
+  // A) Engine truth — current plan shortage
+  // ══════════════════════════════════════════════
   const baseTransfers = existingTransfer && existingTransfer.sicknessDays > 0 ? [existingTransfer] : [];
   const { shortage: shortageBefore, result: origResult } = engineShortage(parents, blocks, baseTransfers, constants);
   if (shortageBefore <= 0) return null;
@@ -338,9 +340,9 @@ export function computeRescueProposal(
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const debugBefore = blocks.map(b => ({ ...b }));
 
-  // ══════════════════════════════════════════════════════════════
-  // Step B: Transfer-first — compute optimal transfer
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════
+  // B) Transfer-first
+  // ══════════════════════════════════════════════
   const scored = origResult.parentsResult.map((pr: any) => ({
     id: pr.parentId,
     transferable: Math.floor(pr.remaining.sicknessTransferable as number),
@@ -356,38 +358,28 @@ export function computeRescueProposal(
   if (giver.transferable > 0 && needy.id !== giver.id) {
     maxTransfer = giver.transferable;
     transferDays = Math.min(shortageBefore, maxTransfer);
-    proposedTransfer = {
-      fromParentId: giver.id,
-      toParentId: needy.id,
-      sicknessDays: transferDays,
-    };
+    proposedTransfer = { fromParentId: giver.id, toParentId: needy.id, sicknessDays: transferDays };
   }
 
-  // The transfer list that simulatePlan will consume — REPLACES any existing transfer
   const transferList: Transfer[] = proposedTransfer ? [proposedTransfer] : [];
   const transferConfigStr = JSON.stringify(transferList);
-  console.log(`[rescue] Step B: transferDays=${transferDays}, maxTransfer=${maxTransfer}, transferConfig=${transferConfigStr}`);
 
-  // ══════════════════════════════════════════════════════════════
-  // Step C: Engine truth — shortage after transfer only
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════
+  // C) Engine truth — shortage after transfer only
+  // ══════════════════════════════════════════════
   const { shortage: shortageAfterTransfer, result: afterTransferResult } = engineShortage(
     parents, blocks, transferList, constants,
   );
-  console.log(`[rescue] Step C: shortageAfterTransfer=${shortageAfterTransfer} (engine-derived)`);
 
   // Transfer-only success
   if (shortageAfterTransfer <= 0) {
     const newAvg = calcAvgMonthly(afterTransferResult.parentsResult);
-    const perParentWeeks = Object.fromEntries(parents.map(p => [p.id, 0]));
+    const ppw = Object.fromEntries(parents.map(p => [p.id, 0]));
     return {
       newBlocks: blocks.map(b => ({ ...b })),
       proposedTransfer,
-      missingDaysTotal: shortageBefore,
-      transferDays,
-      missingAfterTransferOnly: 0,
       weeksTotal: 0,
-      perParentWeeks,
+      perParentWeeks: ppw,
       reductions: [],
       actionsText: [`Omfördela ${transferDays} dagar mellan er`],
       detailText: (() => {
@@ -403,32 +395,19 @@ export function computeRescueProposal(
       deltaMonthly: Math.round(newAvg - origAvg),
       success: true,
       transferOnly: true,
-      debug: {
-        shortageBefore,
-        shortageAfterTransfer: 0,
-        shortageAfter: 0,
-        maxTransfer,
-        sumPerParentWeeks: 0,
-        stepsApplied: 0,
-        noOpSkips: 0,
-        unfulfilledAfterFull: 0,
-        mode,
-        weights: null,
-        correctionSteps: 0,
-        transferConfig: transferConfigStr,
+      meta: {
+        shortageBefore, maxTransfer, transferDays, shortageAfterTransfer: 0,
+        unfulfilledAfterFull: 0, weeksTotalApplied: 0, perParentWeeksApplied: ppw,
+        mode, weights: null, transferConfig: transferConfigStr,
       },
       debugBefore,
       debugAfter: blocks.map(b => ({ ...b })),
     };
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // Step D: weeksTotal = shortageAfterTransfer (engine-derived)
-  //         Each -1 dpw week removes exactly 1 day of demand.
-  // ══════════════════════════════════════════════════════════════
-  let weeksTotal = shortageAfterTransfer;
-
-  // Compute weights for proportional mode
+  // ══════════════════════════════════════════════
+  // D) Initial reduction schedule from mode
+  // ══════════════════════════════════════════════
   const weights = parents.length >= 2 ? {
     p1Id: parents[0].id,
     p1Weight: calcParentLoad(blocks, parents[0].id),
@@ -436,92 +415,66 @@ export function computeRescueProposal(
     p2Weight: calcParentLoad(blocks, parents[1].id),
   } : null;
 
-  // ══════════════════════════════════════════════════════════════
-  // Step E: Allocate weeks per parent using mode
-  // ══════════════════════════════════════════════════════════════
-  let perParentWeeks = allocateReductionWeeks(weeksTotal, mode, parents, blocks);
+  let perParentWeeks = allocateReductionWeeks(shortageAfterTransfer, mode, parents, blocks);
 
-  // ══════════════════════════════════════════════════════════════
-  // Step F: Build reductions, apply, and verify with engine
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════
+  // E) Apply reductions + verify + extend if needed
+  //    This loop IS the solver. "correctionSteps" is not
+  //    a separate concept — the final reductions[] is the
+  //    only truth.
+  // ══════════════════════════════════════════════
   let allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
   let proposalBlocks = buildProposalBlocks(blocks, allReductions);
   let { shortage: unfulfilledAfterFull, result: finalResult } = engineShortage(
     parents, proposalBlocks, transferList, constants,
   );
 
-  console.log(`[rescue] Step F: initial verify unfulfilledAfterFull=${unfulfilledAfterFull}`);
+  const MAX_EXTEND = 30;
+  let extendIters = 0;
 
-  // ══════════════════════════════════════════════════════════════
-  // Step G: Correction loop — if mode-based allocation doesn't
-  //         fully solve (e.g., proportional puts weeks on a parent
-  //         that has no shortage), add weeks to whichever parent
-  //         the engine says benefits most.
-  // ══════════════════════════════════════════════════════════════
-  const MAX_CORRECTIONS = 30;
-  let correctionSteps = 0;
-
-  while (unfulfilledAfterFull > 0 && correctionSteps < MAX_CORRECTIONS) {
-    // Try adding 1 week to each parent, pick the one that helps most
+  while (unfulfilledAfterFull > 0 && extendIters < MAX_EXTEND) {
+    // Find which parent benefits most from +1 week
     let bestPid: string | null = null;
     let bestShortage = unfulfilledAfterFull;
 
     for (const p of parents) {
-      // Check if parent has eligible blocks with dpw >= 1 and >= 7 calendar days
-      const hasCapacity = blocks.some(
-        b => b.parentId === p.id && b.daysPerWeek >= 1 && calendarDays(b.startDate, b.endDate) >= 7,
-      );
-      if (!hasCapacity) continue;
-
-      // Check if we haven't already used all available weeks for this parent
-      const availableWeeks = blocks
-        .filter(b => b.parentId === p.id && b.daysPerWeek >= 1)
-        .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
-      if ((perParentWeeks[p.id] ?? 0) >= availableWeeks) continue;
+      if ((perParentWeeks[p.id] ?? 0) >= parentCapacity(blocks, p.id)) continue;
 
       const testWeeks = { ...perParentWeeks, [p.id]: (perParentWeeks[p.id] ?? 0) + 1 };
       const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
       const testBlocks = buildProposalBlocks(blocks, testReductions);
-      const { shortage: testShortage } = engineShortage(parents, testBlocks, transferList, constants);
+      const { shortage } = engineShortage(parents, testBlocks, transferList, constants);
 
-      if (testShortage < bestShortage) {
-        bestShortage = testShortage;
+      if (shortage < bestShortage) {
+        bestShortage = shortage;
         bestPid = p.id;
       }
     }
 
-    if (!bestPid) {
-      console.warn(`[rescue] Correction loop: no parent improves shortage. Stopping.`);
-      break;
-    }
+    if (!bestPid) break; // no improvement possible
 
     perParentWeeks[bestPid] = (perParentWeeks[bestPid] ?? 0) + 1;
-    weeksTotal++;
-    correctionSteps++;
+    extendIters++;
 
     allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
     proposalBlocks = buildProposalBlocks(blocks, allReductions);
-    const verifyResult = engineShortage(parents, proposalBlocks, transferList, constants);
-    unfulfilledAfterFull = verifyResult.shortage;
-    finalResult = verifyResult.result;
-
-    console.log(`[rescue] Correction #${correctionSteps}: added 1w to ${bestPid}, unfulfilled=${unfulfilledAfterFull}`);
+    const v = engineShortage(parents, proposalBlocks, transferList, constants);
+    unfulfilledAfterFull = v.shortage;
+    finalResult = v.result;
   }
 
+  // ══════════════════════════════════════════════
+  // F) Derive ALL output from the final verified state
+  //    reductions[] is the single source of truth.
+  // ══════════════════════════════════════════════
+  const { weeksTotalApplied, perParentWeeksApplied } = deriveFromReductions(allReductions, parents);
   const success = unfulfilledAfterFull <= 0;
-
-  if (!success) {
-    console.warn(`[rescue] Final: engine still shows shortage=${unfulfilledAfterFull} after ${weeksTotal} weeks + ${correctionSteps} corrections. Mode=${mode}`);
-  }
-
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
-  // ══════════════════════════════════════════════════════════════
-  // Build UI text
-  // ══════════════════════════════════════════════════════════════
+  // UI text — derived from final reductions + transfer
   const actionsText: string[] = [];
   if (transferDays > 0) actionsText.push(`Omfördela ${transferDays} dagar mellan er`);
-  if (weeksTotal > 0) actionsText.push(`Minska uttaget med 1 dag/vecka i ${weeksTotal} veckor`);
+  if (weeksTotalApplied > 0) actionsText.push(`Minska uttaget med 1 dag/vecka i ${weeksTotalApplied} veckor`);
 
   const detailText: string[] = [];
   if (transferDays > 0 && proposedTransfer) {
@@ -530,39 +483,31 @@ export function computeRescueProposal(
     detailText.push(`${fromName} överför ${transferDays} dagar till ${toName}`);
   }
   for (const p of parents) {
-    const w = perParentWeeks[p.id] ?? 0;
+    const w = perParentWeeksApplied[p.id] ?? 0;
     if (w > 0) detailText.push(`${p.name} minskar uttaget med 1 dag/vecka i ${w} veckor`);
-  }
-  if (weeksTotal === 0 && transferDays > 0) {
-    detailText.push("Enbart överföring av dagar löser bristen");
   }
 
   return {
     newBlocks: proposalBlocks,
     proposedTransfer,
-    missingDaysTotal: shortageBefore,
-    transferDays,
-    missingAfterTransferOnly: shortageAfterTransfer,
-    weeksTotal,
-    perParentWeeks,
+    weeksTotal: weeksTotalApplied,
+    perParentWeeks: perParentWeeksApplied,
     reductions: allReductions,
     actionsText,
     detailText,
     deltaMonthly: Math.round(newAvg - origAvg),
     success,
     transferOnly: false,
-    debug: {
+    meta: {
       shortageBefore,
-      shortageAfterTransfer,
-      shortageAfter: unfulfilledAfterFull,
       maxTransfer,
-      sumPerParentWeeks: Object.values(perParentWeeks).reduce((s, v) => s + v, 0),
-      stepsApplied: weeksTotal,
-      noOpSkips: 0,
+      transferDays,
+      shortageAfterTransfer,
       unfulfilledAfterFull,
+      weeksTotalApplied,
+      perParentWeeksApplied,
       mode,
       weights,
-      correctionSteps,
       transferConfig: transferConfigStr,
     },
     debugBefore,
