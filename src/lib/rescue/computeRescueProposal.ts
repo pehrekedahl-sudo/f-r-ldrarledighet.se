@@ -72,6 +72,8 @@ export type Proposal = {
     stepsApplied: number;
     noOpSkips: number;
     unfulfilledAfterFull: number;
+    mode: string;
+    weights: { p1Id: string; p1Weight: number; p2Id: string; p2Weight: number } | null;
   };
   debugBefore: Block[];
   debugAfter: Block[];
@@ -188,8 +190,10 @@ function chooseTargetParent(
   perParentWeeks: Record<string, number>,
   originalBlocks: Block[],
   stepIndex: number,
+  skipParents?: Set<string>,
 ): string | null {
   const hasEligible = (pid: string) =>
+    !skipParents?.has(pid) &&
     blocks.some(b => b.parentId === pid && b.daysPerWeek >= 1 &&
       calendarDays(b.startDate, b.endDate) >= 7);
 
@@ -204,7 +208,6 @@ function chooseTargetParent(
   if (mode === "split" && parents.length >= 2) {
     const w0 = perParentWeeks[parents[0].id] ?? 0;
     const w1 = perParentWeeks[parents[1].id] ?? 0;
-    // Pick the one with fewer weeks; tie → alternate by stepIndex
     let prefer: string;
     if (w0 < w1) prefer = parents[0].id;
     else if (w1 < w0) prefer = parents[1].id;
@@ -307,6 +310,8 @@ export function computeRescueProposal(
         stepsApplied: 0,
         noOpSkips: 0,
         unfulfilledAfterFull: 0,
+        mode,
+        weights: null,
       },
       debugBefore,
       debugAfter: blocks.map(b => ({ ...b })),
@@ -316,6 +321,7 @@ export function computeRescueProposal(
   // ── Step 3: Iterative engine-driven reduction ──
   // Apply -1 dpw one week at a time, verify with simulatePlan after each step.
   // Stop when engine confirms unfulfilledDaysTotal == 0.
+  // Key: on no-op, ROLLBACK and try the other parent before giving up on the step.
   const HARD_CAP = 260;
   let currentBlocks = blocks.map(b => ({ ...b }));
   let remaining = shortageAfterTransfer;
@@ -323,45 +329,70 @@ export function computeRescueProposal(
   let noOpSkips = 0;
   const perParentWeeks: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
 
-  while (remaining > 0 && stepsApplied + noOpSkips < HARD_CAP) {
-    // Choose target parent based on mode
-    const targetPid = chooseTargetParent(
-      mode, parents, currentBlocks, perParentWeeks, blocks, stepsApplied
-    );
-    if (!targetPid) {
-      console.warn(`[rescue] No eligible parent found after ${stepsApplied} steps, ${noOpSkips} skips. remaining=${remaining}`);
-      break;
-    }
+  // Compute weights for proportional mode (used in debug output)
+  const weights = parents.length >= 2 ? {
+    p1Id: parents[0].id,
+    p1Weight: calcParentLoad(blocks, parents[0].id),
+    p2Id: parents[1].id,
+    p2Weight: calcParentLoad(blocks, parents[1].id),
+  } : null;
 
-    // Try applying one week reduction
-    const { blocks: candidateBlocks, applied } = applyOneWeekReduction(currentBlocks, targetPid);
-    if (!applied) {
-      // This parent has no eligible weeks left; will be skipped by chooseTargetParent next iteration
-      // But to prevent infinite loop, mark all blocks for this parent as exhausted
-      console.warn(`[rescue] applyOneWeekReduction returned false for ${targetPid}`);
-      break;
-    }
+  let outerIterations = 0;
+  while (remaining > 0 && outerIterations < HARD_CAP) {
+    outerIterations++;
+    const skipParents = new Set<string>();
+    let stepDone = false;
 
-    // Merge and verify with engine
-    const merged = mergeAdjacentBlocks(candidateBlocks);
-    const { shortage: newRemaining } = getShortage(parents, merged, transferList, constants);
-    const effectiveDelta = remaining - newRemaining;
+    // Inner loop: try each parent until we find an effective reduction
+    while (!stepDone && skipParents.size < parents.length) {
+      const targetPid = chooseTargetParent(
+        mode, parents, currentBlocks, perParentWeeks, blocks, stepsApplied, skipParents
+      );
+      if (!targetPid) break;
 
-    if (effectiveDelta <= 0) {
-      // No-op: this reduction didn't help. Rollback and skip.
-      noOpSkips++;
-      // Still apply it to avoid infinite loop (the block is modified), but don't count as effective
-      // Actually, let's keep the reduction (it changed dpw) to avoid re-picking the same week
+      const { blocks: candidateBlocks, applied } = applyOneWeekReduction(currentBlocks, targetPid);
+      if (!applied) {
+        skipParents.add(targetPid);
+        continue;
+      }
+
+      const merged = mergeAdjacentBlocks(candidateBlocks);
+      const { shortage: newRemaining } = getShortage(parents, merged, transferList, constants);
+      const effectiveDelta = remaining - newRemaining;
+
+      if (effectiveDelta <= 0) {
+        // No-op for this parent — DON'T apply (rollback), try other parent
+        noOpSkips++;
+        skipParents.add(targetPid);
+        console.log(`[rescue] no-op for ${targetPid} (step ${stepsApplied}), trying other parent`);
+        continue;
+      }
+
+      // Effective step
       currentBlocks = merged;
-      // Don't count in perParentWeeks since it was ineffective
-      continue;
+      remaining = newRemaining;
+      stepsApplied++;
+      perParentWeeks[targetPid] = (perParentWeeks[targetPid] ?? 0) + 1;
+      stepDone = true;
+      console.log(`[rescue] effective step #${stepsApplied} on ${targetPid}, remaining=${remaining}`);
     }
 
-    // Effective step
-    currentBlocks = merged;
-    remaining = newRemaining;
-    stepsApplied++;
-    perParentWeeks[targetPid] = (perParentWeeks[targetPid] ?? 0) + 1;
+    if (!stepDone) {
+      // All parents either produced no-ops or have no eligible weeks.
+      // Apply ONE no-op reduction to advance and prevent infinite loop.
+      const anyPid = parents.find(p =>
+        currentBlocks.some(b => b.parentId === p.id && b.daysPerWeek >= 1 &&
+          calendarDays(b.startDate, b.endDate) >= 7)
+      )?.id;
+      if (!anyPid) {
+        console.warn(`[rescue] No eligible parent at all after ${stepsApplied} steps. remaining=${remaining}`);
+        break;
+      }
+      const { blocks: fb, applied } = applyOneWeekReduction(currentBlocks, anyPid);
+      if (!applied) break;
+      currentBlocks = mergeAdjacentBlocks(fb);
+      // Don't count in perParentWeeks — it's a forced advance
+    }
   }
 
   // Final merge and verification
@@ -417,6 +448,8 @@ export function computeRescueProposal(
       stepsApplied,
       noOpSkips,
       unfulfilledAfterFull: finalShortage,
+      mode,
+      weights,
     },
     debugBefore,
     debugAfter: finalBlocks,
