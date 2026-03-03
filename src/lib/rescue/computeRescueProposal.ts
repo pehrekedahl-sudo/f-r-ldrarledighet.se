@@ -315,123 +315,7 @@ function applyDeterministicReductions(
   return working;
 }
 
-/**
- * Iterative discovery: find how many -1 dpw week-steps are needed to
- * reach zero shortage. This mutates a scratch copy only — the result
- * blocks are discarded. Only weeksTotal is kept.
- */
-function discoverWeeksTotal(
-  blocks: Block[],
-  parents: Parent[],
-  transfers: Transfer[],
-  constants: Constants,
-  shortageAfterTransfer: number,
-): { weeksTotal: number; noOpSkips: number } {
-  const HARD_CAP = 260;
-  let currentBlocks = blocks.map(b => ({ ...b }));
-  let remaining = shortageAfterTransfer;
-  let stepsApplied = 0;
-  let noOpSkips = 0;
-
-  while (remaining > 0 && stepsApplied + noOpSkips < HARD_CAP) {
-    // Try each parent until we find an effective step
-    let stepDone = false;
-    for (const p of parents) {
-      const candidates = currentBlocks
-        .filter(b => b.parentId === p.id && b.daysPerWeek >= 1 &&
-          calendarDays(b.startDate, b.endDate) >= 7);
-      if (candidates.length === 0) continue;
-
-      const { blocks: candidateBlocks, applied } = applyOneDiscoveryReduction(currentBlocks, p.id);
-      if (!applied) continue;
-
-      const merged = mergeAdjacentBlocks(candidateBlocks);
-      const { shortage: newRemaining } = getShortage(parents, merged, transfers, constants);
-      const effectiveDelta = remaining - newRemaining;
-
-      if (effectiveDelta <= 0) {
-        noOpSkips++;
-        continue;
-      }
-
-      currentBlocks = merged;
-      remaining = newRemaining;
-      stepsApplied++;
-      stepDone = true;
-      break;
-    }
-
-    if (!stepDone) {
-      // Try a forced step on any parent to advance
-      const anyPid = parents.find(p =>
-        currentBlocks.some(b => b.parentId === p.id && b.daysPerWeek >= 1 &&
-          calendarDays(b.startDate, b.endDate) >= 7)
-      )?.id;
-      if (!anyPid) break;
-      const { blocks: fb, applied } = applyOneDiscoveryReduction(currentBlocks, anyPid);
-      if (!applied) break;
-      currentBlocks = mergeAdjacentBlocks(fb);
-      stepsApplied++;
-      const { shortage: nr } = getShortage(parents, currentBlocks, transfers, constants);
-      remaining = nr;
-    }
-  }
-
-  return { weeksTotal: stepsApplied, noOpSkips };
-}
-
-/**
- * Apply one -1 dpw reduction on the latest eligible 7-day segment for discovery.
- */
-function applyOneDiscoveryReduction(
-  blocks: Block[],
-  parentId: string,
-): { blocks: Block[]; applied: boolean } {
-  const working = blocks.map(b => ({ ...b }));
-  const candidates = working
-    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
-    .sort((a, b) => b.endDate.localeCompare(a.endDate));
-
-  for (const target of candidates) {
-    const days = calendarDays(target.startDate, target.endDate);
-    if (days < 7) continue;
-
-    const blockWeeks = Math.floor(days / 7);
-    if (blockWeeks <= 0) continue;
-
-    const reducedDpw = target.daysPerWeek - 1;
-
-    if (blockWeeks === 1) {
-      target.daysPerWeek = reducedDpw;
-      if (target.lowestDaysPerWeek !== undefined && target.lowestDaysPerWeek > reducedDpw) {
-        target.lowestDaysPerWeek = reducedDpw;
-      }
-      return { blocks: working, applied: true };
-    }
-
-    // Split off last 7 days
-    const tailStart = addDaysISO(target.endDate, -6);
-    const headEnd = addDaysISO(tailStart, -1);
-
-    const tailBlock: Block = {
-      id: generateBlockId("rescue-disc"),
-      parentId: target.parentId,
-      startDate: tailStart,
-      endDate: target.endDate,
-      daysPerWeek: reducedDpw,
-      lowestDaysPerWeek: target.lowestDaysPerWeek !== undefined
-        ? Math.min(target.lowestDaysPerWeek, reducedDpw)
-        : undefined,
-      overlapGroupId: target.overlapGroupId,
-    };
-
-    target.endDate = headEnd;
-    working.push(tailBlock);
-    return { blocks: working, applied: true };
-  }
-
-  return { blocks: working, applied: false };
-}
+// (Discovery loop removed — weeksTotal is now engine-derived directly from shortageAfterTransfer)
 
 // ── Main computation ──
 
@@ -523,11 +407,11 @@ export function computeRescueProposal(
     };
   }
 
-  // ── Step 3: Discover weeksTotal via iterative engine verification ──
-  // This uses a scratch copy of blocks — the result blocks are discarded.
-  const { weeksTotal, noOpSkips } = discoverWeeksTotal(
-    blocks, parents, transferList, constants, shortageAfterTransfer,
-  );
+  // ── Step 3: weeksTotal = engine-derived shortageAfterTransfer ──
+  // Each -1 dpw week saves exactly 1 day. Engine verification at the end confirms.
+  const weeksTotal = shortageAfterTransfer;
+  const noOpSkips = 0;
+  console.log(`[rescue] weeksTotal=${weeksTotal} (= shortageAfterTransfer, engine-derived)`);
 
   // Compute weights for proportional mode
   const weights = parents.length >= 2 ? {
