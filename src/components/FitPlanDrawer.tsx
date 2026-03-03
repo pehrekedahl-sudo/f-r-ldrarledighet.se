@@ -4,6 +4,7 @@
  * │                                                                  │
  * │ All computation lives in src/lib/rescue/computeRescueProposal.  │
  * │ This file is UI-only. No policy imports.                        │
+ * │ All displayed numbers come from proposal.meta (single source).  │
  * └──────────────────────────────────────────────────────────────────┘
  */
 
@@ -65,6 +66,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
 
   const handleApply = () => {
     if (!proposal || !proposal.success) return;
+    // Apply the EXACT verified proposal — no recomputation
     onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
     onOpenChange(false);
   };
@@ -77,7 +79,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </SheetHeader>
 
         <div className="flex-1 space-y-6 py-4 overflow-y-auto">
-          {/* A) Summary */}
+          {/* A) Summary — all numbers from proposal.meta */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>
           ) : proposal ? (
@@ -85,9 +87,9 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {proposal.transferDays > 0 && proposal.weeksTotal > 0
+                  {proposal.meta.transferDays > 0 && proposal.weeksTotal > 0
                     ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt för att gå ihop."
-                    : proposal.transferDays > 0
+                    : proposal.meta.transferDays > 0
                     ? "Planen kräver omfördelning av dagar mellan er för att gå ihop."
                     : proposal.weeksTotal > 0
                     ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten för att gå ihop."
@@ -128,7 +130,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </RadioGroup>
           </div>
 
-          {/* C) Detail preview */}
+          {/* C) Detail preview — derived from proposal reductions + transfer */}
           {!computing && proposal && (
             <div className="space-y-4 border-t border-border pt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detta innebär</p>
@@ -146,7 +148,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                       ❌ Planen går inte helt ihop
                     </p>
                     <p className="text-sm text-destructive/80">
-                      Kvar att lösa: {proposal.debug.unfulfilledAfterFull} dagar
+                      Kvar att lösa: {proposal.meta.unfulfilledAfterFull} dagar
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Förslaget gick inte hela vägen – prova en annan fördelning.
@@ -160,7 +162,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </div>
           )}
 
-          {/* D) Debug panel */}
+          {/* D) Debug panel — single source of truth from meta */}
           {!computing && proposal && (
             <details className="border-t border-border pt-4">
               <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
@@ -181,7 +183,6 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   ))}
                 </div>
 
-                {/* Reductions detail */}
                 {proposal.reductions.length > 0 && (
                   <div>
                     <p className="font-semibold text-foreground/70">Reductions ({proposal.reductions.length})</p>
@@ -191,31 +192,35 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   </div>
                 )}
 
-                <p className="font-semibold text-foreground/70">Engine truth (each stage)</p>
+                <p className="font-semibold text-foreground/70">Verified proposal (single source)</p>
                 <div className="pl-3 space-y-0.5">
-                  <p>mode = {proposal.debug.mode}</p>
-                  {proposal.debug.weights && (
-                    <p>weights: {proposal.debug.weights.p1Id.slice(0,8)}={proposal.debug.weights.p1Weight}, {proposal.debug.weights.p2Id.slice(0,8)}={proposal.debug.weights.p2Weight}</p>
+                  <p>mode = {proposal.meta.mode}</p>
+                  {proposal.meta.weights && (
+                    <p>weights: {proposal.meta.weights.p1Id.slice(0,8)}={proposal.meta.weights.p1Weight}, {proposal.meta.weights.p2Id.slice(0,8)}={proposal.meta.weights.p2Weight}</p>
                   )}
-                  <p className="font-semibold text-foreground/50 pt-1">── Stage A: baseline ──</p>
-                  <p>shortageBefore = {proposal.debug.shortageBefore}</p>
-                  <p className="font-semibold text-foreground/50 pt-1">── Stage B: transfer ──</p>
-                  <p>maxTransfer = {proposal.debug.maxTransfer}</p>
-                  <p>transferDays = {proposal.transferDays}</p>
-                  <p>transferConfig = {proposal.debug.transferConfig}</p>
-                  <p className="font-semibold text-foreground/50 pt-1">── Stage C: after transfer (engine) ──</p>
-                  <p>shortageAfterTransfer = {proposal.debug.shortageAfterTransfer}</p>
-                  <p className="font-semibold text-foreground/50 pt-1">── Stage D-E: allocation ──</p>
-                  <p>weeksTotal = {proposal.weeksTotal}</p>
-                  <p>perParentWeeks = {JSON.stringify(proposal.perParentWeeks)}</p>
-                  <p className={proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "text-primary" : "text-destructive font-bold"}>
-                    Σ perParent = {proposal.debug.sumPerParentWeeks} {proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "✓" : `≠ ${proposal.weeksTotal} ⚠`}
+                  <p>shortageBefore = {proposal.meta.shortageBefore}</p>
+                  <p>maxTransfer = {proposal.meta.maxTransfer}</p>
+                  <p>transferDays = {proposal.meta.transferDays}</p>
+                  <p>shortageAfterTransfer = {proposal.meta.shortageAfterTransfer} (engine)</p>
+                  <p>weeksTotalApplied = {proposal.meta.weeksTotalApplied} (from Σ reductions)</p>
+                  <p>perParentWeeksApplied = {JSON.stringify(proposal.meta.perParentWeeksApplied)}</p>
+                  <p className={
+                    Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0) === proposal.meta.weeksTotalApplied
+                      ? "text-primary" : "text-destructive font-bold"
+                  }>
+                    Σ perParent = {Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0)} {
+                      Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0) === proposal.meta.weeksTotalApplied ? "✓" : "⚠"
+                    }
                   </p>
-                  <p className="font-semibold text-foreground/50 pt-1">── Stage F-G: verify ──</p>
-                  <p>correctionSteps = {proposal.debug.correctionSteps}</p>
-                  <p className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
-                    unfulfilledAfterFull = {proposal.debug.unfulfilledAfterFull} {proposal.debug.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
+                  <p className={proposal.meta.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
+                    unfulfilledAfterFull = {proposal.meta.unfulfilledAfterFull} (engine) {proposal.meta.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
                   </p>
+                  <p className="text-foreground/50 pt-1">
+                    Check: transferDays({proposal.meta.transferDays}) + weeksTotalApplied({proposal.meta.weeksTotalApplied}) = {proposal.meta.transferDays + proposal.meta.weeksTotalApplied} vs shortageBefore({proposal.meta.shortageBefore}) {
+                      proposal.meta.transferDays + proposal.meta.weeksTotalApplied >= proposal.meta.shortageBefore ? "≥ ✓" : "< ⚠"
+                    }
+                  </p>
+                  <p>transferConfig = {proposal.meta.transferConfig}</p>
                 </div>
               </div>
             </details>
