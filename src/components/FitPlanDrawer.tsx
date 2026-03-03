@@ -64,7 +64,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   }, [open]);
 
   const handleApply = () => {
-    if (!proposal) return;
+    if (!proposal || !proposal.success) return;
     onApply(proposal.newBlocks, proposal.proposedTransfer ?? transfer);
     onOpenChange(false);
   };
@@ -148,6 +148,9 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <p className="text-sm text-destructive/80">
                       Kvar att lösa: {proposal.debug.unfulfilledAfterFull} dagar
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      Förslaget gick inte hela vägen – prova en annan fördelning.
+                    </p>
                   </>
                 )}
                 <p className="text-sm text-muted-foreground">
@@ -177,13 +180,22 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
                   ))}
                 </div>
+
+                {/* Reductions detail */}
+                {proposal.reductions.length > 0 && (
+                  <div>
+                    <p className="font-semibold text-foreground/70">Reductions ({proposal.reductions.length})</p>
+                    {proposal.reductions.map((r, i) => (
+                      <p key={i}>{r.parentId} | {r.startDate}→{r.endDate} | {r.oldDpw}→{r.newDpw} | {r.weeksCount}w</p>
+                    ))}
+                  </div>
+                )}
+
                 <p className="font-semibold text-foreground/70">Engine truth</p>
                 <div className="pl-3 space-y-0.5">
                   <p>mode = {proposal.debug.mode}</p>
                   {proposal.debug.weights && (
-                    <>
-                      <p>weights: {proposal.debug.weights.p1Id.slice(0,8)}={proposal.debug.weights.p1Weight}, {proposal.debug.weights.p2Id.slice(0,8)}={proposal.debug.weights.p2Weight}</p>
-                    </>
+                    <p>weights: {proposal.debug.weights.p1Id.slice(0,8)}={proposal.debug.weights.p1Weight}, {proposal.debug.weights.p2Id.slice(0,8)}={proposal.debug.weights.p2Weight}</p>
                   )}
                   <p>missingDaysTotal = {proposal.missingDaysTotal}</p>
                   <p>maxTransfer = {proposal.debug.maxTransfer}</p>
@@ -206,7 +218,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
-          <Button disabled={!proposal} onClick={handleApply}>
+          <Button disabled={!proposal || !proposal.success} onClick={handleApply}>
             Applicera ändring
           </Button>
           <SheetClose asChild>
