@@ -179,6 +179,12 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 </div>
                 <p className="font-semibold text-foreground/70">Engine truth</p>
                 <div className="pl-3 space-y-0.5">
+                  <p>mode = {proposal.debug.mode}</p>
+                  {proposal.debug.weights && (
+                    <>
+                      <p>weights: {proposal.debug.weights.p1Id.slice(0,8)}={proposal.debug.weights.p1Weight}, {proposal.debug.weights.p2Id.slice(0,8)}={proposal.debug.weights.p2Weight}</p>
+                    </>
+                  )}
                   <p>missingDaysTotal = {proposal.missingDaysTotal}</p>
                   <p>maxTransfer = {proposal.debug.maxTransfer}</p>
                   <p>transferDays = {proposal.transferDays}</p>
