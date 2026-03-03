@@ -191,23 +191,28 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   </div>
                 )}
 
-                <p className="font-semibold text-foreground/70">Engine truth</p>
+                <p className="font-semibold text-foreground/70">Engine truth (each stage)</p>
                 <div className="pl-3 space-y-0.5">
                   <p>mode = {proposal.debug.mode}</p>
                   {proposal.debug.weights && (
                     <p>weights: {proposal.debug.weights.p1Id.slice(0,8)}={proposal.debug.weights.p1Weight}, {proposal.debug.weights.p2Id.slice(0,8)}={proposal.debug.weights.p2Weight}</p>
                   )}
-                  <p>missingDaysTotal = {proposal.missingDaysTotal}</p>
+                  <p className="font-semibold text-foreground/50 pt-1">── Stage A: baseline ──</p>
+                  <p>shortageBefore = {proposal.debug.shortageBefore}</p>
+                  <p className="font-semibold text-foreground/50 pt-1">── Stage B: transfer ──</p>
                   <p>maxTransfer = {proposal.debug.maxTransfer}</p>
                   <p>transferDays = {proposal.transferDays}</p>
-                  <p>remainingAfterTransfer = {proposal.missingAfterTransferOnly}</p>
+                  <p>transferConfig = {proposal.debug.transferConfig}</p>
+                  <p className="font-semibold text-foreground/50 pt-1">── Stage C: after transfer (engine) ──</p>
+                  <p>shortageAfterTransfer = {proposal.debug.shortageAfterTransfer}</p>
+                  <p className="font-semibold text-foreground/50 pt-1">── Stage D-E: allocation ──</p>
                   <p>weeksTotal = {proposal.weeksTotal}</p>
                   <p>perParentWeeks = {JSON.stringify(proposal.perParentWeeks)}</p>
                   <p className={proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "text-primary" : "text-destructive font-bold"}>
                     Σ perParent = {proposal.debug.sumPerParentWeeks} {proposal.debug.sumPerParentWeeks === proposal.weeksTotal ? "✓" : `≠ ${proposal.weeksTotal} ⚠`}
                   </p>
-                  <p>stepsApplied = {proposal.debug.stepsApplied}</p>
-                  <p>noOpSkips = {proposal.debug.noOpSkips}</p>
+                  <p className="font-semibold text-foreground/50 pt-1">── Stage F-G: verify ──</p>
+                  <p>correctionSteps = {proposal.debug.correctionSteps}</p>
                   <p className={proposal.debug.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
                     unfulfilledAfterFull = {proposal.debug.unfulfilledAfterFull} {proposal.debug.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
                   </p>
