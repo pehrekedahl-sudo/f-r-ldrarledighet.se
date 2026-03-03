@@ -79,6 +79,97 @@ export type Proposal = {
   debugAfter: Block[];
 };
 
+// ── Pure allocation function ──
+
+/**
+ * Deterministically allocate reduction weeks between two parents based on mode.
+ * This is a PURE function — no engine calls, no side effects.
+ * 
+ * Rules:
+ * - ONLY_P1 (mode = p1.id): all weeks to p1
+ * - ONLY_P2 (mode = p2.id): all weeks to p2
+ * - FIFTY_FIFTY (mode = "split"): ceil/floor split, sum = weeksTotal
+ * - PROPORTIONAL (mode = "proportional"): weighted by parent load, largest-remainder rounding
+ */
+export function allocateReductionWeeks(
+  weeksTotal: number,
+  mode: DistributionMode,
+  parents: Parent[],
+  blocks: Block[],
+): Record<string, number> {
+  if (parents.length < 2 || weeksTotal <= 0) {
+    // Single parent or nothing to allocate
+    const result: Record<string, number> = {};
+    for (const p of parents) result[p.id] = 0;
+    if (parents.length === 1) result[parents[0].id] = weeksTotal;
+    // For "only" mode with 2 parents, give all to the target
+    if (parents.length >= 2 && mode !== "proportional" && mode !== "split") {
+      const target = parents.find(p => p.id === mode);
+      if (target) result[target.id] = weeksTotal;
+    }
+    return result;
+  }
+
+  const p1 = parents[0];
+  const p2 = parents[1];
+  const result: Record<string, number> = { [p1.id]: 0, [p2.id]: 0 };
+
+  // "Endast [parent]" — all weeks go to that parent
+  if (mode !== "proportional" && mode !== "split") {
+    if (mode === p1.id) {
+      result[p1.id] = weeksTotal;
+      return result;
+    }
+    if (mode === p2.id) {
+      result[p2.id] = weeksTotal;
+      return result;
+    }
+  }
+
+  // 50/50
+  if (mode === "split") {
+    result[p1.id] = Math.ceil(weeksTotal / 2);
+    result[p2.id] = Math.floor(weeksTotal / 2);
+    return result;
+  }
+
+  // Proportional — weighted by parent withdrawal load (weeks × dpw)
+  const load1 = calcParentLoad(blocks, p1.id);
+  const load2 = calcParentLoad(blocks, p2.id);
+  const totalLoad = load1 + load2;
+
+  if (totalLoad <= 0) {
+    // Fallback to 50/50
+    result[p1.id] = Math.ceil(weeksTotal / 2);
+    result[p2.id] = Math.floor(weeksTotal / 2);
+    return result;
+  }
+
+  // Largest-remainder method
+  const exact1 = (load1 / totalLoad) * weeksTotal;
+  const exact2 = (load2 / totalLoad) * weeksTotal;
+  let floor1 = Math.floor(exact1);
+  let floor2 = Math.floor(exact2);
+  let remainder = weeksTotal - floor1 - floor2;
+
+  // Distribute remainder to the one with the largest fractional part
+  // Tie-break: give to the parent with larger weight, else p1
+  const frac1 = exact1 - floor1;
+  const frac2 = exact2 - floor2;
+  while (remainder > 0) {
+    if (frac1 > frac2 || (frac1 === frac2 && load1 >= load2)) {
+      floor1++;
+    } else {
+      floor2++;
+    }
+    remainder--;
+  }
+
+  result[p1.id] = floor1;
+  result[p2.id] = floor2;
+  return result;
+}
+
 // ── Helpers ──
 
 function addDaysISO(iso: string, days: number): string {
@@ -327,7 +418,8 @@ export function computeRescueProposal(
   let remaining = shortageAfterTransfer;
   let stepsApplied = 0;
   let noOpSkips = 0;
-  const perParentWeeks: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
+  // Internal tracking for chooseTargetParent balancing (NOT the final output)
+  const internalPerParent: Record<string, number> = Object.fromEntries(parents.map(p => [p.id, 0]));
 
   // Compute weights for proportional mode (used in debug output)
   const weights = parents.length >= 2 ? {
@@ -346,7 +438,7 @@ export function computeRescueProposal(
     // Inner loop: try each parent until we find an effective reduction
     while (!stepDone && skipParents.size < parents.length) {
       const targetPid = chooseTargetParent(
-        mode, parents, currentBlocks, perParentWeeks, blocks, stepsApplied, skipParents
+        mode, parents, currentBlocks, internalPerParent, blocks, stepsApplied, skipParents
       );
       if (!targetPid) break;
 
@@ -372,7 +464,7 @@ export function computeRescueProposal(
       currentBlocks = merged;
       remaining = newRemaining;
       stepsApplied++;
-      perParentWeeks[targetPid] = (perParentWeeks[targetPid] ?? 0) + 1;
+      internalPerParent[targetPid] = (internalPerParent[targetPid] ?? 0) + 1;
       stepDone = true;
       console.log(`[rescue] effective step #${stepsApplied} on ${targetPid}, remaining=${remaining}`);
     }
@@ -406,6 +498,9 @@ export function computeRescueProposal(
   const weeksTotal = stepsApplied;
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
   const success = finalShortage <= 0;
+
+  // ── Allocate weeks per parent using the PURE function (mode-dependent) ──
+  const perParentWeeks = allocateReductionWeeks(weeksTotal, mode, parents, blocks);
 
   // ── Build UI text ──
   const actionsText: string[] = [];
