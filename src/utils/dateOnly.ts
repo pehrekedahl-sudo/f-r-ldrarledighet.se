@@ -122,6 +122,20 @@ export function getISOWeekRange(weekId: string): { startDate: string; endDate: s
   return { startDate: fmt(monday), endDate: fmt(sunday) };
 }
 
+/**
+ * ISO weekday index: 0=Mon, 1=Tue, ..., 6=Sun.
+ * Useful for weekday-based allocation logic.
+ */
+export function isoWeekdayIndex(dateStr: string): number {
+  const jsDay = toUTC(dateStr).getUTCDay(); // 0=Sun
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+
+/** Format a "YYYY-MM" month key from a date string. */
+export function monthKey(dateStr: string): string {
+  return dateStr.slice(0, 7);
+}
+
 /** Today as "YYYY-MM-DD" in UTC. */
 export function todayISO(): string {
   return fmt(new Date());

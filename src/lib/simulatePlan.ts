@@ -1,3 +1,5 @@
+import { addDays, compareDates, isoWeekdayIndex, monthKey } from "../utils/dateOnly";
+
 type ParentInput = {
   id: string;
   name: string;
@@ -70,29 +72,6 @@ type PlanInput = {
   constants: Constants;
 };
 
-// ---------- date helpers ----------
-
-function parseDateUTC(iso: string): Date {
-  return new Date(iso + "T00:00:00Z");
-}
-
-function toISO(d: Date): string {
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function monthKeyOf(iso: string): string {
-  return iso.slice(0, 7);
-}
-
-/** Returns 0=Mon, 1=Tue, ..., 6=Sun (ISO weekday) */
-function isoWeekday(d: Date): number {
-  const jsDay = d.getUTCDay(); // 0=Sun
-  return jsDay === 0 ? 6 : jsDay - 1;
-}
-
 // ---------- allocation helper ----------
 
 type DayAllocation = "none" | "sickness" | "lowest";
@@ -107,7 +86,7 @@ type AllocatedDay = {
  * 0 → none, 1 → Mon, 2 → Mon,Tue, ..., 7 → Mon–Sun
  */
 function eligibleWeekdays(daysPerWeek: number): number[] {
-  // ISO weekday: 0=Mon,1=Tue,...,6=Sun
+  // ISO weekday index: 0=Mon,1=Tue,...,6=Sun
   const order = [0, 1, 2, 3, 4, 5, 6];
   return order.slice(0, daysPerWeek);
 }
@@ -127,23 +106,17 @@ function allocateBlockDays(
       : null;
 
   const result: AllocatedDay[] = [];
-  const start = parseDateUTC(startISO);
-  const end = parseDateUTC(endISO);
-  const cur = new Date(start);
 
-  while (cur <= end) {
-    const wd = isoWeekday(cur);
-    const dateStr = toISO(cur);
+  for (let d = startISO; compareDates(d, endISO) <= 0; d = addDays(d, 1)) {
+    const wd = isoWeekdayIndex(d);
 
     if (eligible.has(wd)) {
       if (lowestEligible && lowestEligible.has(wd)) {
-        result.push({ date: dateStr, allocation: "lowest" });
+        result.push({ date: d, allocation: "lowest" });
       } else {
-        result.push({ date: dateStr, allocation: "sickness" });
+        result.push({ date: d, allocation: "sickness" });
       }
     }
-
-    cur.setUTCDate(cur.getUTCDate() + 1);
   }
 
   return result;
@@ -195,7 +168,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
     if (b.daysPerWeek < 0 || b.daysPerWeek > 7 || !Number.isInteger(b.daysPerWeek)) {
       result.validationErrors.push({ type: "invalidDaysPerWeek", blockId: b.id });
     }
-    if (parseDateUTC(b.endDate) < parseDateUTC(b.startDate)) {
+    if (compareDates(b.endDate, b.startDate) < 0) {
       result.validationErrors.push({ type: "invalidDateRange", blockId: b.id });
     }
     if (b.lowestDaysPerWeek !== undefined) {
@@ -226,10 +199,10 @@ export function simulatePlan(plan: PlanInput): SimResult {
   }
   for (const [pid, arr] of blocksByParent.entries()) {
     const sorted = [...arr].sort(
-      (a, b) => parseDateUTC(a.startDate).getTime() - parseDateUTC(b.startDate).getTime(),
+      (a, b) => compareDates(a.startDate, b.startDate),
     );
     for (let i = 0; i < sorted.length - 1; i++) {
-      if (parseDateUTC(sorted[i].endDate) >= parseDateUTC(sorted[i + 1].startDate)) {
+      if (compareDates(sorted[i].endDate, sorted[i + 1].startDate) >= 0) {
         result.validationErrors.push({
           type: "overlapWithinSameParent",
           parentId: pid,
@@ -292,7 +265,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
 
   // Simulate blocks in time order
   const sortedBlocks = [...blocks].sort(
-    (a, b) => parseDateUTC(a.startDate).getTime() - parseDateUTC(b.startDate).getTime(),
+    (a, b) => compareDates(a.startDate, b.startDate),
   );
 
   for (const b of sortedBlocks) {
@@ -305,7 +278,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
     const hasManualLowest = b.lowestDaysPerWeek !== undefined;
 
     for (const day of allocated) {
-      const mk = monthKeyOf(day.date);
+      const mk = monthKey(day.date);
       const bucket = p.monthly.get(mk) ?? { sicknessDays: 0, lowestDays: 0, gross: 0 };
 
       if (day.allocation === "lowest") {
@@ -361,8 +334,8 @@ export function simulatePlan(plan: PlanInput): SimResult {
   for (const p of state.values()) {
     const monthlyBreakdown: MonthlyRow[] = Array.from(p.monthly.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([monthKey, v]) => ({
-        monthKey,
+      .map(([mk, v]) => ({
+        monthKey: mk,
         sicknessDays: v.sicknessDays,
         lowestDays: v.lowestDays,
         grossAmount: v.gross,
