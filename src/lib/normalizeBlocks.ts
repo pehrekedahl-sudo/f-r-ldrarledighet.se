@@ -1,4 +1,5 @@
 import { mergeAdjacentBlocks } from "./mergeAdjacentBlocks";
+import { diffDaysInclusive } from "@/utils/dateOnly";
 
 type Block = {
   id: string;
@@ -11,10 +12,7 @@ type Block = {
 };
 
 function calendarDays(b: Block): number {
-  return Math.ceil(
-    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
-    (1000 * 60 * 60 * 24)
-  ) + 1;
+  return diffDaysInclusive(b.startDate, b.endDate);
 }
 
 /**

@@ -22,6 +22,7 @@
 import { simulatePlan } from "@/lib/simulatePlan";
 import { mergeAdjacentBlocks } from "@/lib/mergeAdjacentBlocks";
 import { generateBlockId } from "@/lib/blockIdUtils";
+import { addDays as addDaysUtil, diffDaysInclusive, maxDate as maxDateUtil, minDate as minDateUtil } from "@/utils/dateOnly";
 
 // ── Types ──
 
@@ -165,16 +166,11 @@ export function allocateReductionWeeks(
 // ── Helpers ──
 
 function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  return addDaysUtil(iso, days);
 }
 
 function calendarDays(startDate: string, endDate: string): number {
-  return Math.ceil(
-    (new Date(endDate + "T00:00:00Z").getTime() - new Date(startDate + "T00:00:00Z").getTime()) /
-    (1000 * 60 * 60 * 24)
-  ) + 1;
+  return diffDaysInclusive(startDate, endDate);
 }
 
 function calcAvgMonthly(parentsResult: any[]): number {
