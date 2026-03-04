@@ -38,10 +38,9 @@ describe("normalizeBlocks", () => {
   it("absorbs micro-blocks into neighbors", () => {
     const result = normalizeBlocks([
       { id: "a", parentId: "p1", startDate: "2025-01-01", endDate: "2025-03-31", daysPerWeek: 5 },
-      { id: "b", parentId: "p1", startDate: "2025-04-01", endDate: "2025-04-10", daysPerWeek: 4 }, // 10 days < 14
+      { id: "b", parentId: "p1", startDate: "2025-04-01", endDate: "2025-04-10", daysPerWeek: 4 },
       { id: "c", parentId: "p1", startDate: "2025-04-11", endDate: "2025-06-30", daysPerWeek: 5 },
     ]);
-    // Micro-block should be absorbed
     expect(result.length).toBeLessThanOrEqual(2);
   });
 
@@ -54,6 +53,20 @@ describe("normalizeBlocks", () => {
     const r2 = normalizeBlocks([...blocks].reverse());
     expect(r1).toEqual(r2);
   });
+
+  it("is deterministic across Swedish DST (Mar 29 2026)", () => {
+    const blocks: Block[] = [
+      { id: "a", parentId: "p1", startDate: "2026-03-23", endDate: "2026-03-28", daysPerWeek: 5 },
+      { id: "b", parentId: "p1", startDate: "2026-03-29", endDate: "2026-04-05", daysPerWeek: 5 },
+    ];
+    const r1 = normalizeBlocks(blocks);
+    const r2 = normalizeBlocks(blocks);
+    expect(r1).toEqual(r2);
+    // Should merge since adjacent + same settings
+    expect(r1).toHaveLength(1);
+    expect(r1[0].startDate).toBe("2026-03-23");
+    expect(r1[0].endDate).toBe("2026-04-05");
+  });
 });
 
 describe("proposeEvenSpreadReduction", () => {
@@ -64,7 +77,6 @@ describe("proposeEvenSpreadReduction", () => {
     const result = proposeEvenSpreadReduction({ plan, parentScope: ["p1"], daysToReduce: 8 });
     expect(result.summary.weeksAffectedTotal).toBe(8);
     expect(result.summary.reductionPerWeek).toBe(1);
-    // Should not create near-zero weeks
     for (const b of result.nextBlocks) {
       expect(b.daysPerWeek).toBeGreaterThanOrEqual(MIN_AUTO_DPW);
     }
@@ -74,7 +86,6 @@ describe("proposeEvenSpreadReduction", () => {
     const plan: Block[] = [
       { id: "a", parentId: "p1", startDate: "2025-01-06", endDate: "2025-02-02", daysPerWeek: 4 },
     ];
-    // Try to reduce 20 days from a 4-week block at 4dpw
     const result = proposeEvenSpreadReduction({ plan, parentScope: ["p1"], daysToReduce: 20 });
     for (const b of result.nextBlocks) {
       expect(b.daysPerWeek).toBeGreaterThanOrEqual(MIN_AUTO_DPW);
@@ -86,7 +97,6 @@ describe("proposeEvenSpreadReduction", () => {
       { id: "a", parentId: "p1", startDate: "2025-01-06", endDate: "2025-06-29", daysPerWeek: 6 },
     ];
     const result = proposeEvenSpreadReduction({ plan, parentScope: ["p1"], daysToReduce: 4 });
-    // Should be at most 2 blocks (unchanged head + reduced tail)
     expect(result.nextBlocks.length).toBeLessThanOrEqual(2);
   });
 });
@@ -101,6 +111,6 @@ describe("applySmartChange", () => {
       { id: "b", parentId: "p1", startDate: "2025-02-01", endDate: "2025-02-28", daysPerWeek: 5 },
     ];
     const result = applySmartChange(current, next);
-    expect(result).toHaveLength(1); // merged
+    expect(result).toHaveLength(1);
   });
 });

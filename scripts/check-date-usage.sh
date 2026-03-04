@@ -2,7 +2,7 @@
 # Guardrail: detect forbidden raw Date usage outside dateOnly utility.
 # Exit 1 if violations found.
 
-PATTERNS='new Date\(|\.getDate\(\)|\.setDate\(|\.toISOString\(\)|Date\.parse\('
+PATTERNS='new Date\(|\.getDate\(\)|\.setDate\(|\.getUTCDate\(\)|\.setUTCDate\(|\.toISOString\(\)|Date\.parse\(|Date\.UTC\('
 EXCLUDE_FILES='src/utils/dateOnly\.ts|\.test\.|\.spec\.|test/setup'
 
 VIOLATIONS=$(grep -rn -E "$PATTERNS" src/ \
