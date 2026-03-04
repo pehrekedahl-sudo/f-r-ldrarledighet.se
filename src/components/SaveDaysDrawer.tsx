@@ -22,6 +22,7 @@ import {
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
+import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
 
 type Parent = {
   id: string;
@@ -110,17 +111,8 @@ function getCurrentState(blocks: Block[], parents: Parent[], constants: Constant
   return { ...r, avgMonthly: calcAvgMonthly(result.parentsResult) };
 }
 
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 function calendarDaysOf(b: Block): number {
-  return Math.ceil(
-    (new Date(b.endDate + "T00:00:00Z").getTime() - new Date(b.startDate + "T00:00:00Z").getTime()) /
-    (1000 * 60 * 60 * 24)
-  ) + 1;
+  return diffDaysInclusive(b.startDate, b.endDate);
 }
 
 function detectBaseline(blocks: Block[], parentId: string): number {
@@ -190,7 +182,7 @@ function increaseBlocksV2(
         target.daysPerWeek = newDpw;
         consumed += potentialConsumed;
       } else {
-        const splitDate = addDaysISO(target.startDate, splitDayOffset);
+        const splitDate = addDays(target.startDate, splitDayOffset);
         const tailBlock: Block = {
           id: generateBlockId("adj-use"),
           parentId: target.parentId,
@@ -201,7 +193,7 @@ function increaseBlocksV2(
           overlapGroupId: target.overlapGroupId,
         };
         changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
-        target.endDate = addDaysISO(splitDate, -1);
+        target.endDate = addDays(splitDate, -1);
         working.push(tailBlock);
         consumed += weeksNeeded;
       }

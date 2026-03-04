@@ -152,6 +152,55 @@ export function addMonths(dateStr: string, n: number): string {
   return fmt(d);
 }
 
+/** UTC milliseconds since epoch for a date string. Useful for timeline positioning. */
+export function toEpochMs(dateStr: string): number {
+  return toUTC(dateStr).getTime();
+}
+
+/** Calendar year of a date string. */
+export function getYear(dateStr: string): number {
+  return toUTC(dateStr).getUTCFullYear();
+}
+
+/** Month index (0=Jan, 11=Dec) of a date string. */
+export function getMonthIndex(dateStr: string): number {
+  return toUTC(dateStr).getUTCMonth();
+}
+
+/** Day of month (1-31) of a date string. */
+export function getDayOfMonth(dateStr: string): number {
+  return toUTC(dateStr).getUTCDate();
+}
+
+/**
+ * First day of the next month after dateStr. Useful for month boundary iteration.
+ * E.g. "2026-03-15" → "2026-04-01"
+ */
+export function startOfNextMonth(dateStr: string): string {
+  const d = toUTC(dateStr);
+  d.setUTCMonth(d.getUTCMonth() + 1, 1);
+  return fmt(d);
+}
+
+/**
+ * Convert a local Date (from calendar picker) to "YYYY-MM-DD" using local fields.
+ * This is the ONLY place where local Date fields are used — for UI calendar pickers.
+ */
+export function localDateToISO(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Convert "YYYY-MM-DD" to a local Date for UI components (e.g. Calendar picker).
+ * Uses noon to avoid DST edge cases in local timezone.
+ */
+export function toLocalDate(dateStr: string): Date {
+  return new Date(dateStr + "T12:00:00");
+}
+
 /** Today as "YYYY-MM-DD" in UTC. */
 export function todayISO(): string {
   return fmt(new Date());

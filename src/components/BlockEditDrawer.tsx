@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { addDays, todayISO, compareDates } from "@/utils/dateOnly";
 
 type Block = {
   id: string;
@@ -51,17 +52,11 @@ function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   for (const other of allBlocks) {
     if (other.id === block.id) continue;
     if (other.parentId !== block.parentId) continue;
-    if (block.startDate <= other.endDate && block.endDate >= other.startDate) {
+    if (compareDates(block.startDate, other.endDate) <= 0 && compareDates(block.endDate, other.startDate) >= 0) {
       return `Överlapp med period ${other.startDate} – ${other.endDate}`;
     }
   }
   return null;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, onSave, onDelete }: Props) => {
@@ -82,8 +77,8 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     } else if (mode === "create") {
       const pid = parents[0]?.id ?? "p1";
       setParentId(pid);
-      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => b.endDate.localeCompare(a.endDate));
-      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : new Date().toISOString().slice(0, 10);
+      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => compareDates(b.endDate, a.endDate));
+      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : todayISO();
       setStartDate(defaultStart);
       setEndDate(addDays(defaultStart, 28));
       setDaysPerWeek(5);
@@ -95,8 +90,8 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
   const handleParentChange = (pid: string) => {
     setParentId(pid);
     if (mode === "create") {
-      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => b.endDate.localeCompare(a.endDate));
-      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : new Date().toISOString().slice(0, 10);
+      const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => compareDates(b.endDate, a.endDate));
+      const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : todayISO();
       setStartDate(defaultStart);
       setEndDate(addDays(defaultStart, 28));
     }
@@ -118,7 +113,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
   const validationError = useMemo(() => {
     if (!draft.startDate) return "Startdatum krävs.";
     if (!draft.endDate) return "Slutdatum krävs.";
-    if (draft.endDate < draft.startDate) return "Slutdatum måste vara efter startdatum.";
+    if (compareDates(draft.endDate, draft.startDate) < 0) return "Slutdatum måste vara efter startdatum.";
     return null;
   }, [draft.startDate, draft.endDate]);
 
