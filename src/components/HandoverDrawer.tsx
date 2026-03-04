@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { applySmartChange, type Block } from "@/lib/adjustmentPolicy";
+import { addDays, compareDates, localDateToISO, toLocalDate } from "@/utils/dateOnly";
 
 type Parent = {
   id: string;
@@ -49,31 +50,6 @@ type Props = {
   onApply: (newBlocks: Block[]) => void;
 };
 
-function parseDateUTC(iso: string): Date {
-  return new Date(iso + "T00:00:00Z");
-}
-
-function toISO(d: Date): string {
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-/** Convert a local Date (from calendar picker) to YYYY-MM-DD using local fields */
-function toISOLocal(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function addDaysISO(iso: string, days: number): string {
-  const d = parseDateUTC(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return toISO(d);
-}
-
 function calcAvgMonthly(parentsResult: any[]): number {
   const allM = parentsResult.flatMap((pr: any) => pr.monthlyBreakdown);
   const total = allM.reduce((s: number, m: any) => s + m.grossAmount, 0);
@@ -90,14 +66,14 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     if (!parent1) return null;
     const p1Blocks = blocks.filter(b => b.parentId === parent1.id);
     if (p1Blocks.length === 0) return null;
-    return p1Blocks.reduce((max, b) => b.endDate > max.endDate ? b : max);
+    return p1Blocks.reduce((max, b) => compareDates(b.endDate, max.endDate) > 0 ? b : max);
   }, [blocks, parent1]);
 
   const p2Block = useMemo(() => {
     if (!parent2) return null;
     const p2Blocks = blocks.filter(b => b.parentId === parent2.id);
     if (p2Blocks.length === 0) return null;
-    return p2Blocks.reduce((min, b) => b.startDate < min.startDate ? b : min);
+    return p2Blocks.reduce((min, b) => compareDates(b.startDate, min.startDate) < 0 ? b : min);
   }, [blocks, parent2]);
 
   // Current handover date = p2Block.startDate
@@ -117,25 +93,25 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const proposalResult = useMemo(() => {
     if (!handoverDate || !p1Block || !p2Block || !parent1 || !parent2) return null;
 
-    const newP1End = addDaysISO(handoverDate, -1);
+    const newP1End = addDays(handoverDate, -1);
     const newP2Start = handoverDate;
 
     console.log("[HandoverDrawer]", { selectedDate: handoverDate, computedParent1EndDate: newP1End, computedParent2StartDate: newP2Start });
 
     // Validation
-    if (newP1End < p1Block.startDate) return { error: `${parent1.name}s block kan inte sluta före sitt startdatum.` };
-    if (newP2Start > p2Block.endDate) return { error: `${parent2.name}s block kan inte börja efter sitt slutdatum.` };
+    if (compareDates(newP1End, p1Block.startDate) < 0) return { error: `${parent1.name}s block kan inte sluta före sitt startdatum.` };
+    if (compareDates(newP2Start, p2Block.endDate) > 0) return { error: `${parent2.name}s block kan inte börja efter sitt slutdatum.` };
 
     // Check overlap with other blocks of same parent
     const otherP1 = blocks.filter(b => b.parentId === parent1.id && b.id !== p1Block.id);
     for (const ob of otherP1) {
-      if (parseDateUTC(ob.startDate) <= parseDateUTC(newP1End) && parseDateUTC(ob.endDate) >= parseDateUTC(p1Block.startDate)) {
+      if (compareDates(ob.startDate, newP1End) <= 0 && compareDates(ob.endDate, p1Block.startDate) >= 0) {
         return { error: `Överlapp med ett annat block för ${parent1.name}.` };
       }
     }
     const otherP2 = blocks.filter(b => b.parentId === parent2.id && b.id !== p2Block.id);
     for (const ob of otherP2) {
-      if (parseDateUTC(ob.startDate) <= parseDateUTC(p2Block.endDate) && parseDateUTC(ob.endDate) >= parseDateUTC(newP2Start)) {
+      if (compareDates(ob.startDate, p2Block.endDate) <= 0 && compareDates(ob.endDate, newP2Start) >= 0) {
         return { error: `Överlapp med ett annat block för ${parent2.name}.` };
       }
     }
@@ -149,7 +125,7 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
     const currentResult = simulatePlan({ parents, blocks, transfers, constants });
-    const proposalSim = simulatePlan({ parents, blocks: newBlocks.sort((a, b) => a.startDate.localeCompare(b.startDate)), transfers, constants });
+    const proposalSim = simulatePlan({ parents, blocks: newBlocks.sort((a, b) => compareDates(a.startDate, b.startDate)), transfers, constants });
 
     const currentAvg = calcAvgMonthly(currentResult.parentsResult);
     const proposalAvg = calcAvgMonthly(proposalSim.parentsResult);
@@ -158,8 +134,8 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     const currentBudgetInsufficient = !!(currentResult as any).warnings?.budgetInsufficient;
     const proposalBudgetInsufficient = !!(proposalSim as any).warnings?.budgetInsufficient;
 
-    const validSorted = newBlocks.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const latestEnd = validSorted.length > 0 ? validSorted.reduce((max, b) => b.endDate > max ? b.endDate : max, validSorted[0].endDate) : null;
+    const validSorted = newBlocks.sort((a, b) => compareDates(a.startDate, b.startDate));
+    const latestEnd = validSorted.length > 0 ? validSorted.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, validSorted[0].endDate) : null;
 
     return {
       newBlocks,
@@ -197,6 +173,9 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     onOpenChange(false);
   };
 
+  // Create a Date object for the Calendar component from the ISO string
+  const calendarSelected = handoverDate ? toLocalDate(handoverDate) : undefined;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[420px] flex flex-col">
@@ -231,17 +210,17 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {handoverDate ? format(parseDateUTC(handoverDate), "yyyy-MM-dd") : "Välj datum"}
+                  {handoverDate ?? "Välj datum"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
                   weekStartsOn={1}
-                  selected={handoverDate ? parseDateUTC(handoverDate) : undefined}
+                  selected={calendarSelected}
                   onSelect={(d) => {
                     if (d) {
-                      setHandoverDate(toISOLocal(d));
+                      setHandoverDate(localDateToISO(d));
                       setPopoverOpen(false);
                     }
                   }}
