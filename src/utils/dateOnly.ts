@@ -136,6 +136,22 @@ export function monthKey(dateStr: string): string {
   return dateStr.slice(0, 7);
 }
 
+/**
+ * Add (or subtract) calendar months. DST-safe.
+ * Clamps to last day of target month if original day overflows
+ * (e.g. Jan 31 + 1 month → Feb 28).
+ */
+export function addMonths(dateStr: string, n: number): string {
+  const d = toUTC(dateStr);
+  const origDay = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() + n);
+  // If the day changed (overflow), clamp to last day of target month
+  if (d.getUTCDate() !== origDay) {
+    d.setUTCDate(0); // sets to last day of previous month (i.e. the target month)
+  }
+  return fmt(d);
+}
+
 /** Today as "YYYY-MM-DD" in UTC. */
 export function todayISO(): string {
   return fmt(new Date());

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { addMonths } from "@/utils/dateOnly";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { Button } from "@/components/ui/button";
@@ -391,14 +392,10 @@ const PlanBuilder = () => {
               </div>
               <Button size="sm" disabled={!dueDate} onClick={() => {
                 if (!dueDate) return;
-                const due = new Date(dueDate);
-                const end1 = new Date(due);
-                end1.setMonth(end1.getMonth() + months1);
-                const end2 = new Date(end1);
-                end2.setMonth(end2.getMonth() + months2);
-                const fmt = (d: Date) => d.toISOString().slice(0, 10);
-                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: 5 };
-                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: 5 };
+                const end1 = addMonths(dueDate, months1);
+                const end2 = addMonths(end1, months2);
+                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5 };
+                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5 };
                 setBlocks([b1, b2]);
                 setTransfer(null);
                 setTransferAmount(0);
