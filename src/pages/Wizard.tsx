@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import type { WizardResult } from "@/components/OnboardingWizard";
 import { savePlanInput } from "@/lib/persistence";
+import { addDays, addMonths, compareDates } from "@/utils/dateOnly";
 
 const DEFAULT_PARENTS = [
   { id: "p1", name: "Anna", monthlyIncomeFixed: 45000, has240Days: true },
@@ -47,8 +48,7 @@ const Wizard = () => {
       },
     ];
 
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const due = new Date(wr.dueDate);
+    const due = wr.dueDate; // already "YYYY-MM-DD"
 
     const generatedBlocks: Block[] = [];
 
@@ -56,16 +56,14 @@ const Wizard = () => {
     if (wr.preBirthParent && wr.preBirthWeeks > 0) {
       const preDpw = wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2;
       if (preDpw > 0) {
-        const preStart = new Date(due);
-        preStart.setDate(preStart.getDate() - wr.preBirthWeeks * 7);
-        const preEnd = new Date(due);
-        preEnd.setDate(preEnd.getDate() - 1);
-        if (preStart < preEnd) {
+        const preStart = addDays(due, -(wr.preBirthWeeks * 7));
+        const preEnd = addDays(due, -1);
+        if (compareDates(preStart, preEnd) < 0) {
           generatedBlocks.push({
             id: `b${nextId++}`,
             parentId: wr.preBirthParent,
-            startDate: fmt(preStart),
-            endDate: fmt(preEnd),
+            startDate: preStart,
+            endDate: preEnd,
             daysPerWeek: Math.round(preDpw),
           });
         }
@@ -73,15 +71,13 @@ const Wizard = () => {
     }
 
     // Main blocks
-    const end1 = new Date(due);
-    end1.setMonth(end1.getMonth() + wr.months1);
-    const end2 = new Date(end1);
-    end2.setMonth(end2.getMonth() + wr.months2);
+    const end1 = addMonths(due, wr.months1);
+    const end2 = addMonths(end1, wr.months2);
 
-    const maybeBlock = (b: Block) => b.startDate < b.endDate && b.daysPerWeek > 0 ? b : null;
+    const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
     [
-      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: fmt(due), endDate: fmt(end1), daysPerWeek: Math.round(wr.daysPerWeek1) }) : null,
-      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: fmt(end1), endDate: fmt(end2), daysPerWeek: Math.round(wr.daysPerWeek2) }) : null,
+      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1) }) : null,
+      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2) }) : null,
     ].forEach(b => b && generatedBlocks.push(b));
 
     if (generatedBlocks.length === 0) return;

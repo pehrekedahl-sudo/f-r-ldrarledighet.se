@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   compareDates,
   addDays,
+  addMonths,
   diffDaysInclusive,
   maxDate,
   minDate,
@@ -84,5 +85,35 @@ describe("getISOWeekRange", () => {
     const weekId = getISOWeekId(date);
     const range = getISOWeekRange(weekId);
     expect(date >= range.startDate && date <= range.endDate).toBe(true);
+  });
+});
+
+describe("addMonths", () => {
+  it("adds months normally", () => {
+    expect(addMonths("2026-01-15", 3)).toBe("2026-04-15");
+  });
+  it("clamps day overflow (Jan 31 + 1 month → Feb 28)", () => {
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
+  });
+  it("clamps day overflow in leap year (Jan 31 + 1 month → Feb 29)", () => {
+    expect(addMonths("2028-01-31", 1)).toBe("2028-02-29");
+  });
+  it("handles year boundary (Nov + 3 months)", () => {
+    expect(addMonths("2025-11-15", 3)).toBe("2026-02-15");
+  });
+  it("subtracts months", () => {
+    expect(addMonths("2026-03-15", -2)).toBe("2026-01-15");
+  });
+  it("clamps when subtracting (Mar 31 - 1 month → Feb 28)", () => {
+    expect(addMonths("2026-03-31", -1)).toBe("2026-02-28");
+  });
+  it("handles 12 months = 1 year", () => {
+    expect(addMonths("2026-06-15", 12)).toBe("2027-06-15");
+  });
+  it("is DST-safe across Swedish DST (Mar 29 2026)", () => {
+    const r1 = addMonths("2026-02-28", 1);
+    const r2 = addMonths("2026-02-28", 1);
+    expect(r1).toBe("2026-03-28");
+    expect(r1).toBe(r2);
   });
 });
