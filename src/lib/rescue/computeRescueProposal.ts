@@ -213,6 +213,13 @@ function deriveFromReductions(
 
 // ── Deterministic reduction helpers ──
 
+/** Each week reduced by 1 dpw saves 1 day (since we reduce by exactly 1 dpw per range).
+ *  Only if the block actually has eligible days in those weeks.
+ *  For simplicity and correctness: 1 week × 1 dpw reduction = 1 day saved. */
+function estimateDaysSavedByReduction(_block: Block, weeksCount: number): number {
+  return weeksCount;
+}
+
 function getReductionRangesForParent(
   blocks: Block[],
   parentId: string,
@@ -411,7 +418,10 @@ export function computeRescueProposal(
     p2Weight: calcParentLoad(blocks, parents[1].id),
   } : null;
 
-  let perParentWeeks = allocateReductionWeeks(shortageAfterTransfer, mode, parents, blocks);
+  // Convert shortage days to weeks: each reduced week saves (1 day × reduction_per_week).
+  // Use ceiling to ensure we don't under-allocate.
+  const weeksNeededEstimate = Math.ceil(shortageAfterTransfer);
+  let perParentWeeks = allocateReductionWeeks(weeksNeededEstimate, mode, parents, blocks);
 
   // ══════════════════════════════════════════════
   // E) Apply reductions + verify + extend if needed
@@ -425,7 +435,10 @@ export function computeRescueProposal(
     parents, proposalBlocks, transferList, constants,
   );
 
-  const MAX_EXTEND = 30;
+  // Safety net only — if the initial estimate is correct, this should rarely run.
+  // Blocks with daysPerWeek < 7 may save fewer than 1 day per calendar week when
+  // the reduction window doesn't align to full weeks, requiring small corrections.
+  const MAX_EXTEND = 5;
   let extendIters = 0;
 
   while (unfulfilledAfterFull > 0 && extendIters < MAX_EXTEND) {
