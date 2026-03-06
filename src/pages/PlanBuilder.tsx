@@ -102,6 +102,7 @@ const PlanBuilder = () => {
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       setBlocks(saved.blocks);
+      setOriginalBlocks(saved.blocks);
       if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
       setViewMode("result");
       setLoaded(true);
@@ -118,6 +119,7 @@ const PlanBuilder = () => {
       try {
         const decoded = JSON.parse(atob(planParam));
         if (decoded.blocks) setBlocks(decoded.blocks);
+        if (decoded.blocks) setOriginalBlocks(decoded.blocks);
         if (decoded.transfer) setTransfer(decoded.transfer);
         if (decoded.dueDate) setDueDate(decoded.dueDate);
         if (decoded.months1 !== undefined) setMonths1(decoded.months1);
@@ -397,6 +399,7 @@ const PlanBuilder = () => {
                 const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5 };
                 const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5 };
                 setBlocks([b1, b2]);
+                setOriginalBlocks([b1, b2]);
                 setTransfer(null);
                 setTransferAmount(0);
                 setTransferError(null);
@@ -771,6 +774,7 @@ const PlanBuilder = () => {
         open={saveDaysOpen}
         onOpenChange={setSaveDaysOpen}
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        originalBlocks={originalBlocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
         constants={CONSTANTS}
         transfer={transfer}
