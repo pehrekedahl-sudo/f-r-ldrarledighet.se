@@ -49,6 +49,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const [viableModes, setViableModes] = useState<Set<string>>(
     new Set(["proportional", "split", ...parents.map(p => p.id)])
   );
+  const [redundantModes, setRedundantModes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open) return;
@@ -70,14 +71,49 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   useEffect(() => {
     if (!open) return;
     setViableModes(new Set(["proportional", "split", ...parents.map(p => p.id)]));
+    setRedundantModes(new Set());
     const timer = setTimeout(() => {
       const viable = new Set<string>();
+      const redundant = new Set<string>();
+      const results: Record<string, { success: boolean; blockSignature: string }> = {};
+
       const modesToTest: string[] = ["proportional", "split", ...parents.map(p => p.id)];
       for (const m of modesToTest) {
         const probe = computeRescueProposal(blocks, parents, constants, transfer, m as DistributionMode);
-        if (probe && probe.success) viable.add(m);
+        if (probe && probe.success) {
+          const sig = probe.newBlocks
+            .map(b => `${b.parentId}:${b.startDate}:${b.endDate}:${b.daysPerWeek}`)
+            .sort()
+            .join("|");
+          results[m] = { success: true, blockSignature: sig };
+          viable.add(m);
+        } else {
+          results[m] = { success: false, blockSignature: "" };
+        }
       }
+
+      const specificParentSigs = parents
+        .filter(p => results[p.id]?.success)
+        .map(p => results[p.id].blockSignature);
+
+      for (const m of ["proportional", "split"]) {
+        if (!results[m]?.success) continue;
+        const sig = results[m].blockSignature;
+        if (specificParentSigs.includes(sig)) {
+          viable.delete(m);
+          redundant.add(m);
+        }
+      }
+
+      if (results["split"]?.success && results["proportional"]?.success) {
+        if (results["split"].blockSignature === results["proportional"].blockSignature) {
+          viable.delete("split");
+          redundant.add("split");
+        }
+      }
+
       setViableModes(viable);
+      setRedundantModes(redundant);
     }, 200);
     return () => clearTimeout(timer);
   }, [open, blocks, parents, constants, transfer]);
@@ -157,7 +193,13 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                   className={`text-sm ${!viableModes.has("split") ? "text-muted-foreground cursor-not-allowed" : "font-normal cursor-pointer"}`}
                 >
                   50/50 mellan er
-                  {!viableModes.has("split") && <span className="ml-1 text-xs">(kan inte lösa bristen jämnt)</span>}
+                  {!viableModes.has("split") && (
+                    <span className="ml-1 text-xs">
+                      {redundantModes.has("split")
+                        ? "(samma resultat som ett annat val)"
+                        : "(kan inte lösa bristen jämnt)"}
+                    </span>
+                  )}
                 </Label>
               </div>
               <div className="flex items-center gap-2">
