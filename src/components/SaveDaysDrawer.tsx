@@ -52,6 +52,7 @@ type Props = {
   transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
   onApply: (newBlocks: Block[]) => void;
   hasManualEdits?: boolean;
+  originalBlocks: Block[];
 };
 
 type CurrentState = {
@@ -125,6 +126,7 @@ function computeProposal(
   targetTotal: number,
   current: CurrentState,
   source: SaveSource,
+  originalBlocks: Block[],
 ): Proposal | null {
   if (blocks.length === 0) return null;
   const transfers = getTransfers(transfer);
@@ -172,12 +174,12 @@ function computeProposal(
     }
   } else {
     // USE direction: raise dpw back toward baseline
-    // Baseline per block = the MAXIMUM dpw seen for that parent across all current blocks
+    // Was: derived from current blocks' max — breaks after repeated saves
+    // Now: derived from original blocks — always stable
     const baselineDpw = new Map<string, number>();
     for (const p of parents) {
-      const parentBlocks = blocks.filter(b => b.parentId === p.id);
-      if (parentBlocks.length === 0) continue;
-      baselineDpw.set(p.id, Math.max(...parentBlocks.map(b => b.daysPerWeek)));
+      const orig = originalBlocks.filter(b => b.parentId === p.id);
+      baselineDpw.set(p.id, orig.length > 0 ? Math.max(...orig.map(b => b.daysPerWeek)) : 7);
     }
 
     const working = blocks.map(b => ({ ...b }));
@@ -253,7 +255,7 @@ function computeProposal(
 
 // ── component ──
 
-const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits }: Props) => {
+const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
   const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
 
@@ -303,11 +305,11 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     }
     setComputing(true);
     debounceRef.current = setTimeout(() => {
-      const result = computeProposal(blocks, parents, constants, transfer, target, current, src);
+      const result = computeProposal(blocks, parents, constants, transfer, target, current, src, originalBlocks);
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [blocks, parents, constants, transfer, current]);
+  }, [blocks, parents, constants, transfer, current, originalBlocks]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);
