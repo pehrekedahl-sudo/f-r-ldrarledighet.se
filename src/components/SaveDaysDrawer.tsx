@@ -16,10 +16,13 @@ import { simulatePlan } from "@/lib/simulatePlan";
 import {
   applySmartChange,
   proposeEvenSpreadReduction,
+  normalizeBlocks,
   MIN_AUTO_DPW,
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
+import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
+import { generateBlockId } from "@/lib/blockIdUtils";
 
 type Parent = {
   id: string;
@@ -175,6 +178,93 @@ function binarySearchReduction(opts: {
   return { blocks: bestBlocks, summary: bestSummary };
 }
 
+function binarySearchIncrease(opts: {
+  originalBlocks: Block[];
+  parents: Parent[];
+  constants: Constants;
+  transfer: Props["transfer"];
+  source: SaveSource;
+  targetTotal: number;
+  originalTotal: number;
+}): { blocks: Block[]; summary: ReductionSummary | null } | null {
+  const { originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
+  const transfers = getTransfers(transfer);
+  const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
+
+  const daysToUse = originalTotal - targetTotal; // how many more days to take out vs original
+  if (daysToUse <= 0) return { blocks: originalBlocks, summary: null };
+
+  // Max capacity: weeks * (7 - currentDpw) per block, capped at 7
+  const maxCapacity = originalBlocks
+    .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7)
+    .reduce((s, b) => s + Math.floor(diffDaysInclusive(b.startDate, b.endDate) / 7) * (7 - b.daysPerWeek), 0);
+  if (maxCapacity <= 0) return null;
+
+  let lo = Math.max(0, daysToUse - 20);
+  let hi = Math.min(daysToUse + 30, maxCapacity);
+  let bestBlocks: Block[] = originalBlocks;
+  let bestDiff = Infinity;
+
+  for (let iter = 0; iter < 20; iter++) {
+    const mid = Math.round((lo + hi) / 2);
+    if (mid <= 0) { lo = 1; continue; }
+
+    // Increase dpw from originalBlocks, raise lowest-dpw blocks first (latest first within each level)
+    const working = originalBlocks.map(b => ({ ...b }));
+    let stillNeeded = mid;
+    let safetyLimit = 20;
+
+    while (stillNeeded > 0 && safetyLimit-- > 0) {
+      const candidates = working
+        .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7)
+        .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest first
+      if (candidates.length === 0) break;
+
+      const minDpw = Math.min(...candidates.map(b => b.daysPerWeek));
+      const atMinLevel = candidates.filter(b => b.daysPerWeek === minDpw);
+
+      for (const target of atMinLevel) {
+        if (stillNeeded <= 0) break;
+        const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
+        if (blockWeeks <= 0) continue;
+        const weeksToRaise = Math.min(stillNeeded, blockWeeks);
+        if (weeksToRaise >= blockWeeks) {
+          target.daysPerWeek = target.daysPerWeek + 1;
+        } else {
+          const headDays = (blockWeeks - weeksToRaise) * 7;
+          const splitDate = addDays(target.startDate, headDays);
+          working.push({
+            id: generateBlockId("adj-use"),
+            parentId: target.parentId,
+            startDate: splitDate,
+            endDate: target.endDate,
+            daysPerWeek: target.daysPerWeek + 1,
+            lowestDaysPerWeek: target.lowestDaysPerWeek,
+            overlapGroupId: target.overlapGroupId,
+          });
+          target.endDate = addDays(splitDate, -1);
+        }
+        stillNeeded -= weeksToRaise;
+      }
+    }
+
+    const candidateBlocks = normalizeBlocks(working);
+    const simResult = simulatePlan({ parents, blocks: candidateBlocks, transfers, constants });
+    const remaining = calcRemaining(simResult.parentsResult).currentTotal;
+    const diff = remaining - targetTotal;
+
+    if (Math.abs(diff) < Math.abs(bestDiff)) {
+      bestDiff = diff;
+      bestBlocks = candidateBlocks;
+    }
+    if (diff === 0) break;
+    if (diff < 0) hi = mid - 1; // too few remaining = took out too much = increase less
+    else lo = mid + 1;          // too many remaining = didn't take out enough = increase more
+  }
+
+  return { blocks: bestBlocks, summary: null };
+}
+
 function computeProposal(
   parents: Parent[],
   constants: Constants,
@@ -190,7 +280,33 @@ function computeProposal(
   if (targetTotal === originalTotal) return null;
 
   if (targetTotal < originalTotal) {
-    return null;
+    // USE direction: take out more days than original by increasing dpw toward 7
+    const searched = binarySearchIncrease({
+      originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
+    });
+    if (!searched) return null;
+    const resultBlocks = searched.blocks;
+    const newResult = simulatePlan({ parents, blocks: resultBlocks, transfers, constants });
+    const newR = calcRemaining(newResult.parentsResult);
+    const newAvg = calcAvgMonthly(newResult.parentsResult);
+    const origResult = simulatePlan({ parents, blocks: originalBlocks, transfers, constants });
+    const origAvg = calcAvgMonthly(origResult.parentsResult);
+    const latestEnd = resultBlocks.length > 0
+      ? resultBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, resultBlocks[0].endDate)
+      : "";
+    return {
+      newBlocks: resultBlocks,
+      summary: null,
+      newSickness: newR.remainingSickness,
+      newLowest: newR.remainingLowest,
+      newTotal: newR.currentTotal,
+      deltaDays: newR.currentTotal - originalTotal,
+      deltaMonthly: Math.round(newAvg - origAvg),
+      newEndDate: latestEnd,
+      direction: "save",
+      debugBefore: originalBlocks,
+      debugAfter: resultBlocks,
+    };
   }
 
   // targetTotal > originalTotal: user wants to SAVE more days (reduce dpw)
@@ -401,7 +517,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
               <p className="text-sm font-medium">
-                  För att spara fler dagar föreslår vi:
+                  {proposal.deltaDays < 0 ? "För att ta ut fler dagar föreslår vi:" : "För att spara fler dagar föreslår vi:"}
                 </p>
                 {proposal.summary && proposal.summary.weeksAffectedTotal > 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -478,10 +594,6 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
           ) : targetDays === originalState.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">
               Flytta reglaget för att justera antal sparade dagar.
-            </p>
-          ) : targetDays < originalState.currentTotal ? (
-            <p className="text-sm text-muted-foreground italic">
-              Ni tar redan ut dagarna i maximal takt – det går inte att ta ut fler med grundplanen.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground italic">
