@@ -309,7 +309,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [blocks, parents, constants, transfer, current]);
+  }, [blocks, parents, constants, transfer, current, originalBlocks]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);
