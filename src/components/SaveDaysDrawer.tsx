@@ -187,8 +187,13 @@ function computeProposal(
   if (originalBlocks.length === 0) return null;
   const transfers = getTransfers(transfer);
 
-  if (targetTotal > originalTotal) return null;
   if (targetTotal === originalTotal) return null;
+
+  if (targetTotal < originalTotal) {
+    return null;
+  }
+
+  // targetTotal > originalTotal: user wants to SAVE more days (reduce dpw)
 
   const searched = binarySearchReduction({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
@@ -474,9 +479,13 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <p className="text-sm text-muted-foreground italic">
               Flytta reglaget för att justera antal sparade dagar.
             </p>
+          ) : targetDays < originalState.currentTotal ? (
+            <p className="text-sm text-muted-foreground italic">
+              Ni tar redan ut dagarna i maximal takt – det går inte att ta ut fler med grundplanen.
+            </p>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              Kan inte spara fler dagar – planen är redan på grundnivån.
+              Flytta reglaget för att justera antal sparade dagar.
             </p>
           )}
         </div>
