@@ -65,8 +65,18 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   }, [open, mode, blocks, parents, constants, transfer]);
 
   useEffect(() => {
-    if (open) setMode("proportional");
+    if (!open) return;
+    setMode("proportional");
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const allModes: string[] = ["proportional", "split", ...parents.map(p => p.id)];
+    if (!viableModes.has(mode)) {
+      const best = allModes.find(m => viableModes.has(m));
+      if (best) setMode(best as DistributionMode);
+    }
+  }, [viableModes]);
 
   useEffect(() => {
     if (!open) return;
@@ -203,9 +213,26 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 </Label>
               </div>
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="proportional" id="rescue-proportional" />
-                <Label htmlFor="rescue-proportional" className="text-sm font-normal cursor-pointer">
-                  Proportionerligt <span className="text-muted-foreground">(rekommenderas)</span>
+                <RadioGroupItem
+                  value="proportional"
+                  id="rescue-proportional"
+                  disabled={!viableModes.has("proportional")}
+                />
+                <Label
+                  htmlFor="rescue-proportional"
+                  className={`text-sm ${!viableModes.has("proportional") ? "text-muted-foreground cursor-not-allowed" : "font-normal cursor-pointer"}`}
+                >
+                  Proportionerligt
+                  {viableModes.has("proportional") && (
+                    <span className="text-muted-foreground ml-1">(rekommenderas)</span>
+                  )}
+                  {!viableModes.has("proportional") && (
+                    <span className="ml-1 text-xs">
+                      {redundantModes.has("proportional")
+                        ? "(samma resultat som ett annat val)"
+                        : "(kan inte lösa bristen proportionerligt)"}
+                    </span>
+                  )}
                 </Label>
               </div>
             </RadioGroup>
