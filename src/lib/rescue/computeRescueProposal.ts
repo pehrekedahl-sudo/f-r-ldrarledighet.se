@@ -404,7 +404,9 @@ export function computeRescueProposal(
   }
 
   // ══════════════════════════════════════════════
-  // D) Initial reduction schedule from mode
+  // D) Determine which parents actually need reduction
+  //    after transfer. Only parents with remaining
+  //    deficit get reduction weeks assigned.
   // ══════════════════════════════════════════════
   const weights = parents.length >= 2 ? {
     p1Id: parents[0].id,
@@ -413,10 +415,76 @@ export function computeRescueProposal(
     p2Weight: calcParentLoad(blocks, parents[1].id),
   } : null;
 
-  // Convert shortage days to weeks: each reduced week saves (1 day × reduction_per_week).
-  // Use ceiling to ensure we don't under-allocate.
-  const weeksNeededEstimate = Math.ceil(shortageAfterTransfer);
-  let perParentWeeks = allocateReductionWeeks(weeksNeededEstimate, mode, parents, blocks);
+  // Ask the engine: after transfer, how many days is each parent short?
+  const postTransferState = afterTransferResult.parentsResult;
+
+  function parentDeficit(parentId: string): number {
+    const pr = postTransferState.find((r: any) => r.parentId === parentId);
+    if (!pr) return 0;
+    const remaining = pr.remaining.sicknessTransferable 
+      + pr.remaining.sicknessReserved 
+      + pr.remaining.lowest;
+    // remaining < 0 means deficit (engine already consumed more than available)
+    // unfulfilledDaysTotal on the full result tells us total, but we need per-parent.
+    // Proxy: if this parent has 0 remaining and took days, they are the deficit parent.
+    return remaining <= 0 ? Math.max(0, pr.taken.sickness + pr.taken.lowest - 
+      (105 + 90 + 45)) : 0;
+  }
+
+  // Simpler and more reliable: run engine per-parent in isolation to find deficit
+  function perParentShortage(): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const p of parents) {
+      const parentOnlyBlocks = blocks.filter(b => b.parentId === p.id);
+      const { shortage } = engineShortage([p], parentOnlyBlocks, transferList, constants);
+      result[p.id] = shortage;
+    }
+    return result;
+  }
+
+  const shortagePerParent = perParentShortage();
+
+  // Build perParentWeeks based on actual per-parent deficit,
+  // but respect the user's mode choice:
+  // - "proportional" or "split": distribute according to who actually needs it
+  // - specific parent id: only that parent
+  let perParentWeeks: Record<string, number> = {};
+  for (const p of parents) perParentWeeks[p.id] = 0;
+
+  if (mode !== "proportional" && mode !== "split") {
+    // User chose a specific parent — respect that
+    perParentWeeks = allocateReductionWeeks(
+      Math.ceil(shortageAfterTransfer), mode, parents, blocks
+    );
+  } else {
+    // Smart allocation: weight by actual deficit, not by block size
+    const totalDeficit = Object.values(shortagePerParent).reduce((s, v) => s + v, 0);
+    if (totalDeficit <= 0) {
+      // Fallback to original proportional
+      perParentWeeks = allocateReductionWeeks(
+        Math.ceil(shortageAfterTransfer), mode, parents, blocks
+      );
+    } else {
+      const total = Math.ceil(shortageAfterTransfer);
+      let assigned = 0;
+      const sorted = parents
+        .slice()
+        .sort((a, b) => (shortagePerParent[b.id] ?? 0) - (shortagePerParent[a.id] ?? 0));
+      for (let i = 0; i < sorted.length; i++) {
+        const p = sorted[i];
+        const isLast = i === sorted.length - 1;
+        if (isLast) {
+          perParentWeeks[p.id] = total - assigned;
+        } else {
+          const share = totalDeficit > 0
+            ? Math.round((shortagePerParent[p.id] / totalDeficit) * total)
+            : 0;
+          perParentWeeks[p.id] = share;
+          assigned += share;
+        }
+      }
+    }
+  }
 
   // ══════════════════════════════════════════════
   // E) Apply reductions + verify + extend if needed
