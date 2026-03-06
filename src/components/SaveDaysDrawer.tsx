@@ -115,95 +115,7 @@ function calendarDaysOf(b: Block): number {
   return diffDaysInclusive(b.startDate, b.endDate);
 }
 
-function detectBaseline(blocks: Block[], parentId: string): number {
-  const parentBlocks = blocks.filter(b => b.parentId === parentId);
-  if (parentBlocks.length === 0) return 6;
-  const dpwWeight = new Map<number, number>();
-  for (const b of parentBlocks) {
-    const days = calendarDaysOf(b);
-    dpwWeight.set(b.daysPerWeek, (dpwWeight.get(b.daysPerWeek) ?? 0) + days);
-  }
-  let best = 6;
-  let bestWeight = 0;
-  for (const [dpw, weight] of dpwWeight) {
-    if (weight > bestWeight) {
-      best = dpw;
-      bestWeight = weight;
-    }
-  }
-  const totalWeight = Array.from(dpwWeight.values()).reduce((s, w) => s + w, 0);
-  if (best === 7 && bestWeight / totalWeight < 0.8) return 6;
-  return best;
-}
-
-// ── V2 increase: use more days by raising dpw, cap at baseline ──
-
-function increaseBlocksV2(
-  working: Block[],
-  needed: number,
-  allowedParentIds: Set<string>,
-  parents: Parent[],
-  baselines: Map<string, number>,
-): { consumed: number; changes: { parentName: string; oldDpw: number; newDpw: number; fromDate: string }[] } {
-  let consumed = 0;
-  const changes: { parentName: string; oldDpw: number; newDpw: number; fromDate: string }[] = [];
-  let iterations = 0;
-
-  while (consumed < needed && iterations < 30) {
-    iterations++;
-    const candidates = working
-      .filter(b => {
-        const baseline = baselines.get(b.parentId) ?? 6;
-        return b.daysPerWeek < baseline && allowedParentIds.has(b.parentId);
-      })
-      .map(b => ({ block: b, calendarDays: calendarDaysOf(b) }))
-      .sort((a, b) => b.block.startDate.localeCompare(a.block.startDate) || b.calendarDays - a.calendarDays);
-
-    if (candidates.length === 0) break;
-
-    const target = candidates[0].block;
-    const calDays = candidates[0].calendarDays;
-    const newDpw = target.daysPerWeek + 1;
-    const potentialConsumed = Math.floor(calDays / 7);
-    if (potentialConsumed <= 0) break;
-
-    const still = needed - consumed;
-    const parentName = parents.find(p => p.id === target.parentId)?.name ?? "";
-
-    if (potentialConsumed <= still) {
-      changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-      target.daysPerWeek = newDpw;
-      consumed += potentialConsumed;
-    } else {
-      const weeksNeeded = still;
-      const splitDayOffset = calDays - weeksNeeded * 7;
-      if (splitDayOffset <= 0) {
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: target.startDate });
-        target.daysPerWeek = newDpw;
-        consumed += potentialConsumed;
-      } else {
-        const splitDate = addDays(target.startDate, splitDayOffset);
-        const tailBlock: Block = {
-          id: generateBlockId("adj-use"),
-          parentId: target.parentId,
-          startDate: splitDate,
-          endDate: target.endDate,
-          daysPerWeek: newDpw,
-          lowestDaysPerWeek: target.lowestDaysPerWeek,
-          overlapGroupId: target.overlapGroupId,
-        };
-        changes.push({ parentName, oldDpw: target.daysPerWeek, newDpw, fromDate: splitDate });
-        target.endDate = addDays(splitDate, -1);
-        working.push(tailBlock);
-        consumed += weeksNeeded;
-      }
-    }
-  }
-
-  return { consumed, changes };
-}
-
-// ── compute proposal (bidirectional) ──
+// ── computeProposal: stateless, always derives from scratch ──
 
 function computeProposal(
   blocks: Block[],
@@ -214,102 +126,115 @@ function computeProposal(
   current: CurrentState,
   source: SaveSource,
 ): Proposal | null {
-  const delta = targetTotal - current.currentTotal;
-  if (delta === 0 || blocks.length === 0) return null;
-
+  if (blocks.length === 0) return null;
   const transfers = getTransfers(transfer);
+
+  // Detect the original baseline dpw per block (the dpw the block "wants" to be at)
+  // We derive this from the block's own dpw as the ceiling — we never go above it
+  // and we never go below MIN_AUTO_DPW.
+  // Strategy: binary-search the number of weeks to reduce/increase to hit targetTotal.
+  // We always start fresh from the current blocks (not previous proposals).
+
+  const allowedParentIds: string[] =
+    source === "both" ? parents.map(p => p.id) : [source as string];
+
+  // Try reducing (saving more days) or increasing (using more days) from current blocks
+  const delta = targetTotal - current.currentTotal;
+  if (delta === 0) return null;
+
   const direction: "save" | "use" = delta > 0 ? "save" : "use";
   const absDelta = Math.abs(delta);
-
   const debugBefore = blocks.map(b => ({ ...b }));
-
-  // Detect baselines per parent
-  const baselines = new Map<string, number>();
-  for (const p of parents) {
-    baselines.set(p.id, detectBaseline(blocks, p.id));
-  }
 
   let resultBlocks: Block[];
   let summary: ReductionSummary | null = null;
 
   if (direction === "save") {
-    // SAVE: use shared proposeEvenSpreadReduction policy
-    const parentScope = source === "both"
-      ? parents.map(p => p.id)
-      : [source];
-
-    // If "both", split evenly between parents
+    // Use proposeEvenSpreadReduction (already stateless — takes current blocks as input)
     if (source === "both" && parents.length >= 2) {
       const halfA = Math.round(absDelta / 2);
       const halfB = absDelta - halfA;
-
       const r1 = proposeEvenSpreadReduction({ plan: blocks, parentScope: [parents[0].id], daysToReduce: halfA });
       const r2 = proposeEvenSpreadReduction({ plan: r1.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfB });
-
-      // Check for shortfalls and redistribute
-      const got1 = r1.summary.weeksAffectedTotal;
-      const got2 = r2.summary.weeksAffectedTotal;
-      if (got1 < halfA) {
-        const extra = proposeEvenSpreadReduction({ plan: r2.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfA - got1 });
-        resultBlocks = extra.nextBlocks;
-      } else if (got2 < halfB) {
-        const extra = proposeEvenSpreadReduction({ plan: r2.nextBlocks, parentScope: [parents[0].id], daysToReduce: halfB - got2 });
-        resultBlocks = extra.nextBlocks;
-      } else {
-        resultBlocks = r2.nextBlocks;
-      }
-
-      // Combine summaries
+      resultBlocks = r2.nextBlocks;
       const allPerParent = [...r1.summary.perParent, ...r2.summary.perParent];
       summary = {
         weeksAffectedTotal: allPerParent.reduce((s, p) => s + p.weeksAffected, 0),
         reductionPerWeek: 1,
-        startDateOfReduction: r1.summary.startDateOfReduction && r2.summary.startDateOfReduction
-          ? (r1.summary.startDateOfReduction < r2.summary.startDateOfReduction ? r1.summary.startDateOfReduction : r2.summary.startDateOfReduction)
-          : r1.summary.startDateOfReduction || r2.summary.startDateOfReduction,
-        endDateOfReduction: r1.summary.endDateOfReduction && r2.summary.endDateOfReduction
-          ? (r1.summary.endDateOfReduction > r2.summary.endDateOfReduction ? r1.summary.endDateOfReduction : r2.summary.endDateOfReduction)
-          : r1.summary.endDateOfReduction || r2.summary.endDateOfReduction,
+        startDateOfReduction: [r1.summary.startDateOfReduction, r2.summary.startDateOfReduction].filter(Boolean).sort()[0] ?? null,
+        endDateOfReduction: [r1.summary.endDateOfReduction, r2.summary.endDateOfReduction].filter(Boolean).sort().reverse()[0] ?? null,
         perParent: allPerParent,
       };
     } else {
-      const r = proposeEvenSpreadReduction({ plan: blocks, parentScope, daysToReduce: absDelta });
+      const r = proposeEvenSpreadReduction({ plan: blocks, parentScope: allowedParentIds, daysToReduce: absDelta });
       resultBlocks = r.nextBlocks;
       summary = r.summary;
     }
   } else {
-    // USE: increase dpw (existing logic, then normalize via policy)
-    const working = blocks.map(b => ({ ...b }));
-
-    const doIncrease = (amount: number, parentIds: Set<string>) =>
-      increaseBlocksV2(working, amount, parentIds, parents, baselines);
-
-    if (source === "both" && parents.length >= 2) {
-      const halfA = Math.round(absDelta / 2);
-      const halfB = absDelta - halfA;
-      const parentIds = parents.map(p => p.id);
-      const r1 = doIncrease(halfA, new Set([parentIds[0]]));
-      const r2 = doIncrease(halfB, new Set([parentIds[1]]));
-      if (halfA - r1.consumed > 0) doIncrease(halfA - r1.consumed, new Set([parentIds[1]]));
-      if (halfB - r2.consumed > 0) doIncrease(halfB - r2.consumed, new Set([parentIds[0]]));
-    } else if (source === "both") {
-      doIncrease(absDelta, new Set(parents.map(p => p.id)));
-    } else {
-      doIncrease(absDelta, new Set([source]));
+    // USE direction: raise dpw back toward baseline
+    // Baseline per block = the MAXIMUM dpw seen for that parent across all current blocks
+    const baselineDpw = new Map<string, number>();
+    for (const p of parents) {
+      const parentBlocks = blocks.filter(b => b.parentId === p.id);
+      if (parentBlocks.length === 0) continue;
+      baselineDpw.set(p.id, Math.max(...parentBlocks.map(b => b.daysPerWeek)));
     }
 
+    const working = blocks.map(b => ({ ...b }));
+    let stillNeeded = absDelta;
+    let safetyLimit = 20;
+
+    while (stillNeeded > 0 && safetyLimit-- > 0) {
+      // Find blocks below their baseline among allowed parents
+      const candidates = working
+        .filter(b => {
+          const baseline = baselineDpw.get(b.parentId) ?? 6;
+          return allowedParentIds.includes(b.parentId) && b.daysPerWeek < baseline;
+        })
+        .sort((a, b) => a.startDate.localeCompare(b.startDate)); // earliest first
+
+      if (candidates.length === 0) break;
+
+      // Find the lowest dpw among candidates (raise the lowest first for smoothest result)
+      const minDpw = Math.min(...candidates.map(b => b.daysPerWeek));
+      const atMinLevel = candidates.filter(b => b.daysPerWeek === minDpw);
+
+      for (const target of atMinLevel) {
+        if (stillNeeded <= 0) break;
+        const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
+        if (blockWeeks <= 0) continue;
+        const newDpw = target.daysPerWeek + 1;
+        const weeksToRaise = Math.min(stillNeeded, blockWeeks);
+
+        if (weeksToRaise >= blockWeeks) {
+          target.daysPerWeek = newDpw;
+        } else {
+          // Split: raise the tail
+          const headDays = (blockWeeks - weeksToRaise) * 7;
+          const splitDate = addDays(target.startDate, headDays);
+          working.push({
+            id: generateBlockId("adj-use"),
+            parentId: target.parentId,
+            startDate: splitDate,
+            endDate: target.endDate,
+            daysPerWeek: newDpw,
+            lowestDaysPerWeek: target.lowestDaysPerWeek,
+            overlapGroupId: target.overlapGroupId,
+          });
+          target.endDate = addDays(splitDate, -1);
+        }
+        stillNeeded -= weeksToRaise;
+      }
+    }
     resultBlocks = normalizeBlocks(working);
   }
 
-  if (resultBlocks.length === 0) return null;
-
+  if (!resultBlocks || resultBlocks.length === 0) return null;
   const sorted = resultBlocks.sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
-  const latestEnd = sorted.length > 0
-    ? sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate)
-    : "";
+  const latestEnd = sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate);
 
   return {
     newBlocks: sorted,
