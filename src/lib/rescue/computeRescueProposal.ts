@@ -223,27 +223,23 @@ function estimateDaysSavedByReduction(_block: Block, weeksCount: number): number
 function getReductionRangesForParent(
   blocks: Block[],
   parentId: string,
-  weeksNeeded: number,
+  daysNeeded: number,
 ): ReductionRange[] {
-  if (weeksNeeded <= 0) return [];
-
+  if (daysNeeded <= 0) return [];
   const parentBlocks = blocks
     .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
     .sort((a, b) => b.endDate.localeCompare(a.endDate));
-
   const ranges: ReductionRange[] = [];
-  let weeksRemaining = weeksNeeded;
-
+  let daysRemaining = daysNeeded;
   for (const block of parentBlocks) {
-    if (weeksRemaining <= 0) break;
-    const days = calendarDays(block.startDate, block.endDate);
-    const blockWeeks = Math.floor(days / 7);
-    if (blockWeeks <= 0) continue;
-
-    const weeksFromThis = Math.min(weeksRemaining, blockWeeks);
+    if (daysRemaining <= 0) break;
+    const totalCalendarDays = calendarDays(block.startDate, block.endDate);
+    const totalWeeks = Math.floor(totalCalendarDays / 7);
+    if (totalWeeks <= 0) continue;
+    // Each week reduced by 1 dpw saves exactly 1 day
+    const weeksFromThis = Math.min(daysRemaining, totalWeeks);
     const rangeEnd = block.endDate;
     const rangeStart = addDaysISO(rangeEnd, -(weeksFromThis * 7) + 1);
-
     ranges.push({
       parentId,
       startDate: rangeStart,
@@ -252,9 +248,8 @@ function getReductionRangesForParent(
       newDpw: Math.max(0, block.daysPerWeek - 1),
       weeksCount: weeksFromThis,
     });
-    weeksRemaining -= weeksFromThis;
+    daysRemaining -= weeksFromThis;
   }
-
   return ranges.sort((a, b) => a.startDate.localeCompare(b.startDate));
 }
 
