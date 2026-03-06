@@ -124,7 +124,7 @@ function binarySearchReduction(opts: {
   const transfers = getTransfers(transfer);
   const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
 
-  const daysToSave = originalTotal - targetTotal;
+  const daysToSave = targetTotal - originalTotal;
   if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
 
   let lo = Math.max(0, daysToSave - 20);
