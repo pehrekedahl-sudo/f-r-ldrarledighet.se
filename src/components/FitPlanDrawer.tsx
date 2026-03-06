@@ -191,7 +191,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                       className={`text-sm ${!isViable ? "text-muted-foreground cursor-not-allowed" : "font-normal cursor-pointer"}`}
                     >
                       Endast {p.name}
-                      {!isViable && <span className="ml-1 text-xs">(kan inte lösa bristen ensam)</span>}
+                      {!isViable && <span className="ml-1 text-xs">(ej kompatibelt med rekommenderad lösning)</span>}
                     </Label>
                   </div>
                 );
@@ -204,11 +204,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 >
                   50/50 mellan er
                   {!viableModes.has("split") && (
-                    <span className="ml-1 text-xs">
-                      {redundantModes.has("split")
-                        ? "(samma resultat som ett annat val)"
-                        : "(kan inte lösa bristen jämnt)"}
-                    </span>
+                    <span className="ml-1 text-xs">(ej kompatibelt med rekommenderad lösning)</span>
                   )}
                 </Label>
               </div>
@@ -227,11 +223,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                     <span className="text-muted-foreground ml-1">(rekommenderas)</span>
                   )}
                   {!viableModes.has("proportional") && (
-                    <span className="ml-1 text-xs">
-                      {redundantModes.has("proportional")
-                        ? "(samma resultat som ett annat val)"
-                        : "(kan inte lösa bristen proportionerligt)"}
-                    </span>
+                    <span className="ml-1 text-xs">(ej kompatibelt med rekommenderad lösning)</span>
                   )}
                 </Label>
               </div>
