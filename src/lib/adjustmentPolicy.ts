@@ -191,85 +191,89 @@ export function proposeEvenSpreadReduction(opts: {
   const perParentMap = new Map<string, { weeksAffected: number; oldDpw: number; newDpw: number }>();
   let earliestReduction: string | null = null;
   let latestReduction: string | null = null;
-  let pass = 0;
 
-  while (remaining > 0 && pass < 5) {
-    pass++;
-    const candidates = working
-      .filter(b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1)
-      .sort((a, b) => compareDates(b.startDate, a.startDate));
+  // Keep reducing until done or no more capacity
+  let safetyLimit = 20;
+  while (remaining > 0 && safetyLimit-- > 0) {
+    // Find the highest dpw level among eligible blocks
+    const eligible = working.filter(
+      b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1
+    );
+    if (eligible.length === 0) break;
 
-    if (candidates.length === 0) break;
+    const maxDpw = Math.max(...eligible.map(b => b.daysPerWeek));
 
-    for (const target of candidates) {
-      if (remaining <= 0) break;
-      if (target.daysPerWeek < MIN_AUTO_DPW + 1) continue;
+    // Only consider blocks at this highest dpw level
+    const atMaxLevel = eligible
+      .filter(b => b.daysPerWeek === maxDpw)
+      .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest first
 
-      const calDays = calendarDays(target);
-      const blockWeeks = Math.floor(calDays / 7);
+    // Total weeks available at this level
+    const totalWeeksAtLevel = atMaxLevel.reduce(
+      (s, b) => s + Math.floor(calendarDays(b) / 7), 0
+    );
+
+    if (totalWeeksAtLevel === 0) break;
+
+    // How many weeks to take from this level in this pass
+    const weeksToTake = Math.min(remaining, totalWeeksAtLevel);
+
+    // Distribute weeksToTake evenly across blocks at this level (latest first)
+    let stillToTake = weeksToTake;
+    for (const target of atMaxLevel) {
+      if (stillToTake <= 0) break;
+      const blockWeeks = Math.floor(calendarDays(target) / 7);
       if (blockWeeks <= 0) continue;
 
+      const takeFromThis = Math.min(stillToTake, blockWeeks);
       const newDpw = target.daysPerWeek - 1;
 
-      if (blockWeeks <= remaining) {
-        const entry = perParentMap.get(target.parentId);
-        if (!entry) {
-          perParentMap.set(target.parentId, { weeksAffected: blockWeeks, oldDpw: target.daysPerWeek, newDpw });
-        } else {
-          entry.weeksAffected += blockWeeks;
-        }
-        target.daysPerWeek = newDpw;
-        remaining -= blockWeeks;
-
-        if (!earliestReduction || compareDates(target.startDate, earliestReduction) < 0) earliestReduction = target.startDate;
-        if (!latestReduction || compareDates(target.endDate, latestReduction) > 0) latestReduction = target.endDate;
+      // Update perParentMap
+      const entry = perParentMap.get(target.parentId);
+      if (!entry) {
+        perParentMap.set(target.parentId, { weeksAffected: takeFromThis, oldDpw: target.daysPerWeek, newDpw });
       } else {
-        const headDays = calDays - remaining * 7;
-        if (headDays <= 0) {
-          const entry = perParentMap.get(target.parentId);
-          if (!entry) {
-            perParentMap.set(target.parentId, { weeksAffected: blockWeeks, oldDpw: target.daysPerWeek, newDpw });
-          } else {
-            entry.weeksAffected += blockWeeks;
-          }
-          target.daysPerWeek = newDpw;
-          remaining = 0;
-        } else {
-          const splitDate = addDays(target.startDate, headDays);
-          const tailBlock: Block = {
-            id: generateBlockId("policy-red"),
-            parentId: target.parentId,
-            startDate: splitDate,
-            endDate: target.endDate,
-            daysPerWeek: newDpw,
-            lowestDaysPerWeek: target.lowestDaysPerWeek,
-            overlapGroupId: target.overlapGroupId,
-          };
-          const entry = perParentMap.get(target.parentId);
-          if (!entry) {
-            perParentMap.set(target.parentId, { weeksAffected: remaining, oldDpw: target.daysPerWeek, newDpw });
-          } else {
-            entry.weeksAffected += remaining;
-          }
-          target.endDate = addDays(splitDate, -1);
-          working.push(tailBlock);
-
-          if (!earliestReduction || compareDates(splitDate, earliestReduction) < 0) earliestReduction = splitDate;
-          if (!latestReduction || compareDates(tailBlock.endDate, latestReduction) > 0) latestReduction = tailBlock.endDate;
-
-          remaining = 0;
-        }
+        entry.weeksAffected += takeFromThis;
       }
+
+      if (takeFromThis >= blockWeeks) {
+        // Take the whole block
+        target.daysPerWeek = newDpw;
+        if (!earliestReduction || compareDates(target.startDate, earliestReduction) < 0)
+          earliestReduction = target.startDate;
+        if (!latestReduction || compareDates(target.endDate, latestReduction) > 0)
+          latestReduction = target.endDate;
+      } else {
+        // Split: keep a head at original dpw, reduce the tail
+        const headDays = (blockWeeks - takeFromThis) * 7;
+        const splitDate = addDays(target.startDate, headDays);
+        const tailBlock: Block = {
+          id: generateBlockId("policy-red"),
+          parentId: target.parentId,
+          startDate: splitDate,
+          endDate: target.endDate,
+          daysPerWeek: newDpw,
+          lowestDaysPerWeek: target.lowestDaysPerWeek,
+          overlapGroupId: target.overlapGroupId,
+        };
+        target.endDate = addDays(splitDate, -1);
+        working.push(tailBlock);
+        if (!earliestReduction || compareDates(splitDate, earliestReduction) < 0)
+          earliestReduction = splitDate;
+        if (!latestReduction || compareDates(tailBlock.endDate, latestReduction) > 0)
+          latestReduction = tailBlock.endDate;
+      }
+
+      stillToTake -= takeFromThis;
     }
+
+    remaining -= weeksToTake;
   }
 
   const perParent = Array.from(perParentMap.entries()).map(([parentId, v]) => ({
-    parentId,
-    ...v,
+    parentId, ...v,
   }));
-
   const weeksAffectedTotal = perParent.reduce((s, p) => s + p.weeksAffected, 0);
-
   const nextBlocks = normalizeBlocks(working);
 
   return {
