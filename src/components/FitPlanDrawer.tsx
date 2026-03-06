@@ -177,7 +177,14 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </p>
           )}
 
-          {/* B) Distribution selection */}
+          {proposal && proposal.weeksTotal === 0 && proposal.success && (
+            <p className="text-sm text-muted-foreground">
+              Denna justering kräver ingen fördelning – omfördelningen av dagar räcker för att planen ska gå ihop.
+            </p>
+          )}
+
+          {/* B) Distribution selection — only shown when week reductions are needed */}
+          {(!proposal || proposal.weeksTotal > 0) && (
           <div className="space-y-3 border-t border-border pt-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Välj hur justeringen ska fördelas</p>
             <RadioGroup value={mode} onValueChange={(v) => setMode(v as DistributionMode)}>
@@ -229,6 +236,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               </div>
             </RadioGroup>
           </div>
+          )}
 
           {/* C) Detail preview — derived from proposal reductions + transfer */}
           {!computing && proposal && (
