@@ -13,16 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
-import { generateBlockId } from "@/lib/blockIdUtils";
 import {
-  normalizeBlocks,
   applySmartChange,
   proposeEvenSpreadReduction,
   MIN_AUTO_DPW,
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
-import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
 
 type Parent = {
   id: string;
@@ -71,7 +68,7 @@ type Proposal = {
   deltaDays: number;
   deltaMonthly: number;
   newEndDate: string;
-  direction: "save" | "use";
+  direction: "save";
   debugBefore: Block[];
   debugAfter: Block[];
 };
@@ -112,144 +109,116 @@ function getCurrentState(blocks: Block[], parents: Parent[], constants: Constant
   return { ...r, avgMonthly: calcAvgMonthly(result.parentsResult) };
 }
 
-function calendarDaysOf(b: Block): number {
-  return diffDaysInclusive(b.startDate, b.endDate);
+// ── Binary-search helper: find daysToReduce such that simulatePlan gives remaining == target ──
+
+function binarySearchReduction(opts: {
+  originalBlocks: Block[];
+  parents: Parent[];
+  constants: Constants;
+  transfer: Props["transfer"];
+  source: SaveSource;
+  targetTotal: number;
+  originalTotal: number;
+}): { blocks: Block[]; summary: ReductionSummary | null } | null {
+  const { originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
+  const transfers = getTransfers(transfer);
+  const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
+
+  const daysToSave = originalTotal - targetTotal;
+  if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
+
+  let lo = Math.max(0, daysToSave - 20);
+  let hi = daysToSave + 30;
+  let bestBlocks: Block[] = originalBlocks;
+  let bestSummary: ReductionSummary | null = null;
+  let bestDiff = Infinity;
+
+  for (let iter = 0; iter < 20; iter++) {
+    const mid = Math.round((lo + hi) / 2);
+    if (mid <= 0) { lo = 1; continue; }
+
+    let result: { nextBlocks: Block[]; summary: ReductionSummary };
+    if (source === "both" && parents.length >= 2) {
+      const halfA = Math.round(mid / 2);
+      const halfB = mid - halfA;
+      const r1 = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: [parents[0].id], daysToReduce: halfA });
+      const r2 = proposeEvenSpreadReduction({ plan: r1.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfB });
+      const allPerParent = [...r1.summary.perParent, ...r2.summary.perParent];
+      result = {
+        nextBlocks: r2.nextBlocks,
+        summary: {
+          weeksAffectedTotal: allPerParent.reduce((s, p) => s + p.weeksAffected, 0),
+          reductionPerWeek: 1,
+          startDateOfReduction: [r1.summary.startDateOfReduction, r2.summary.startDateOfReduction].filter(Boolean).sort()[0] ?? null,
+          endDateOfReduction: [r1.summary.endDateOfReduction, r2.summary.endDateOfReduction].filter(Boolean).sort().reverse()[0] ?? null,
+          perParent: allPerParent,
+        }
+      };
+    } else {
+      result = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: allowedParentIds, daysToReduce: mid });
+    }
+
+    const simResult = simulatePlan({ parents, blocks: result.nextBlocks, transfers, constants });
+    const remaining = calcRemaining(simResult.parentsResult).currentTotal;
+    const diff = remaining - targetTotal;
+
+    if (Math.abs(diff) < Math.abs(bestDiff)) {
+      bestDiff = diff;
+      bestBlocks = result.nextBlocks;
+      bestSummary = result.summary;
+    }
+    if (diff === 0) break;
+    if (diff > 0) hi = mid - 1;
+    else lo = mid + 1;
+  }
+
+  return { blocks: bestBlocks, summary: bestSummary };
 }
 
-// ── computeProposal: stateless, always derives from scratch ──
-
 function computeProposal(
-  blocks: Block[],
   parents: Parent[],
   constants: Constants,
   transfer: Props["transfer"],
   targetTotal: number,
-  current: CurrentState,
-  source: SaveSource,
   originalBlocks: Block[],
+  originalTotal: number,
+  source: SaveSource,
 ): Proposal | null {
-  if (blocks.length === 0) return null;
+  if (originalBlocks.length === 0) return null;
   const transfers = getTransfers(transfer);
 
-  // Detect the original baseline dpw per block (the dpw the block "wants" to be at)
-  // We derive this from the block's own dpw as the ceiling — we never go above it
-  // and we never go below MIN_AUTO_DPW.
-  // Strategy: binary-search the number of weeks to reduce/increase to hit targetTotal.
-  // We always start fresh from the current blocks (not previous proposals).
+  if (targetTotal > originalTotal) return null;
+  if (targetTotal === originalTotal) return null;
 
-  const allowedParentIds: string[] =
-    source === "both" ? parents.map(p => p.id) : [source as string];
+  const searched = binarySearchReduction({
+    originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
+  });
+  if (!searched) return null;
 
-  // Try reducing (saving more days) or increasing (using more days) from current blocks
-  const delta = targetTotal - current.currentTotal;
-  if (delta === 0) return null;
+  const resultBlocks = searched.blocks;
+  const summary = searched.summary;
 
-  const direction: "save" | "use" = delta > 0 ? "save" : "use";
-  const absDelta = Math.abs(delta);
-  const debugBefore = blocks.map(b => ({ ...b }));
-
-  let resultBlocks: Block[];
-  let summary: ReductionSummary | null = null;
-
-  if (direction === "save") {
-    // Use proposeEvenSpreadReduction (already stateless — takes current blocks as input)
-    if (source === "both" && parents.length >= 2) {
-      const halfA = Math.round(absDelta / 2);
-      const halfB = absDelta - halfA;
-      const r1 = proposeEvenSpreadReduction({ plan: blocks, parentScope: [parents[0].id], daysToReduce: halfA });
-      const r2 = proposeEvenSpreadReduction({ plan: r1.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfB });
-      resultBlocks = r2.nextBlocks;
-      const allPerParent = [...r1.summary.perParent, ...r2.summary.perParent];
-      summary = {
-        weeksAffectedTotal: allPerParent.reduce((s, p) => s + p.weeksAffected, 0),
-        reductionPerWeek: 1,
-        startDateOfReduction: [r1.summary.startDateOfReduction, r2.summary.startDateOfReduction].filter(Boolean).sort()[0] ?? null,
-        endDateOfReduction: [r1.summary.endDateOfReduction, r2.summary.endDateOfReduction].filter(Boolean).sort().reverse()[0] ?? null,
-        perParent: allPerParent,
-      };
-    } else {
-      const r = proposeEvenSpreadReduction({ plan: blocks, parentScope: allowedParentIds, daysToReduce: absDelta });
-      resultBlocks = r.nextBlocks;
-      summary = r.summary;
-    }
-  } else {
-    // USE direction: raise dpw back toward baseline
-    // Was: derived from current blocks' max — breaks after repeated saves
-    // Now: derived from original blocks — always stable
-    const baselineDpw = new Map<string, number>();
-    for (const p of parents) {
-      const orig = originalBlocks.filter(b => b.parentId === p.id);
-      baselineDpw.set(p.id, orig.length > 0 ? Math.max(...orig.map(b => b.daysPerWeek)) : 7);
-    }
-
-    const working = blocks.map(b => ({ ...b }));
-    let stillNeeded = absDelta;
-    let safetyLimit = 20;
-
-    while (stillNeeded > 0 && safetyLimit-- > 0) {
-      // Find blocks below their baseline among allowed parents
-      const candidates = working
-        .filter(b => {
-          const baseline = baselineDpw.get(b.parentId) ?? 6;
-          return allowedParentIds.includes(b.parentId) && b.daysPerWeek < baseline;
-        })
-        .sort((a, b) => a.startDate.localeCompare(b.startDate)); // earliest first
-
-      if (candidates.length === 0) break;
-
-      // Find the lowest dpw among candidates (raise the lowest first for smoothest result)
-      const minDpw = Math.min(...candidates.map(b => b.daysPerWeek));
-      const atMinLevel = candidates.filter(b => b.daysPerWeek === minDpw);
-
-      for (const target of atMinLevel) {
-        if (stillNeeded <= 0) break;
-        const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
-        if (blockWeeks <= 0) continue;
-        const newDpw = target.daysPerWeek + 1;
-        const weeksToRaise = Math.min(stillNeeded, blockWeeks);
-
-        if (weeksToRaise >= blockWeeks) {
-          target.daysPerWeek = newDpw;
-        } else {
-          // Split: raise the tail
-          const headDays = (blockWeeks - weeksToRaise) * 7;
-          const splitDate = addDays(target.startDate, headDays);
-          working.push({
-            id: generateBlockId("adj-use"),
-            parentId: target.parentId,
-            startDate: splitDate,
-            endDate: target.endDate,
-            daysPerWeek: newDpw,
-            lowestDaysPerWeek: target.lowestDaysPerWeek,
-            overlapGroupId: target.overlapGroupId,
-          });
-          target.endDate = addDays(splitDate, -1);
-        }
-        stillNeeded -= weeksToRaise;
-      }
-    }
-    resultBlocks = normalizeBlocks(working);
-  }
-
-  if (!resultBlocks || resultBlocks.length === 0) return null;
-  const sorted = resultBlocks.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const newResult = simulatePlan({ parents, blocks: sorted, transfers, constants });
+  const newResult = simulatePlan({ parents, blocks: resultBlocks, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
-  const latestEnd = sorted.reduce((max, b) => b.endDate > max ? b.endDate : max, sorted[0].endDate);
+  const origResult = simulatePlan({ parents, blocks: originalBlocks, transfers, constants });
+  const origAvg = calcAvgMonthly(origResult.parentsResult);
+  const latestEnd = resultBlocks.length > 0
+    ? resultBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, resultBlocks[0].endDate)
+    : "";
 
   return {
-    newBlocks: sorted,
+    newBlocks: resultBlocks,
     summary,
     newSickness: newR.remainingSickness,
     newLowest: newR.remainingLowest,
     newTotal: newR.currentTotal,
-    deltaDays: newR.currentTotal - current.currentTotal,
-    deltaMonthly: Math.round(newAvg - current.avgMonthly),
+    deltaDays: newR.currentTotal - originalTotal,
+    deltaMonthly: Math.round(newAvg - origAvg),
     newEndDate: latestEnd,
-    direction,
-    debugBefore,
-    debugAfter: sorted,
+    direction: "save",
+    debugBefore: originalBlocks,
+    debugAfter: resultBlocks,
   };
 }
 
@@ -258,8 +227,12 @@ function computeProposal(
 const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
   const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
+  const originalState = useMemo(
+    () => getCurrentState(originalBlocks, parents, constants, transfer),
+    [originalBlocks, parents, constants, transfer]
+  );
 
-  const [targetDays, setTargetDays] = useState(current.currentTotal);
+  const [targetDays, setTargetDays] = useState(originalState.currentTotal);
   const [rawInput, setRawInput] = useState<string>("");
   const [clampHint, setClampHint] = useState<string | null>(null);
   const [source, setSource] = useState<SaveSource>("both");
@@ -269,17 +242,17 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   useEffect(() => {
     if (open) {
-      setTargetDays(current.currentTotal);
-      setRawInput(String(current.currentTotal));
+      setTargetDays(originalState.currentTotal);
+      setRawInput(String(originalState.currentTotal));
       setClampHint(null);
       setSource("both");
       setProposal(null);
       setComputing(false);
     }
-  }, [open, current.currentTotal]);
+  }, [open, originalState.currentTotal]);
 
   const applyValue = (raw: number) => {
-    if (isNaN(raw)) raw = current.currentTotal;
+    if (isNaN(raw)) raw = originalState.currentTotal;
     if (raw > maxRemaining) {
       setClampHint(`Max är ${maxRemaining}.`);
       setTargetDays(maxRemaining);
@@ -298,18 +271,23 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const computeDebounced = useCallback((target: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (target === current.currentTotal) {
+    if (target === originalState.currentTotal) {
       setProposal(null);
       setComputing(false);
       return;
     }
     setComputing(true);
     debounceRef.current = setTimeout(() => {
-      const result = computeProposal(blocks, parents, constants, transfer, target, current, src, originalBlocks);
+      const result = computeProposal(
+        parents, constants, transfer,
+        target,
+        originalBlocks, originalState.currentTotal,
+        src
+      );
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [blocks, parents, constants, transfer, current, originalBlocks]);
+  }, [parents, constants, transfer, originalBlocks, originalState.currentTotal]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);
@@ -417,10 +395,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
           ) : proposal ? (
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
-                <p className="text-sm font-medium">
-                  {proposal.direction === "save"
-                    ? "För att spara fler dagar föreslår vi:"
-                    : "För att ta ut fler dagar tidigare föreslår vi:"}
+              <p className="text-sm font-medium">
+                  För att spara fler dagar föreslår vi:
                 </p>
                 {proposal.summary && proposal.summary.weeksAffectedTotal > 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -494,13 +470,13 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 </div>
               </details>
             </div>
-          ) : targetDays === current.currentTotal ? (
+          ) : targetDays === originalState.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">
               Flytta reglaget för att justera antal sparade dagar.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              Kan inte nå målet med nuvarande plan. Prova ett annat värde.
+              Kan inte spara fler dagar – planen är redan på grundnivån.
             </p>
           )}
         </div>
