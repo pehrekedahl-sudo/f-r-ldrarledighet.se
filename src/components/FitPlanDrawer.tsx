@@ -46,6 +46,9 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [viableModes, setViableModes] = useState<Set<string>>(
+    new Set(["proportional", "split", ...parents.map(p => p.id)])
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +66,21 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
   useEffect(() => {
     if (open) setMode("proportional");
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setViableModes(new Set(["proportional", "split", ...parents.map(p => p.id)]));
+    const timer = setTimeout(() => {
+      const viable = new Set<string>();
+      const modesToTest: string[] = ["proportional", "split", ...parents.map(p => p.id)];
+      for (const m of modesToTest) {
+        const probe = computeRescueProposal(blocks, parents, constants, transfer, m as DistributionMode);
+        if (probe && probe.success) viable.add(m);
+      }
+      setViableModes(viable);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [open, blocks, parents, constants, transfer]);
 
   const handleApply = () => {
     if (!proposal || !proposal.success) return;
@@ -87,13 +105,19 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rekommenderad lösning</p>
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {proposal?.meta?.transferDays > 0 && proposal.weeksTotal > 0
-                    ? "Planen kräver omfördelning av dagar mellan er och justering av uttagstakt för att gå ihop."
-                    : proposal?.meta?.transferDays > 0
-                    ? "Planen kräver omfördelning av dagar mellan er för att gå ihop."
-                    : proposal.weeksTotal > 0
-                    ? "Planen kräver att ni minskar uttagstakten i delar av ledigheten för att gå ihop."
-                    : "Planen behöver justeras."}
+                  {proposal.meta.transferDays > 0 && proposal.weeksTotal > 0 ? (
+                    <>Planen kräver omfördelning av dagar och att{" "}
+                    <span className="font-semibold text-foreground">
+                      {parents.find(p => p.id === proposal.proposedTransfer?.toParentId)?.name}
+                    </span>{" "}
+                    minskar uttagstakten för att gå ihop.</>
+                  ) : proposal.meta.transferDays > 0 ? (
+                    "Planen kräver omfördelning av dagar mellan er för att gå ihop."
+                  ) : proposal.weeksTotal > 0 ? (
+                    "Planen kräver att uttagstakten minskas för att gå ihop."
+                  ) : (
+                    "Planen behöver justeras."
+                  )}
                 </p>
                 <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
                   {proposal.actionsText.map((t, i) => <li key={i}>{t}</li>)}
@@ -111,15 +135,30 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
           <div className="space-y-3 border-t border-border pt-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Välj hur justeringen ska fördelas</p>
             <RadioGroup value={mode} onValueChange={(v) => setMode(v as DistributionMode)}>
-              {parents.map(p => (
-                <div key={p.id} className="flex items-center gap-2">
-                  <RadioGroupItem value={p.id} id={`rescue-${p.id}`} />
-                  <Label htmlFor={`rescue-${p.id}`} className="text-sm font-normal cursor-pointer">Endast {p.name}</Label>
-                </div>
-              ))}
+              {parents.map(p => {
+                const isViable = viableModes.has(p.id);
+                return (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <RadioGroupItem value={p.id} id={`rescue-${p.id}`} disabled={!isViable} />
+                    <Label
+                      htmlFor={`rescue-${p.id}`}
+                      className={`text-sm ${!isViable ? "text-muted-foreground cursor-not-allowed" : "font-normal cursor-pointer"}`}
+                    >
+                      Endast {p.name}
+                      {!isViable && <span className="ml-1 text-xs">(kan inte lösa bristen ensam)</span>}
+                    </Label>
+                  </div>
+                );
+              })}
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="split" id="rescue-split" />
-                <Label htmlFor="rescue-split" className="text-sm font-normal cursor-pointer">50/50 mellan er</Label>
+                <RadioGroupItem value="split" id="rescue-split" disabled={!viableModes.has("split")} />
+                <Label
+                  htmlFor="rescue-split"
+                  className={`text-sm ${!viableModes.has("split") ? "text-muted-foreground cursor-not-allowed" : "font-normal cursor-pointer"}`}
+                >
+                  50/50 mellan er
+                  {!viableModes.has("split") && <span className="ml-1 text-xs">(kan inte lösa bristen jämnt)</span>}
+                </Label>
               </div>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="proportional" id="rescue-proportional" />
