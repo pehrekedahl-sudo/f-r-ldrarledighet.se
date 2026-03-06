@@ -787,17 +787,17 @@ const PlanBuilder = () => {
       <FitPlanDrawer
         open={fitPlanOpen}
         onOpenChange={setFitPlanOpen}
-        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        blocks={blocks.sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
-          // Rescue returns pre-merged blocks — no policy normalization
-          assertUniqueBlockIds(newBlocks, "FitPlanDrawer-apply");
-          setBlocks(newBlocks);
+          const normalized = normalizeBlocks(newBlocks);
+          assertUniqueBlockIds(normalized, "FitPlanDrawer-apply");
+          setBlocks(normalized);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
-          savePlanInput({ parents, blocks: newBlocks, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS });
         }}
       />
       <HandoverDrawer
