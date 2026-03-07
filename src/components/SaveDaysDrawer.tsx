@@ -378,7 +378,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const computeDebounced = useCallback((target: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (target === originalState.currentTotal) {
+    if (target === current.currentTotal) {
       setProposal(null);
       setComputing(false);
       return;
@@ -394,7 +394,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [parents, constants, transfer, originalBlocks, originalState.currentTotal]);
+  }, [parents, constants, transfer, originalBlocks, originalState.currentTotal, current.currentTotal]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);
@@ -577,7 +577,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 </div>
               </details>
             </div>
-          ) : targetDays === originalState.currentTotal ? (
+          ) : targetDays === current.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">
               Flytta reglaget för att justera antal sparade dagar.
             </p>
