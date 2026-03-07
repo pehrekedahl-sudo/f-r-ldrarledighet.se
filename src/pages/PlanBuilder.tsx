@@ -784,6 +784,7 @@ const PlanBuilder = () => {
           const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           setBlocks(merged);
+          setOriginalBlocks(merged);
           setHasManualEdits(false);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
