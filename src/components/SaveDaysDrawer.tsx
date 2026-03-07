@@ -356,7 +356,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       setProposal(null);
       setComputing(false);
     }
-  }, [open, originalState.currentTotal]);
+  }, [open, current.currentTotal]);
 
   const applyValue = (raw: number) => {
     if (isNaN(raw)) raw = originalState.currentTotal;
