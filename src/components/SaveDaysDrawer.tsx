@@ -349,8 +349,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   useEffect(() => {
     if (open) {
-      setTargetDays(originalState.currentTotal);
-      setRawInput(String(originalState.currentTotal));
+      setTargetDays(current.currentTotal);
+      setRawInput(String(current.currentTotal));
       setClampHint(null);
       setSource("both");
       setProposal(null);
