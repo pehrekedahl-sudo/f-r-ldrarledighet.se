@@ -130,8 +130,8 @@ function binarySearchReduction(opts: {
   const daysToSave = targetTotal - originalTotal;
   if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
 
-  let lo = Math.max(0, daysToSave - 20);
-  let hi = daysToSave + 30;
+  let lo = Math.max(0, daysToSave - 10);
+  let hi = daysToSave * 3 + 50;
   let bestBlocks: Block[] = originalBlocks;
   let bestSummary: ReductionSummary | null = null;
   let bestDiff = Infinity;
@@ -142,21 +142,7 @@ function binarySearchReduction(opts: {
 
     let result: { nextBlocks: Block[]; summary: ReductionSummary };
     if (source === "both" && parents.length >= 2) {
-      const halfA = Math.round(mid / 2);
-      const halfB = mid - halfA;
-      const r1 = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: [parents[0].id], daysToReduce: halfA });
-      const r2 = proposeEvenSpreadReduction({ plan: r1.nextBlocks, parentScope: [parents[1].id], daysToReduce: halfB });
-      const allPerParent = [...r1.summary.perParent, ...r2.summary.perParent];
-      result = {
-        nextBlocks: r2.nextBlocks,
-        summary: {
-          weeksAffectedTotal: allPerParent.reduce((s, p) => s + p.weeksAffected, 0),
-          reductionPerWeek: 1,
-          startDateOfReduction: [r1.summary.startDateOfReduction, r2.summary.startDateOfReduction].filter(Boolean).sort()[0] ?? null,
-          endDateOfReduction: [r1.summary.endDateOfReduction, r2.summary.endDateOfReduction].filter(Boolean).sort().reverse()[0] ?? null,
-          perParent: allPerParent,
-        }
-      };
+      result = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: "all", daysToReduce: mid });
     } else {
       result = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: allowedParentIds, daysToReduce: mid });
     }
