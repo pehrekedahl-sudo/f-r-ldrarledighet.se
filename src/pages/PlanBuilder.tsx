@@ -583,26 +583,116 @@ const PlanBuilder = () => {
               />
             </section>
 
-            {/* ── SMART ADJUSTMENTS ── */}
-            <div className="flex gap-3 flex-wrap">
-              <Button variant="outline" size="sm" onClick={() => setSaveDaysOpen(true)}>
-                Sparade dagar
-              </Button>
-              {parents.length >= 2 && (
-                <Button variant="outline" size="sm" onClick={() => setHandoverOpen(true)}>
-                  Justera växlingsdatum
-                </Button>
-              )}
-              {parents.length >= 2 && (
-                <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>
-                  Dubbeldagar
-                </Button>
-              )}
-              {parents.length >= 2 && (
-                <Button variant="outline" size="sm" onClick={() => setTransferDaysOpen(true)}>
-                  Överför dagar
-                </Button>
-              )}
+            {/* ── JUSTERA PLANEN ── */}
+            <div className="rounded-lg border border-border bg-muted/30">
+              <div className="px-5 pt-4 pb-2">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Justera planen</p>
+              </div>
+              <div className="divide-y divide-border">
+                {/* Växlingsdatum */}
+                {parents.length >= 2 && (
+                  <div
+                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => setHandoverOpen(true)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground">Växlingsdatum</p>
+                      <p className="text-sm text-muted-foreground">Styr när föräldrarnas ledigheter avlöser varandra</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right ml-4">
+                      <p className="text-sm text-foreground font-medium">
+                        {(() => {
+                          const p1Blocks = validBlocks.filter(b => b.parentId === parents[0].id && !b.isOverlap);
+                          if (p1Blocks.length === 0) return "Inte inställt";
+                          const p1End = p1Blocks.reduce((max, b) => b.endDate > max ? b.endDate : max, p1Blocks[0].endDate);
+                          try {
+                            const d = new Date(p1End + "T12:00:00");
+                            return `${parents[0].name} lämnar ${d.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" })}`;
+                          } catch {
+                            return "Inte inställt";
+                          }
+                        })()}
+                      </p>
+                      <p className="text-sm text-primary hover:underline">Justera →</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sparade dagar */}
+                <div
+                  className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => setSaveDaysOpen(true)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">Sparade dagar</p>
+                    <p className="text-sm text-muted-foreground">Håll dagar i reserv för VAB eller oplanerad ledighet</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right ml-4">
+                    <p className="text-sm text-foreground font-medium">
+                      {(() => {
+                        const saved = validBlocks.filter(b => (b as any).savedDays > 0);
+                        if (saved.length === 0) return "Inga sparade dagar";
+                        const total = saved.reduce((s, b) => s + ((b as any).savedDays ?? 0), 0);
+                        return `${total} dagar sparade`;
+                      })()}
+                    </p>
+                    <p className="text-sm text-primary hover:underline">Justera →</p>
+                  </div>
+                </div>
+
+                {/* Dagöverföring */}
+                {parents.length >= 2 && (
+                  <div
+                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => setTransferDaysOpen(true)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground">Dagöverföring</p>
+                      <p className="text-sm text-muted-foreground">Flytta dagar permanent från en förälders kvot till den andres</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right ml-4">
+                      <p className="text-sm text-foreground font-medium">
+                        {transfer && transfer.sicknessDays > 0
+                          ? `${transfer.sicknessDays} dagar ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
+                          : "Ingen överföring"}
+                      </p>
+                      <p className="text-sm text-primary hover:underline">Justera →</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dubbeldagar */}
+                {parents.length >= 2 && (
+                  <div
+                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => setDoubleDaysOpen(true)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground">Dubbeldagar</p>
+                      <p className="text-sm text-muted-foreground">Båda tar ut ersättning samtidigt — max 30 dagar under barnets första år</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right ml-4">
+                      <p className="text-sm text-foreground font-medium">
+                        {(() => {
+                          const overlaps = validBlocks.filter(b => b.isOverlap);
+                          if (overlaps.length === 0) return "Inga dubbeldagar";
+                          // Count weekdays in overlap period (use first overlap block's range)
+                          const first = overlaps[0];
+                          let count = 0;
+                          const start = new Date(first.startDate + "T12:00:00");
+                          const end = new Date(first.endDate + "T12:00:00");
+                          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                            const dow = d.getDay();
+                            if (dow !== 0 && dow !== 6) count++;
+                          }
+                          return `${count} dagar inlagda`;
+                        })()}
+                      </p>
+                      <p className="text-sm text-primary hover:underline">Justera →</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
