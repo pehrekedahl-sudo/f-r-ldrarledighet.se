@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { addMonths } from "@/utils/dateOnly";
+import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
@@ -707,8 +707,10 @@ const PlanBuilder = () => {
                             const key = `${ob.startDate}_${ob.endDate}`;
                             if (seen.has(key)) continue;
                             seen.add(key);
-                            const ms = new Date(ob.endDate).getTime() - new Date(ob.startDate).getTime();
-                            count += Math.round(ms / 86400000) + 1;
+                            for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDaysUtil(d, 1)) {
+                              const wd = isoWeekdayIndex(d); // 0=Mon..6=Sun
+                              if (wd < 5) count++; // Mon-Fri
+                            }
                           }
                           return `${count} dagar inlagda`;
                         })()}
