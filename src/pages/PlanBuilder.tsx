@@ -687,38 +687,57 @@ const PlanBuilder = () => {
                 )}
 
                 {/* Dubbeldagar */}
-                {parents.length >= 2 && (
-                  <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setDoubleDaysOpen(true)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">Dubbeldagar</p>
-                      <p className="text-sm text-muted-foreground">Båda tar ut ersättning samtidigt — max 30 dagar under barnets första år</p>
+                {parents.length >= 2 && (() => {
+                  const overlaps = blocks.filter(b => b.isOverlap === true);
+                  const hasOverlap = overlaps.length > 0;
+                  let overlapDayCount = 0;
+                  if (hasOverlap) {
+                    const seen = new Set<string>();
+                    for (const ob of overlaps) {
+                      const key = `${ob.startDate}_${ob.endDate}`;
+                      if (seen.has(key)) continue;
+                      seen.add(key);
+                      for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDaysUtil(d, 1)) {
+                        const wd = isoWeekdayIndex(d);
+                        if (wd < 5) overlapDayCount++;
+                      }
+                    }
+                  }
+
+                  const handleClick = () => {
+                    if (hasOverlap) {
+                      // Scroll to the overlap block in the timeline
+                      const overlapEl = document.querySelector('[data-overlap="true"]');
+                      if (overlapEl) {
+                        overlapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        overlapEl.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                        setTimeout(() => overlapEl.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2000);
+                      }
+                    } else {
+                      setDoubleDaysOpen(true);
+                    }
+                  };
+
+                  return (
+                    <div
+                      className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={handleClick}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">Dubbeldagar</p>
+                        <p className="text-sm text-muted-foreground">Båda tar ut ersättning samtidigt — max 30 dagar under barnets första år</p>
+                      </div>
+                      <div className="flex-shrink-0 text-right ml-4">
+                        <p className="text-sm text-foreground font-medium">
+                          {hasOverlap ? `${overlapDayCount} dagar inlagda` : "Inga dubbeldagar"}
+                        </p>
+                        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">
+                          {hasOverlap ? "Se i tidslinje" : "Lägg till"} <span>→</span>
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-shrink-0 text-right ml-4">
-                      <p className="text-sm text-foreground font-medium">
-                        {(() => {
-                          const overlaps = blocks.filter(b => b.isOverlap === true);
-                          if (overlaps.length === 0) return "Inga dubbeldagar";
-                          const seen = new Set<string>();
-                          let count = 0;
-                          for (const ob of overlaps) {
-                            const key = `${ob.startDate}_${ob.endDate}`;
-                            if (seen.has(key)) continue;
-                            seen.add(key);
-                            for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDaysUtil(d, 1)) {
-                              const wd = isoWeekdayIndex(d); // 0=Mon..6=Sun
-                              if (wd < 5) count++; // Mon-Fri
-                            }
-                          }
-                          return `${count} dagar inlagda`;
-                        })()}
-                      </p>
-                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
 
