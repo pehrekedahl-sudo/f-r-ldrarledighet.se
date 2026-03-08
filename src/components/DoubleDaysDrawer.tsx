@@ -25,9 +25,8 @@ type Parent = {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  blocks: Block[];
   parents: Parent[];
-  onApply: (newBlocks: Block[]) => void;
+  onApply: (newBlock: Block) => void;
 };
 
 function weekdaysToCalendarDays(weekdays: number): number {
@@ -36,7 +35,7 @@ function weekdaysToCalendarDays(weekdays: number): number {
   return fullWeeks * 7 + remainder;
 }
 
-const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, onApply }: Props) => {
+const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
   const [numDays, setNumDays] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
@@ -67,7 +66,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, onApply }: Prop
       isOverlap: true,
     };
 
-    onApply([...blocks, newBlock]);
+    onApply(newBlock);
     onOpenChange(false);
   };
 
