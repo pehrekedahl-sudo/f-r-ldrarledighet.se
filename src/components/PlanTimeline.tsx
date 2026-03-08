@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { addDays, compareDates, toEpochMs, getYear, getMonthIndex, startOfNextMonth } from "@/utils/dateOnly";
+import { useMemo, useState } from "react";
+import { addDays, compareDates, toEpochMs, getYear, getMonthIndex, startOfNextMonth, isoWeekdayIndex } from "@/utils/dateOnly";
 
 type Block = {
   id: string;
@@ -8,6 +8,7 @@ type Block = {
   endDate: string;
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
+  isOverlap?: boolean;
 };
 
 type Parent = {
@@ -20,6 +21,7 @@ type Props = {
   parents: Parent[];
   unfulfilledDaysTotal: number;
   onBlockClick?: (blockId: string) => void;
+  onDeleteOverlap?: (blockId: string) => void;
 };
 
 type MonthBoundary = {
@@ -36,7 +38,6 @@ const SHORT_MONTH_NAMES = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug
 function getMonthBoundaries(startDate: string, endDate: string, startMs: number, totalMs: number): MonthBoundary[] {
   const boundaries: MonthBoundary[] = [];
 
-  // Add start month as first boundary at 0%
   let prevYear = getYear(startDate);
   boundaries.push({
     pct: 0,
@@ -47,7 +48,6 @@ function getMonthBoundaries(startDate: string, endDate: string, startMs: number,
     total: 0,
   });
 
-  // Iterate through month boundaries
   let cur = startOfNextMonth(startDate);
   let idx = 1;
 
@@ -90,6 +90,14 @@ function getIntensityClass(parentId: string, daysPerWeek: number): string {
   return "bg-emerald-600 border-emerald-700 text-white";
 }
 
+function countWorkingDays(startDate: string, endDate: string): number {
+  let count = 0;
+  for (let d = startDate; compareDates(d, endDate) <= 0; d = addDays(d, 1)) {
+    if (isoWeekdayIndex(d) < 5) count++;
+  }
+  return count;
+}
+
 function findUnfulfilledDate(blocks: Block[]): string | null {
   const sorted = [...blocks].sort((a, b) => compareDates(a.startDate, b.startDate));
   const budgetPerParent = new Map<string, number>();
@@ -107,7 +115,6 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
     if (totalDays > remaining && remaining >= 0) {
       const daysPerDay = b.daysPerWeek / 7;
       const daysUntilEmpty = daysPerDay > 0 ? remaining / daysPerDay : 0;
-      // Use addDays to compute cutoff from startDate
       const cutoffDays = Math.floor(daysUntilEmpty);
       return addDays(b.startDate, cutoffDays);
     }
@@ -118,24 +125,31 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
 
 const LABEL_WIDTH = 140;
 
-const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: Props) => {
-  const validBlocks = blocks.filter((b) => b.startDate && b.endDate && compareDates(b.endDate, b.startDate) >= 0);
+const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onDeleteOverlap }: Props) => {
+  const [hoveredOverlap, setHoveredOverlap] = useState<string | null>(null);
+
+  const regularBlocks = blocks.filter((b) => !b.isOverlap);
+  const overlapBlocks = blocks.filter((b) => b.isOverlap);
+
+  const validBlocks = regularBlocks.filter((b) => b.startDate && b.endDate && compareDates(b.endDate, b.startDate) >= 0);
+  const validOverlaps = overlapBlocks.filter((b) => b.startDate && b.endDate && compareDates(b.endDate, b.startDate) >= 0);
+
+  const allValidBlocks = [...validBlocks, ...validOverlaps];
 
   const { timelineStartMs, totalMs, monthBoundaries } = useMemo(() => {
-    if (validBlocks.length === 0) return { timelineStartMs: 0, totalMs: 1, monthBoundaries: [] as MonthBoundary[] };
-    const starts = validBlocks.map((b) => toEpochMs(b.startDate));
-    const ends = validBlocks.map((b) => toEpochMs(b.endDate));
+    if (allValidBlocks.length === 0) return { timelineStartMs: 0, totalMs: 1, monthBoundaries: [] as MonthBoundary[] };
+    const starts = allValidBlocks.map((b) => toEpochMs(b.startDate));
+    const ends = allValidBlocks.map((b) => toEpochMs(b.endDate));
     const minStart = Math.min(...starts);
     const maxEnd = Math.max(...ends);
-    // Find the actual date strings for boundaries
-    const minStartDate = validBlocks.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, validBlocks[0].startDate);
-    const maxEndDate = validBlocks.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, validBlocks[0].endDate);
+    const minStartDate = allValidBlocks.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, allValidBlocks[0].startDate);
+    const maxEndDate = allValidBlocks.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, allValidBlocks[0].endDate);
     return {
       timelineStartMs: minStart,
       totalMs: maxEnd - minStart || 1,
       monthBoundaries: getMonthBoundaries(minStartDate, maxEndDate, minStart, maxEnd - minStart || 1),
     };
-  }, [validBlocks]);
+  }, [allValidBlocks]);
 
   const unfulfilledDate = useMemo(() => {
     if (unfulfilledDaysTotal <= 0) return null;
@@ -148,7 +162,6 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
     return ((d - timelineStartMs) / totalMs) * 100;
   }, [unfulfilledDate, timelineStartMs, totalMs]);
 
-  // Compute transition lines: where one parent's block ends ±1 day of another's start
   const transitionPcts = useMemo(() => {
     if (validBlocks.length < 2) return [];
     const edges: { parentId: string; date: string; type: "start" | "end" }[] = [];
@@ -179,7 +192,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
     return pcts;
   }, [validBlocks, timelineStartMs, totalMs]);
 
-  if (validBlocks.length === 0) return null;
+  if (allValidBlocks.length === 0) return null;
 
   const parentRows = parents.map((p) => ({
     ...p,
@@ -187,7 +200,9 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
   }));
 
   const rowHeight = 48;
-  const totalRowHeight = parentRows.length * rowHeight;
+  const overlapRowHeight = 36;
+  const hasOverlapRow = validOverlaps.length > 0;
+  const totalRowHeight = parentRows.length * rowHeight + (hasOverlapRow ? overlapRowHeight : 0);
 
   return (
     <div className="border border-border rounded-lg bg-card w-full">
@@ -200,6 +215,11 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
               <span className="text-xs font-medium text-muted-foreground truncate">{row.name}</span>
             </div>
           ))}
+          {hasOverlapRow && (
+            <div className="flex items-center px-3" style={{ height: overlapRowHeight }}>
+              <span className="text-xs font-medium text-purple-600 truncate">Dubbeldagar</span>
+            </div>
+          )}
           {unfulfilledPct !== null && <div className="h-6" />}
         </div>
 
@@ -253,19 +273,55 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick }: P
                       className={`absolute top-1.5 bottom-1.5 rounded-[10px] border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-sm ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
-                        console.log("CLICK block", { id: b.id, parentId: b.parentId, startDate: b.startDate, endDate: b.endDate, daysPerWeek: b.daysPerWeek });
                         onBlockClick?.(b.id);
                       }}
                     >
                       <span className="truncate px-1">{b.daysPerWeek}d/v</span>
-                      <span className="absolute -bottom-3 left-0 text-[7px] font-mono text-muted-foreground/60 whitespace-nowrap pointer-events-none">
-                        {b.id.slice(0, 8)}|{b.parentId}
-                      </span>
                     </div>
                   );
                 })}
               </div>
             ))}
+
+            {/* Overlap row */}
+            {hasOverlapRow && (
+              <div className="relative border-t border-border/50 bg-purple-50/30" style={{ height: overlapRowHeight }}>
+                {validOverlaps.map((b) => {
+                  const bStartMs = toEpochMs(b.startDate);
+                  const bEndMs = toEpochMs(b.endDate);
+                  const left = ((bStartMs - timelineStartMs) / totalMs) * 100;
+                  const width = Math.max(((bEndMs - bStartMs) / totalMs) * 100, 1.5);
+                  const days = countWorkingDays(b.startDate, b.endDate);
+                  const isHovered = hoveredOverlap === b.id;
+
+                  return (
+                    <div
+                      key={b.id}
+                      data-block-id={b.id}
+                      data-overlap="true"
+                      className="absolute top-1 bottom-1 rounded-md border border-purple-300 bg-purple-100 text-purple-700 text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all"
+                      style={{ left: `${left}%`, width: `${width}%`, minWidth: 40 }}
+                      onMouseEnter={() => setHoveredOverlap(b.id)}
+                      onMouseLeave={() => setHoveredOverlap(null)}
+                    >
+                      <span className="truncate px-1">DD {days}d</span>
+                      {onDeleteOverlap && (
+                        <button
+                          className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-purple-200 hover:bg-destructive hover:text-destructive-foreground text-purple-600 flex items-center justify-center text-[9px] transition-opacity ${isHovered ? "opacity-100" : "opacity-0"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteOverlap(b.id);
+                          }}
+                          title="Ta bort dubbeldagar"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {unfulfilledPct !== null && (
               <div className="absolute z-20" style={{ left: `${Math.min(unfulfilledPct, 100)}%`, top: -6, height: totalRowHeight + 6 }}>
