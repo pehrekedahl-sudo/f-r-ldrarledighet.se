@@ -1029,8 +1029,6 @@ const PlanBuilder = () => {
         onOpenChange={setDoubleDaysOpen}
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
-        constants={CONSTANTS}
-        transfer={transfer}
         onApply={(newBlocks) => {
           const merged = normalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "DoubleDaysDrawer-apply");
