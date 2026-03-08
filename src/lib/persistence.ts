@@ -15,8 +15,10 @@ export type WizardDraft = {
   has240Days1: boolean;
   has240Days2: boolean;
   dueDate: string;
-  preBirthChoice: "no" | "p1" | "p2" | null;
+  preBirthChoice: "none" | "1week" | "custom" | null;
   preBirthDate: string | null; // ISO string
+  endDate1: string;
+  endDate2: string;
   months1: number;
   months2: number;
   daysPerWeek1: number;
