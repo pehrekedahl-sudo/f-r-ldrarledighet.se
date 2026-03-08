@@ -64,20 +64,17 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   // Find handover blocks
   const { p1Block, p2Block } = useMemo(() => {
     if (!parent1 || !parent2) return { p1Block: null, p2Block: null };
-    const p1Blocks = blocks.filter(b => b.parentId === parent1.id);
-    const p2Blocks = blocks.filter(b => b.parentId === parent2.id);
+    const p1Blocks = blocks.filter(b => b.parentId === parent1.id && !b.isOverlap);
+    const p2Blocks = blocks.filter(b => b.parentId === parent2.id && !b.isOverlap);
     if (p1Blocks.length === 0 || p2Blocks.length === 0) return { p1Block: null, p2Block: null };
 
     // Find the pair where p1 ends and p2 begins (the handover boundary)
     const earliestP2 = p2Blocks.reduce((min, b) =>
       compareDates(b.startDate, min.startDate) < 0 ? b : min
     );
-    const handoverDate = earliestP2.startDate;
 
-    // p1 block = the one whose endDate is the day before handoverDate (or closest before it)
-    const p1Candidates = p1Blocks.filter(b => compareDates(b.endDate, handoverDate) < 0);
-    if (p1Candidates.length === 0) return { p1Block: null, p2Block: null };
-    const latestP1 = p1Candidates.reduce((max, b) =>
+    // p1 block = the one with the latest endDate (closest to p2's start, regardless of gap)
+    const latestP1 = p1Blocks.reduce((max, b) =>
       compareDates(b.endDate, max.endDate) > 0 ? b : max
     );
 

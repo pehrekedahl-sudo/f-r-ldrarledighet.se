@@ -630,7 +630,7 @@ const PlanBuilder = () => {
                   <div className="flex-shrink-0 text-right ml-4">
                     <p className="text-sm text-foreground font-medium">
                       {(() => {
-                        const totalSaved = validBlocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
+                        const totalSaved = blocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
                         return totalSaved > 0 ? `${totalSaved} dagar sparade` : "Inga sparade dagar";
                       })()}
                     </p>
@@ -672,21 +672,16 @@ const PlanBuilder = () => {
                     <div className="flex-shrink-0 text-right ml-4">
                       <p className="text-sm text-foreground font-medium">
                         {(() => {
-                          const overlaps = validBlocks.filter(b => b.isOverlap === true);
+                          const overlaps = blocks.filter(b => b.isOverlap === true);
                           if (overlaps.length === 0) return "Inga dubbeldagar";
-                          // Deduplicate by date range, then count weekdays
                           const seen = new Set<string>();
                           let count = 0;
                           for (const ob of overlaps) {
                             const key = `${ob.startDate}_${ob.endDate}`;
                             if (seen.has(key)) continue;
                             seen.add(key);
-                            const start = new Date(ob.startDate + "T12:00:00");
-                            const end = new Date(ob.endDate + "T12:00:00");
-                            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                              const dow = d.getDay();
-                              if (dow !== 0 && dow !== 6) count++;
-                            }
+                            const ms = new Date(ob.endDate).getTime() - new Date(ob.startDate).getTime();
+                            count += Math.round(ms / 86400000) + 1;
                           }
                           return `${count} dagar inlagda`;
                         })()}
