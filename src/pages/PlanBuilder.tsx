@@ -111,7 +111,16 @@ const PlanBuilder = () => {
       setParents(saved.parents);
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
-      if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
+      if (saved.transfers?.length > 0) {
+        setTransfer(saved.transfers[0]);
+      } else {
+        setTransfer(null);
+      }
+      if (typeof saved.savedDaysCount === "number") {
+        setSavedDaysCount(saved.savedDaysCount);
+      } else {
+        setSavedDaysCount(0);
+      }
       setViewMode("result");
       setLoaded(true);
       setNoSavedPlan(false);
