@@ -49,35 +49,32 @@ const Wizard = () => {
     ];
 
     const due = wr.dueDate; // already "YYYY-MM-DD"
+    const preBirthStart = wr.preBirthDate ?? null;
 
     const generatedBlocks: Block[] = [];
 
-    // Pre-birth block
-    if (wr.preBirthParent && wr.preBirthWeeks > 0) {
-      const preDpw = wr.preBirthParent === "p1" ? wr.daysPerWeek1 : wr.daysPerWeek2;
+    // Pre-birth block (parent 1 starts before due date)
+    if (preBirthStart && compareDates(preBirthStart, due) < 0) {
+      const preDpw = wr.daysPerWeek1;
       if (preDpw > 0) {
-        const preStart = addDays(due, -(wr.preBirthWeeks * 7));
-        const preEnd = addDays(due, -1);
-        if (compareDates(preStart, preEnd) < 0) {
-          generatedBlocks.push({
-            id: `b${nextId++}`,
-            parentId: wr.preBirthParent,
-            startDate: preStart,
-            endDate: preEnd,
-            daysPerWeek: Math.round(preDpw),
-          });
-        }
+        generatedBlocks.push({
+          id: `b${nextId++}`,
+          parentId: "p1",
+          startDate: preBirthStart,
+          endDate: addDays(due, -1),
+          daysPerWeek: Math.round(preDpw),
+        });
       }
     }
 
-    // Main blocks
-    const end1 = addMonths(due, wr.months1);
-    const end2 = addMonths(end1, wr.months2);
+    // Main blocks — use endDate if available, otherwise compute from months
+    const end1 = wr.endDate1 || addMonths(due, wr.months1);
+    const end2 = wr.endDate2 || addMonths(end1, wr.months2);
 
     const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
     [
-      wr.months1 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1) }) : null,
-      wr.months2 > 0 ? maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2) }) : null,
+      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1) }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2) }),
     ].forEach(b => b && generatedBlocks.push(b));
 
     if (generatedBlocks.length === 0) return;
