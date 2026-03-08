@@ -701,14 +701,17 @@ const PlanBuilder = () => {
                         {(() => {
                           const overlaps = blocks.filter(b => b.isOverlap === true);
                           if (overlaps.length === 0) return "Inga dubbeldagar";
+                          // Count working days (Mon–Fri) across unique overlap periods
                           const seen = new Set<string>();
                           let count = 0;
                           for (const ob of overlaps) {
                             const key = `${ob.startDate}_${ob.endDate}`;
                             if (seen.has(key)) continue;
                             seen.add(key);
-                            const ms = new Date(ob.endDate).getTime() - new Date(ob.startDate).getTime();
-                            count += Math.round(ms / 86400000) + 1;
+                            for (let d = ob.startDate; d <= ob.endDate; d = (() => { const parts = d.split("-").map(Number); const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + 1)); return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`; })()) {
+                              const dow = new Date(Date.UTC(...(d.split("-").map(Number) as [number, number, number]))).getUTCDay();
+                              if (dow !== 0 && dow !== 6) count++;
+                            }
                           }
                           return `${count} dagar inlagda`;
                         })()}
