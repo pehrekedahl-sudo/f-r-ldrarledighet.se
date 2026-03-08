@@ -572,6 +572,37 @@ const PlanBuilder = () => {
               )}
             </section>
 
+            {/* ── ERSÄTTNING PER FÖRÄLDER ── */}
+            {benefits.length > 0 && (
+              <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
+                <div className="px-5 pt-4 pb-2">
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
+                </div>
+                {benefits.map(b => {
+                  const parentName = parents.find(p => p.id === b.parentId)?.name ?? b.parentId;
+                  return (
+                    <div key={b.parentId} className="flex items-center justify-between px-5 py-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{parentName}</p>
+                        <p className="text-sm text-muted-foreground">FK ersättning: {Math.round(b.monthlyBenefitEquivalent).toLocaleString()} kr/mån</p>
+                      </div>
+                      <div className="flex-shrink-0 ml-4">
+                        {b.isAboveTak ? (
+                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-xs" title={`Din lön överstiger FK:s tak på ${FK_CONSTANTS.sgiTakPerMonth.toLocaleString()} kr/mån. FK betalar max baserat på taket.`}>
+                            ⚠ Över SGI-tak
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2 py-0.5 text-xs">
+                            ✓ Inom SGI-tak
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
             {/* ── INFO PANEL ── */}
             <Collapsible>
               <CollapsibleTrigger className="flex items-center justify-between w-full text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
