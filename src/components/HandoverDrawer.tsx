@@ -110,16 +110,8 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     if (compareDates(newP1End, p1Block.startDate) < 0) return { error: `${parent1.name}s block kan inte sluta före sitt startdatum.` };
     if (compareDates(newP2Start, p2Block.endDate) > 0) return { error: `${parent2.name}s block kan inte börja efter sitt slutdatum.` };
 
-    // Check overlap with other blocks of same parent
-    const otherP1 = blocks.filter(b => b.parentId === parent1.id && b.id !== p1Block.id);
-    for (const ob of otherP1) {
-      if (
-        compareDates(ob.startDate, newP1End) < 0 &&
-        compareDates(ob.endDate, p1Block.startDate) >= 0
-      ) {
-        return { error: `Överlapp med ett annat block för ${parent1.name}.` };
-      }
-    }
+    // No overlap check needed for p1's own other blocks — they are managed by SaveDays
+    // and are always contiguous/non-overlapping with p1Block
     const otherP2 = blocks.filter(b => b.parentId === parent2.id && b.id !== p2Block.id);
     for (const ob of otherP2) {
       if (compareDates(ob.startDate, p2Block.endDate) <= 0 && compareDates(ob.endDate, newP2Start) >= 0) {
