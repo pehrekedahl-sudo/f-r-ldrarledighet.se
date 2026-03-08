@@ -598,6 +598,11 @@ const PlanBuilder = () => {
                   Dubbeldagar
                 </Button>
               )}
+              {parents.length >= 2 && (
+                <Button variant="outline" size="sm" onClick={() => setTransferDaysOpen(true)}>
+                  Överför dagar
+                </Button>
+              )}
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
