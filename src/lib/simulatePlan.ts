@@ -1,5 +1,5 @@
 import { addDays, compareDates, isoWeekdayIndex, monthKey } from "../utils/dateOnly";
-import { computeParentBenefit, type ParentBenefitInfo } from "./fkConstants";
+import { computeParentBenefit, computeBlockMonthlyBenefit, type ParentBenefitInfo } from "./fkConstants";
 
 type ParentInput = {
   id: string;
@@ -56,9 +56,19 @@ type ParentResult = {
   monthlyBreakdown: MonthlyRow[];
 };
 
+type ParentSummary = {
+  parentId: string;
+  name: string;
+  monthlyBenefitAvg: number;
+  isAboveSgiTak: boolean;
+  annualIncome: number;
+  sgiCapped: number;
+};
+
 type SimResult = {
   parentsResult: ParentResult[];
   parentBenefits: ParentBenefitInfo[];
+  parentSummary: ParentSummary[];
   warnings: {
     budgetInsufficient: boolean;
     overrideAdjusted: boolean;
@@ -156,6 +166,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
   const result: SimResult = {
     parentsResult: [],
     parentBenefits: parents.map(p => computeParentBenefit(p.id, p.monthlyIncomeFixed)),
+    parentSummary: [],
     warnings: { budgetInsufficient: false, overrideAdjusted: false },
     validationErrors: [],
     unfulfilledDaysTotal: 0,
@@ -351,6 +362,37 @@ export function simulatePlan(plan: PlanInput): SimResult {
       remaining: p.remaining,
       taken: p.taken,
       monthlyBreakdown,
+    });
+  }
+
+  // Build parentSummary: weighted avg monthly benefit per parent across their blocks
+  for (const parent of parents) {
+    const parentBlocks = blocks.filter(b => b.parentId === parent.id);
+    const annualIncome = parent.monthlyIncomeFixed * 12;
+    const sgiCapped = Math.min(annualIncome, 573000); // FK.sgiTakArslon
+    const isAboveSgiTak = annualIncome > 573000;
+
+    let totalDays = 0;
+    let weightedBenefit = 0;
+    for (const b of parentBlocks) {
+      // Count calendar days in block as weight
+      let dayCount = 0;
+      for (let d = b.startDate; compareDates(d, b.endDate) <= 0; d = addDays(d, 1)) {
+        dayCount++;
+      }
+      const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
+      weightedBenefit += monthlyForBlock * dayCount;
+      totalDays += dayCount;
+    }
+    const monthlyBenefitAvg = totalDays > 0 ? weightedBenefit / totalDays : 0;
+
+    result.parentSummary.push({
+      parentId: parent.id,
+      name: parent.name,
+      monthlyBenefitAvg,
+      isAboveSgiTak,
+      annualIncome,
+      sgiCapped,
     });
   }
 
