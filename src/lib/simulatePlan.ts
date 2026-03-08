@@ -58,6 +58,7 @@ type ParentResult = {
 
 type SimResult = {
   parentsResult: ParentResult[];
+  parentBenefits: ParentBenefitInfo[];
   warnings: {
     budgetInsufficient: boolean;
     overrideAdjusted: boolean;
