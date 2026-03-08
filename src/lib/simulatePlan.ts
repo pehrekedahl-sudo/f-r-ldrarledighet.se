@@ -365,5 +365,36 @@ export function simulatePlan(plan: PlanInput): SimResult {
     });
   }
 
+  // Build parentSummary: weighted avg monthly benefit per parent across their blocks
+  for (const parent of parents) {
+    const parentBlocks = blocks.filter(b => b.parentId === parent.id);
+    const annualIncome = parent.monthlyIncomeFixed * 12;
+    const sgiCapped = Math.min(annualIncome, 573000); // FK.sgiTakArslon
+    const isAboveSgiTak = annualIncome > 573000;
+
+    let totalDays = 0;
+    let weightedBenefit = 0;
+    for (const b of parentBlocks) {
+      // Count calendar days in block as weight
+      let dayCount = 0;
+      for (let d = b.startDate; compareDates(d, b.endDate) <= 0; d = addDays(d, 1)) {
+        dayCount++;
+      }
+      const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
+      weightedBenefit += monthlyForBlock * dayCount;
+      totalDays += dayCount;
+    }
+    const monthlyBenefitAvg = totalDays > 0 ? weightedBenefit / totalDays : 0;
+
+    result.parentSummary.push({
+      parentId: parent.id,
+      name: parent.name,
+      monthlyBenefitAvg,
+      isAboveSgiTak,
+      annualIncome,
+      sgiCapped,
+    });
+  }
+
   return result;
 }
