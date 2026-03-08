@@ -56,12 +56,12 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, onApply }: Prop
   const [daysPerWeek, setDaysPerWeek] = useState(5);
 
   useEffect(() => {
-    if (open && !hasExistingOverlap) {
+    if (open) {
       setNumDays(10);
-      setStartDate(planStart);
       setDaysPerWeek(5);
+      setStartDate("");
     }
-  }, [open, hasExistingOverlap, planStart]);
+  }, [open]);
 
   const endDate = useMemo(() => {
     if (!startDate || numDays <= 0) return null;
