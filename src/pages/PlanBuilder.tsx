@@ -16,6 +16,7 @@ import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
 import FitPlanDrawer from "@/components/FitPlanDrawer";
 import HandoverDrawer from "@/components/HandoverDrawer";
+import DoubleDaysDrawer from "@/components/DoubleDaysDrawer";
 
 import {
   Select,
@@ -46,6 +47,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  isOverlap?: boolean;
 };
 
 let nextId = 2;
@@ -96,6 +98,7 @@ const PlanBuilder = () => {
   const [saveDaysOpen, setSaveDaysOpen] = useState(false);
   const [fitPlanOpen, setFitPlanOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [doubleDaysOpen, setDoubleDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
@@ -352,7 +355,6 @@ const PlanBuilder = () => {
       </div>
       <div className="flex gap-3">
         <Button onClick={addBlock}>Lägg till block</Button>
-        <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
       </div>
     </section>
   );
@@ -561,6 +563,11 @@ const PlanBuilder = () => {
               {parents.length >= 2 && (
                 <Button variant="outline" size="sm" onClick={() => setHandoverOpen(true)}>
                   Justera växlingsdatum
+                </Button>
+              )}
+              {parents.length >= 2 && (
+                <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>
+                  Dubbeldagar
                 </Button>
               )}
             </div>
@@ -816,6 +823,21 @@ const PlanBuilder = () => {
         onApply={(newBlocks) => {
           const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
+          setBlocks(merged);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+        }}
+      />
+      <DoubleDaysDrawer
+        open={doubleDaysOpen}
+        onOpenChange={setDoubleDaysOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+        constants={CONSTANTS}
+        transfer={transfer}
+        onApply={(newBlocks) => {
+          const merged = normalizeBlocks(newBlocks);
+          assertUniqueBlockIds(merged, "DoubleDaysDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
