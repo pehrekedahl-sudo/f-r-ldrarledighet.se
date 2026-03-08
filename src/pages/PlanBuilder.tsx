@@ -630,13 +630,11 @@ const PlanBuilder = () => {
                   <div className="flex-shrink-0 text-right ml-4">
                     <p className="text-sm text-foreground font-medium">
                       {(() => {
-                        const saved = validBlocks.filter(b => (b as any).savedDays > 0);
-                        if (saved.length === 0) return "Inga sparade dagar";
-                        const total = saved.reduce((s, b) => s + ((b as any).savedDays ?? 0), 0);
-                        return `${total} dagar sparade`;
+                        const totalSaved = validBlocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
+                        return totalSaved > 0 ? `${totalSaved} dagar sparade` : "Inga sparade dagar";
                       })()}
                     </p>
-                    <p className="text-sm text-primary hover:underline">Justera →</p>
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
                   </div>
                 </div>
 
