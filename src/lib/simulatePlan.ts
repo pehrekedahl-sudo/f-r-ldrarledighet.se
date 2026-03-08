@@ -56,9 +56,19 @@ type ParentResult = {
   monthlyBreakdown: MonthlyRow[];
 };
 
+type ParentSummary = {
+  parentId: string;
+  name: string;
+  monthlyBenefitAvg: number;
+  isAboveSgiTak: boolean;
+  annualIncome: number;
+  sgiCapped: number;
+};
+
 type SimResult = {
   parentsResult: ParentResult[];
   parentBenefits: ParentBenefitInfo[];
+  parentSummary: ParentSummary[];
   warnings: {
     budgetInsufficient: boolean;
     overrideAdjusted: boolean;
