@@ -524,7 +524,7 @@ const PlanBuilder = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Genomsnittlig ersättning</p>
-                  <p className="text-2xl font-bold mt-1">{Math.round(weightedAvg).toLocaleString()} kr/mån</p>
+                  <p className="text-2xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar totalt</p>
