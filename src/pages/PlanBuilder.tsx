@@ -83,6 +83,7 @@ const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [originalBlocks, setOriginalBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
+  const [savedDaysCount, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -110,7 +111,16 @@ const PlanBuilder = () => {
       setParents(saved.parents);
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
-      if (saved.transfers?.length > 0) setTransfer(saved.transfers[0]);
+      if (saved.transfers?.length > 0) {
+        setTransfer(saved.transfers[0]);
+      } else {
+        setTransfer(null);
+      }
+      if (typeof saved.savedDaysCount === "number") {
+        setSavedDaysCount(saved.savedDaysCount);
+      } else {
+        setSavedDaysCount(0);
+      }
       setViewMode("result");
       setLoaded(true);
       setNoSavedPlan(false);
@@ -213,7 +223,7 @@ const PlanBuilder = () => {
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
       // Sync overlap pair daysPerWeek
@@ -231,7 +241,7 @@ const PlanBuilder = () => {
       setBlocks(merged);
       const valid = merged.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     }
   };
 
@@ -241,7 +251,7 @@ const PlanBuilder = () => {
     const remaining = blocks.filter(b => b.id !== id);
     const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
   const blockErrors = useMemo(
@@ -433,6 +443,7 @@ const PlanBuilder = () => {
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
+                setSavedDaysCount(0);
                 setTransferAmount(0);
                 setTransferError(null);
               }}>Generera startplan</Button>
@@ -609,7 +620,7 @@ const PlanBuilder = () => {
                     const updated = blocks.filter(b => b.id !== blockId);
                     setBlocks(updated);
                     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS });
+                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
               />
@@ -661,13 +672,7 @@ const PlanBuilder = () => {
                   </div>
                   <div className="flex-shrink-0 text-right ml-4">
                     <p className="text-sm text-foreground font-medium">
-                      {(() => {
-                        if (!result) return "Inga sparade dagar";
-                        const currentRemaining = Math.round(result.parentsResult.reduce(
-                          (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
-                        ));
-                        return currentRemaining > 0 ? `${currentRemaining} dagar kvar` : "Inga sparade dagar";
-                      })()}
+                      {savedDaysCount > 0 ? `${savedDaysCount} dagar sparade` : "Inga sparade dagar"}
                     </p>
                     <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
                   </div>
@@ -979,11 +984,27 @@ const PlanBuilder = () => {
         onApply={(newBlocks) => {
           const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
+          // Compute saved days by comparing remaining before and after
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const calcRemaining = (blks: typeof merged) => {
+            try {
+              const valid = blks.filter(b => b.startDate && b.endDate && b.endDate >= b.startDate)
+                .sort((a, b) => a.startDate.localeCompare(b.startDate));
+              if (valid.length === 0) return 0;
+              const sim = simulatePlan({ parents, blocks: valid, transfers, constants: CONSTANTS });
+              return Math.round(sim.parentsResult.reduce(
+                (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+              ));
+            } catch { return 0; }
+          };
+          const remainingBefore = calcRemaining(originalBlocks);
+          const remainingAfter = calcRemaining(merged);
+          const newSavedDays = Math.max(0, remainingAfter - remainingBefore + savedDaysCount);
+          setSavedDaysCount(newSavedDays);
           setBlocks(merged);
           setOriginalBlocks(merged);
           setHasManualEdits(false);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount: newSavedDays });
         }}
       />
       <FitPlanDrawer
@@ -999,7 +1020,7 @@ const PlanBuilder = () => {
           setBlocks(normalized);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
-          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <HandoverDrawer
@@ -1014,7 +1035,7 @@ const PlanBuilder = () => {
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <DoubleDaysDrawer
@@ -1025,7 +1046,7 @@ const PlanBuilder = () => {
           setBlocks(prev => {
             const updated = [...prev, newBlock];
             const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS });
+            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
             return updated;
           });
         }}
@@ -1043,7 +1064,7 @@ const PlanBuilder = () => {
           setTransferError(null);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
           const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-          savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
     </div>
