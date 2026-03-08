@@ -30,7 +30,6 @@ type Props = {
   onApply: (newBlocks: Block[]) => void;
 };
 
-/** Convert weekdays count to calendar days (5 weekdays ≈ 7 calendar days) */
 function weekdaysToCalendarDays(weekdays: number): number {
   const fullWeeks = Math.floor(weekdays / 5);
   const remainder = weekdays % 5;
@@ -38,19 +37,6 @@ function weekdaysToCalendarDays(weekdays: number): number {
 }
 
 const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, onApply }: Props) => {
-  const hasExistingOverlap = useMemo(
-    () => blocks.some(b => b.isOverlap === true),
-    [blocks],
-  );
-
-  const planStart = useMemo(() => {
-    if (blocks.length === 0) return "";
-    return blocks.reduce(
-      (min, b) => (b.startDate < min ? b.startDate : min),
-      blocks[0].startDate,
-    );
-  }, [blocks]);
-
   const [numDays, setNumDays] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
@@ -94,88 +80,67 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, onApply }: Prop
           <SheetTitle>Dubbeldagar</SheetTitle>
         </SheetHeader>
 
-        {hasExistingOverlap ? (
-          <>
-            <div className="flex-1 flex items-center justify-center py-8 px-4">
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                Du har redan ett dubbeldagsblock inlagt. Justera det direkt i tidslinjen, eller ta bort det där för att lägga till ett nytt.
+        <div className="flex-1 space-y-5 py-4 overflow-y-auto">
+          <p className="text-sm text-muted-foreground">
+            Under dubbeldagar tar båda föräldrarna ut föräldrapenning samtidigt. Max 30 dagar under barnets första levnadsår.
+          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="double-days-input">Antal dagar</Label>
+            <Input
+              id="double-days-input"
+              type="number"
+              min={1}
+              max={30}
+              value={numDays}
+              onChange={(e) =>
+                setNumDays(Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 1))))
+              }
+            />
+            <p className="text-xs text-muted-foreground">Max 30 dagar under barnets första levnadsår.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="double-days-dpw">Dagar per vecka</Label>
+            <Input
+              id="double-days-dpw"
+              type="number"
+              min={1}
+              max={5}
+              value={daysPerWeek}
+              onChange={(e) =>
+                setDaysPerWeek(Math.max(1, Math.min(5, Math.floor(Number(e.target.value) || 5))))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="double-days-start">Startdatum</Label>
+            <Input
+              id="double-days-start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          {numDays > 0 && endDate && (
+            <div className="border border-border rounded-lg p-4 bg-muted/30 text-sm">
+              <p>
+                Båda tar ut {numDays} dagar ({daysPerWeek} d/v), period: {startDate} – {endDate}
               </p>
             </div>
-            <SheetFooter>
-              <SheetClose asChild>
-                <Button variant="outline" className="w-full">Stäng</Button>
-              </SheetClose>
-            </SheetFooter>
-          </>
-        ) : (
-          <>
-            <div className="flex-1 space-y-5 py-4 overflow-y-auto">
-              <p className="text-sm text-muted-foreground">
-                Under dubbeldagar tar båda föräldrarna ut föräldrapenning samtidigt. Max 30 dagar under barnets första levnadsår.
-              </p>
+          )}
+        </div>
 
-              {/* Number of days */}
-              <div className="space-y-2">
-                <Label htmlFor="double-days-input">Antal dagar</Label>
-                <Input
-                  id="double-days-input"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={numDays}
-                  onChange={(e) =>
-                    setNumDays(Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 1))))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">Max 30 dagar under barnets första levnadsår.</p>
-              </div>
-
-              {/* Days per week */}
-              <div className="space-y-2">
-                <Label htmlFor="double-days-dpw">Dagar per vecka</Label>
-                <Input
-                  id="double-days-dpw"
-                  type="number"
-                  min={1}
-                  max={5}
-                  value={daysPerWeek}
-                  onChange={(e) =>
-                    setDaysPerWeek(Math.max(1, Math.min(5, Math.floor(Number(e.target.value) || 5))))
-                  }
-                />
-              </div>
-
-              {/* Start date */}
-              <div className="space-y-2">
-                <Label htmlFor="double-days-start">Startdatum</Label>
-                <Input
-                  id="double-days-start"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-
-              {/* Preview line */}
-              {numDays > 0 && endDate && (
-                <div className="border border-border rounded-lg p-4 bg-muted/30 text-sm">
-                  <p>
-                    Båda tar ut {numDays} dagar ({daysPerWeek} d/v), period: {startDate} – {endDate}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <SheetFooter className="flex-col gap-2 sm:flex-col">
-              <Button disabled={!canApply} onClick={handleApply}>
-                Lägg till
-              </Button>
-              <SheetClose asChild>
-                <Button variant="ghost">Avbryt</Button>
-              </SheetClose>
-            </SheetFooter>
-          </>
-        )}
+        <SheetFooter className="flex-col gap-2 sm:flex-col">
+          <Button disabled={!canApply} onClick={handleApply}>
+            Lägg till
+          </Button>
+          <SheetClose asChild>
+            <Button variant="ghost">Avbryt</Button>
+          </SheetClose>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
