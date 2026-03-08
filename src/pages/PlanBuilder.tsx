@@ -565,6 +565,11 @@ const PlanBuilder = () => {
                   Justera växlingsdatum
                 </Button>
               )}
+              {parents.length >= 2 && (
+                <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>
+                  Dubbeldagar
+                </Button>
+              )}
             </div>
 
             {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
