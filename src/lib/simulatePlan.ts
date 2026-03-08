@@ -207,7 +207,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
     }
   }
 
-  // Overlap validation
+  // Overlap validation — DD (overlapGroupId) blocks are allowed to overlap with regular blocks
   const blocksByParent = new Map<string, BlockInput[]>();
   for (const b of blocks) {
     if (!blocksByParent.has(b.parentId)) blocksByParent.set(b.parentId, []);
@@ -219,6 +219,8 @@ export function simulatePlan(plan: PlanInput): SimResult {
     );
     for (let i = 0; i < sorted.length - 1; i++) {
       if (compareDates(sorted[i].endDate, sorted[i + 1].startDate) >= 0) {
+        // Skip overlap error if either block is a DD (overlap) block
+        if (sorted[i].overlapGroupId || sorted[i + 1].overlapGroupId) continue;
         result.validationErrors.push({
           type: "overlapWithinSameParent",
           parentId: pid,

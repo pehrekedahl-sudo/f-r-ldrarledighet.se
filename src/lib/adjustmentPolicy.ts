@@ -198,7 +198,7 @@ export function proposeEvenSpreadReduction(opts: {
   while (remaining > 0 && safetyLimit-- > 0) {
     // Find the highest dpw level among eligible blocks
     const eligible = working.filter(
-      b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1
+      b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1 && !b.isOverlap
     );
     if (eligible.length === 0) break;
 

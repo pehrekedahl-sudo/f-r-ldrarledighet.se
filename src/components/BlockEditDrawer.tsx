@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addDays, todayISO, compareDates } from "@/utils/dateOnly";
+import { addDays, todayISO, compareDates, diffDaysInclusive } from "@/utils/dateOnly";
 
 type Block = {
   id: string;
@@ -59,12 +59,24 @@ function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   return null;
 }
 
+function weeksFromDates(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const days = diffDaysInclusive(start, end);
+  return Math.max(0, Math.floor(days / 7));
+}
+
+function endDateFromWeeks(start: string, weeks: number): string {
+  return addDays(start, weeks * 7 - 1);
+}
+
 const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, onSave, onDelete }: Props) => {
   const [parentId, setParentId] = useState(parents[0]?.id ?? "p1");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
   const [lowestDaysPerWeek, setLowestDaysPerWeek] = useState(0);
+  const [weeksMode, setWeeksMode] = useState(true); // true = weeks input, false = exact date
+  const [weeks, setWeeks] = useState(4);
 
   useEffect(() => {
     if (!open) return;
@@ -74,15 +86,21 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
       setEndDate(block.endDate);
       setDaysPerWeek(block.daysPerWeek);
       setLowestDaysPerWeek(block.lowestDaysPerWeek ?? 0);
+      const w = weeksFromDates(block.startDate, block.endDate);
+      setWeeks(w > 0 ? w : 1);
+      setWeeksMode(true);
     } else if (mode === "create") {
       const pid = parents[0]?.id ?? "p1";
       setParentId(pid);
       const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => compareDates(b.endDate, a.endDate));
       const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : todayISO();
       setStartDate(defaultStart);
-      setEndDate(addDays(defaultStart, 28));
+      const defaultWeeks = 4;
+      setWeeks(defaultWeeks);
+      setEndDate(endDateFromWeeks(defaultStart, defaultWeeks));
       setDaysPerWeek(5);
       setLowestDaysPerWeek(0);
+      setWeeksMode(true);
     }
   }, [open, mode, block, parents, allBlocks]);
 
@@ -93,7 +111,29 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
       const parentBlocks = allBlocks.filter(b => b.parentId === pid).sort((a, b) => compareDates(b.endDate, a.endDate));
       const defaultStart = parentBlocks.length > 0 ? addDays(parentBlocks[0].endDate, 1) : todayISO();
       setStartDate(defaultStart);
-      setEndDate(addDays(defaultStart, 28));
+      setEndDate(endDateFromWeeks(defaultStart, weeks));
+    }
+  };
+
+  const handleWeeksChange = (w: number) => {
+    const clamped = Math.max(1, Math.min(104, w));
+    setWeeks(clamped);
+    if (startDate) {
+      setEndDate(endDateFromWeeks(startDate, clamped));
+    }
+  };
+
+  const handleStartDateChange = (d: string) => {
+    setStartDate(d);
+    if (weeksMode && d) {
+      setEndDate(endDateFromWeeks(d, weeks));
+    }
+  };
+
+  const handleEndDateChange = (d: string) => {
+    setEndDate(d);
+    if (startDate && d) {
+      setWeeks(Math.max(1, weeksFromDates(startDate, d)));
     }
   };
 
@@ -163,12 +203,50 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
 
               <div className="space-y-1">
                 <Label>Startdatum</Label>
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
               </div>
 
-              <div className="space-y-1">
-                <Label>Slutdatum</Label>
-                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              {/* Antal veckor — primary input */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Antal veckor: {weeks}</Label>
+                  <button
+                    type="button"
+                    onClick={() => setWeeksMode(!weeksMode)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {weeksMode ? "Ange slutdatum istället" : "Ange antal veckor"}
+                  </button>
+                </div>
+                {weeksMode ? (
+                  <>
+                    <Slider
+                      min={1}
+                      max={104}
+                      step={1}
+                      value={[weeks]}
+                      onValueChange={([v]) => handleWeeksChange(v)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={104}
+                        value={weeks}
+                        onChange={(e) => handleWeeksChange(Number(e.target.value) || 1)}
+                        className="w-24"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        veckor (t.o.m. {endDate || "—"})
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <Input type="date" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">= {weeks} veckor</p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
