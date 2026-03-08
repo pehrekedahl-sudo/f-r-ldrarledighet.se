@@ -72,8 +72,6 @@ type Proposal = {
   deltaMonthly: number;
   newEndDate: string;
   direction: "save";
-  debugBefore: Block[];
-  debugAfter: Block[];
 };
 
 // ── helpers ──
