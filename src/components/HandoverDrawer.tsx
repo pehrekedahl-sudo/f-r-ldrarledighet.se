@@ -198,10 +198,22 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
           {/* Current blocks */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nuvarande perioder</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nuvarande plan</p>
             <div className="border border-border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
-              <p><span className="font-medium">{parent1.name}:</span> {p1Block.startDate} – {p1Block.endDate}</p>
-              <p><span className="font-medium">{parent2.name}:</span> {p2Block.startDate} – {p2Block.endDate}</p>
+              {(() => {
+                const p1All = blocks.filter(b => b.parentId === parent1.id);
+                const p2All = blocks.filter(b => b.parentId === parent2.id);
+                const p1Start = p1All.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, p1All[0].startDate);
+                const p1End = p1All.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, p1All[0].endDate);
+                const p2Start = p2All.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, p2All[0].startDate);
+                const p2End = p2All.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, p2All[0].endDate);
+                return (
+                  <>
+                    <p><span className="font-medium">{parent1.name}:</span> {p1Start} – {p1End}</p>
+                    <p><span className="font-medium">{parent2.name}:</span> {p2Start} – {p2End}</p>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
