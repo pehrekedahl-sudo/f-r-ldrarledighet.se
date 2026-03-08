@@ -6,6 +6,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  isOverlap?: boolean;
 };
 
 import { addDays } from "@/utils/dateOnly";
@@ -46,10 +47,11 @@ export function mergeAdjacentBlocks(blocks: Block[]): Block[] {
       while (j < sorted.length) {
         const next = sorted[j];
         const dayAfterCurrent = addDaysISO(current.endDate, 1);
+        const sameOverlap = (!!current.isOverlap) === (!!next.isOverlap);
         const sameSettings =
           current.daysPerWeek === next.daysPerWeek &&
           (current.lowestDaysPerWeek ?? 0) === (next.lowestDaysPerWeek ?? 0);
-        if (dayAfterCurrent === next.startDate && sameSettings) {
+        if (dayAfterCurrent === next.startDate && sameSettings && sameOverlap) {
           // Merge: extend current to cover next
           current.endDate = next.endDate;
           j++;

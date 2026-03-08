@@ -9,6 +9,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  isOverlap?: boolean;
 };
 
 function calendarDays(b: Block): number {
@@ -52,7 +53,7 @@ export function normalizeBlocks(blocks: Block[]): Block[] {
       const next: Block[] = [];
       for (let i = 0; i < merged.length; i++) {
         const b = merged[i];
-        if (calendarDays(b) < 14 && merged.length > 1) {
+        if (calendarDays(b) < 14 && merged.length > 1 && !b.isOverlap) {
           // Absorb into the neighbor with the closest dpw, preferring the previous block
           const prev = i > 0 ? next[next.length - 1] : null;
           const nextB = i < merged.length - 1 ? merged[i + 1] : null;
