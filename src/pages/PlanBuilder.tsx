@@ -630,7 +630,7 @@ const PlanBuilder = () => {
                   <div className="flex-shrink-0 text-right ml-4">
                     <p className="text-sm text-foreground font-medium">
                       {(() => {
-                        const totalSaved = validBlocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
+                        const totalSaved = blocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
                         return totalSaved > 0 ? `${totalSaved} dagar sparade` : "Inga sparade dagar";
                       })()}
                     </p>
