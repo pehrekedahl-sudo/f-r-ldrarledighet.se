@@ -1,4 +1,5 @@
 import { addDays, compareDates, isoWeekdayIndex, monthKey } from "../utils/dateOnly";
+import { computeParentBenefit, type ParentBenefitInfo } from "./fkConstants";
 
 type ParentInput = {
   id: string;
@@ -57,6 +58,7 @@ type ParentResult = {
 
 type SimResult = {
   parentsResult: ParentResult[];
+  parentBenefits: ParentBenefitInfo[];
   warnings: {
     budgetInsufficient: boolean;
     overrideAdjusted: boolean;
@@ -153,6 +155,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
 
   const result: SimResult = {
     parentsResult: [],
+    parentBenefits: parents.map(p => computeParentBenefit(p.id, p.monthlyIncomeFixed)),
     warnings: { budgetInsufficient: false, overrideAdjusted: false },
     validationErrors: [],
     unfulfilledDaysTotal: 0,

@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths } from "@/utils/dateOnly";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
+import { FK_CONSTANTS } from "@/lib/fkConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -477,6 +478,22 @@ const PlanBuilder = () => {
         }
         const activeMonths = Array.from(monthTotals.values()).filter(v => v > 0).length;
         const avgMonthly = activeMonths > 0 ? totalGross / activeMonths : 0;
+
+        // Per-parent FK benefit info
+        const benefits = result.parentBenefits ?? [];
+        // Weighted average: weight each parent's monthly FK benefit by their taken days
+        const weightedAvg = (() => {
+          let totalWeight = 0;
+          let weightedSum = 0;
+          for (const b of benefits) {
+            const pr = result.parentsResult.find(p => p.parentId === b.parentId);
+            const takenDays = pr ? pr.taken.sickness + pr.taken.lowest : 0;
+            weightedSum += b.monthlyBenefitEquivalent * takenDays;
+            totalWeight += takenDays;
+          }
+          return totalWeight > 0 ? weightedSum / totalWeight : avgMonthly;
+        })();
+
         const totalAll = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0);
         const unfulfilled = result.unfulfilledDaysTotal ?? 0;
 
@@ -501,7 +518,7 @@ const PlanBuilder = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Genomsnittlig ersättning</p>
-                  <p className="text-2xl font-bold mt-1">{Math.round(avgMonthly).toLocaleString()} kr/mån</p>
+                  <p className="text-2xl font-bold mt-1">{Math.round(weightedAvg).toLocaleString()} kr/mån</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar totalt</p>
@@ -555,6 +572,37 @@ const PlanBuilder = () => {
                 </>
               )}
             </section>
+
+            {/* ── ERSÄTTNING PER FÖRÄLDER ── */}
+            {benefits.length > 0 && (
+              <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
+                <div className="px-5 pt-4 pb-2">
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
+                </div>
+                {benefits.map(b => {
+                  const parentName = parents.find(p => p.id === b.parentId)?.name ?? b.parentId;
+                  return (
+                    <div key={b.parentId} className="flex items-center justify-between px-5 py-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{parentName}</p>
+                        <p className="text-sm text-muted-foreground">FK ersättning: {Math.round(b.monthlyBenefitEquivalent).toLocaleString()} kr/mån</p>
+                      </div>
+                      <div className="flex-shrink-0 ml-4">
+                        {b.isAboveTak ? (
+                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-xs" title={`Din lön överstiger FK:s tak på ${FK_CONSTANTS.sgiTakPerMonth.toLocaleString()} kr/mån. FK betalar max baserat på taket.`}>
+                            ⚠ Över SGI-tak
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2 py-0.5 text-xs">
+                            ✓ Inom SGI-tak
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
 
             {/* ── INFO PANEL ── */}
             <Collapsible>
