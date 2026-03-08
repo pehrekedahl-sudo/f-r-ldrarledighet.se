@@ -368,7 +368,7 @@ const PlanBuilder = () => {
 
             if (partner) {
               return (
-                <div key={b.overlapGroupId} className="border-2 border-dashed border-accent rounded-lg p-3 space-y-3">
+                <div key={b.overlapGroupId} data-overlap="true" className="border-2 border-dashed border-accent rounded-lg p-3 space-y-3 transition-all">
                   <p className="text-xs font-medium text-muted-foreground">⬡ Dubbeldagar (överlapp)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {renderBlock(b)}
