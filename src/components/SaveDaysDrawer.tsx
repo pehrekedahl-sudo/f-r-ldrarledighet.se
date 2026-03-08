@@ -17,7 +17,7 @@ import {
   applySmartChange,
   proposeEvenSpreadReduction,
   normalizeBlocks,
-  MIN_AUTO_DPW,
+  
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
