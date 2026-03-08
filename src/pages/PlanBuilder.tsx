@@ -619,7 +619,7 @@ const PlanBuilder = () => {
                     const updated = blocks.filter(b => b.id !== blockId);
                     setBlocks(updated);
                     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS });
+                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
               />
