@@ -66,18 +66,64 @@ function weekdaysToCalendarDays(weekdays: number): number {
   return fullWeeks * 7 + remainder;
 }
 
+/**
+ * Split a parent's block around the overlap period.
+ * Returns up to 3 blocks: before, overlap, after.
+ */
+function splitBlockForOverlap(
+  block: Block,
+  overlapStart: string,
+  overlapEnd: string,
+  overlapDpw: number,
+): Block[] {
+  const result: Block[] = [];
+
+  // "before" piece: block.startDate to day before overlapStart
+  if (compareDates(block.startDate, overlapStart) < 0) {
+    result.push({
+      ...block,
+      id: generateBlockId("split"),
+      endDate: addDays(overlapStart, -1),
+      isOverlap: undefined,
+      overlapGroupId: undefined,
+    });
+  }
+
+  // "overlap" piece
+  result.push({
+    id: generateBlockId("dbl"),
+    parentId: block.parentId,
+    startDate: overlapStart,
+    endDate: overlapEnd,
+    daysPerWeek: overlapDpw,
+    isOverlap: true,
+  });
+
+  // "after" piece: day after overlapEnd to block.endDate
+  if (compareDates(overlapEnd, block.endDate) < 0) {
+    result.push({
+      ...block,
+      id: generateBlockId("split"),
+      startDate: addDays(overlapEnd, 1),
+      isOverlap: undefined,
+      overlapGroupId: undefined,
+    });
+  }
+
+  return result;
+}
+
 const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
   // Count existing overlap days
   const existingOverlap = useMemo(() => {
     const overlapBlocks = blocks.filter(b => b.isOverlap);
-    if (overlapBlocks.length === 0) return { days: 0, startDate: null as string | null, endDate: null as string | null };
+    if (overlapBlocks.length === 0) return { days: 0, startDate: null as string | null, endDate: null as string | null, daysPerWeek: 5 };
     const start = overlapBlocks.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, overlapBlocks[0].startDate);
     const end = overlapBlocks.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, overlapBlocks[0].endDate);
-    // Count weekdays in the range (approximate: calendar days * 5/7)
-    const calDays = weekdaysToCalendarDays(1); // just for ratio
     const totalCalDays = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1);
     const weekdays = Math.round(totalCalDays * 5 / 7);
-    return { days: weekdays, startDate: start, endDate: end };
+    const dpw = overlapBlocks[0].daysPerWeek;
+    return { days: weekdays, startDate: start, endDate: end, daysPerWeek: dpw };
   }, [blocks]);
 
   // Default start date = plan's first block start
@@ -88,11 +134,13 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
 
   const [numDays, setNumDays] = useState(0);
   const [startDate, setStartDate] = useState("");
+  const [daysPerWeek, setDaysPerWeek] = useState(5);
 
   useEffect(() => {
     if (open) {
       setNumDays(existingOverlap.days || 0);
       setStartDate(existingOverlap.startDate || planStart);
+      setDaysPerWeek(existingOverlap.daysPerWeek || 5);
     }
   }, [open, existingOverlap, planStart]);
 
@@ -103,30 +151,66 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
     return addDays(startDate, calDays - 1);
   }, [startDate, numDays]);
 
-  // Build proposal
-  const proposal = useMemo(() => {
+  // Build proposal blocks (with splitting)
+  const buildProposalBlocks = useMemo(() => {
     if (!startDate || numDays <= 0 || !endDate) return null;
     if (parents.length < 2) return null;
 
-    const groupId = `overlap-${Date.now()}`;
+    // Remove old overlap blocks and any split remnants from previous overlap
     const nonOverlapBlocks = blocks.filter(b => !b.isOverlap);
 
-    const newOverlapBlocks: Block[] = parents.map(p => ({
-      id: generateBlockId("dbl"),
-      parentId: p.id,
-      startDate,
-      endDate,
-      daysPerWeek: 5,
-      overlapGroupId: groupId,
-      isOverlap: true,
-    }));
+    const resultBlocks: Block[] = [];
 
-    const proposalBlocks = [...nonOverlapBlocks, ...newOverlapBlocks];
+    for (const block of nonOverlapBlocks) {
+      // Check if this block's date range intersects the overlap period
+      const intersects =
+        compareDates(block.startDate, endDate) <= 0 &&
+        compareDates(block.endDate, startDate) >= 0;
+
+      if (intersects) {
+        // Split this block around the overlap
+        resultBlocks.push(...splitBlockForOverlap(block, startDate, endDate, daysPerWeek));
+      } else {
+        resultBlocks.push(block);
+      }
+    }
+
+    // Deduplicate: keep only one overlap block per parent
+    const overlapParents = new Set<string>();
+    const dedupedBlocks: Block[] = [];
+    for (const b of resultBlocks) {
+      if (b.isOverlap) {
+        if (overlapParents.has(b.parentId)) continue;
+        overlapParents.add(b.parentId);
+      }
+      dedupedBlocks.push(b);
+    }
+
+    // Ensure both parents have an overlap block
+    for (const p of parents) {
+      if (!overlapParents.has(p.id)) {
+        dedupedBlocks.push({
+          id: generateBlockId("dbl"),
+          parentId: p.id,
+          startDate,
+          endDate,
+          daysPerWeek,
+          isOverlap: true,
+        });
+      }
+    }
+
+    return dedupedBlocks.sort((a, b) => compareDates(a.startDate, b.startDate));
+  }, [startDate, numDays, endDate, blocks, parents, daysPerWeek]);
+
+  // Compute simulation delta
+  const proposal = useMemo(() => {
+    if (!buildProposalBlocks || !endDate) return null;
 
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
     try {
       const currentResult = simulatePlan({ parents, blocks, transfers, constants });
-      const proposalResult = simulatePlan({ parents, blocks: proposalBlocks.sort((a, b) => compareDates(a.startDate, b.startDate)), transfers, constants });
+      const proposalResult = simulatePlan({ parents, blocks: buildProposalBlocks, transfers, constants });
 
       const currentTotal = calcTotalRemaining(currentResult.parentsResult);
       const proposalTotal = calcTotalRemaining(proposalResult.parentsResult);
@@ -134,7 +218,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
       const proposalAvg = calcAvgMonthly(proposalResult.parentsResult);
 
       return {
-        blocks: proposalBlocks,
+        blocks: buildProposalBlocks,
         deltaTotal: Math.round(proposalTotal - currentTotal),
         deltaMonthly: Math.round(proposalAvg - currentAvg),
         startDate,
@@ -144,7 +228,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
     } catch {
       return null;
     }
-  }, [startDate, numDays, endDate, blocks, parents, constants, transfer]);
+  }, [buildProposalBlocks, endDate, blocks, parents, constants, transfer, startDate, numDays]);
 
   // Proposal for removing all overlap (numDays = 0)
   const removeProposal = useMemo(() => {
@@ -183,7 +267,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
   };
 
   const canApply = (numDays > 0 && proposal) || (numDays === 0 && removeProposal);
-  const hasChanged = numDays !== existingOverlap.days || startDate !== (existingOverlap.startDate || planStart);
+  const hasChanged = numDays !== existingOverlap.days || startDate !== (existingOverlap.startDate || planStart) || daysPerWeek !== existingOverlap.daysPerWeek;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -221,6 +305,20 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
             <p className="text-xs text-muted-foreground">Max 30 dagar under barnets första levnadsår.</p>
           </div>
 
+          {/* Days per week */}
+          <div className="space-y-2">
+            <Label htmlFor="double-days-dpw">Dagar per vecka</Label>
+            <Input
+              id="double-days-dpw"
+              type="number"
+              min={1}
+              max={5}
+              value={daysPerWeek}
+              onChange={(e) => setDaysPerWeek(Math.max(1, Math.min(5, Math.floor(Number(e.target.value) || 5))))}
+            />
+            <p className="text-xs text-muted-foreground">Sätts för båda föräldrarna samtidigt.</p>
+          </div>
+
           {/* Start date */}
           <div className="space-y-2">
             <Label htmlFor="double-days-start">Startdatum</Label>
@@ -236,7 +334,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
           {numDays > 0 && endDate && (
             <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2 text-sm">
               <p className="font-medium">Förhandsgranskning</p>
-              <p>Båda tar ut {numDays} dagar, period: {startDate} – {endDate}</p>
+              <p>Båda tar ut {numDays} dagar ({daysPerWeek} d/v), period: {startDate} – {endDate}</p>
               {proposal && (
                 <>
                   <p className="text-muted-foreground">
