@@ -223,7 +223,7 @@ const PlanBuilder = () => {
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
       // Sync overlap pair daysPerWeek
