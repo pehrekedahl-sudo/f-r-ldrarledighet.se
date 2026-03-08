@@ -720,7 +720,34 @@ const PlanBuilder = () => {
               </div>
             </div>
 
-            {/* ── ADJUSTMENTS & DETAILS (collapsed) ── */}
+            {/* ── ERSÄTTNING PER FÖRÄLDER ── */}
+            {(result.parentSummary ?? []).length > 0 && (
+              <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
+                <div className="px-5 pt-4 pb-2">
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
+                </div>
+                {result.parentSummary.map(s => (
+                  <div key={s.parentId} className="flex items-center justify-between px-5 py-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground">{s.name}</p>
+                      <p className="text-sm text-muted-foreground">≈ {Math.round(s.monthlyBenefitAvg).toLocaleString("sv-SE")} kr/mån</p>
+                    </div>
+                    <div className="flex-shrink-0 ml-4">
+                      {s.isAboveSgiTak ? (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-xs" title={`FK betalar max ${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån oavsett lön`}>
+                          ⚠ Över SGI-tak
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 text-xs">
+                          ✓ Inom SGI-tak
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
+
             <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
               <CollapsibleTrigger id="adjust-section" className="flex items-center justify-between w-full border border-border rounded-lg p-4 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
                 Justeringar &amp; detaljer
