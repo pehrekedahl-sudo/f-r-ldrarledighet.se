@@ -100,6 +100,7 @@ const PlanBuilder = () => {
   const [fitPlanOpen, setFitPlanOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [doubleDaysOpen, setDoubleDaysOpen] = useState(false);
+  const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
