@@ -630,8 +630,24 @@ const PlanBuilder = () => {
                   <div className="flex-shrink-0 text-right ml-4">
                     <p className="text-sm text-foreground font-medium">
                       {(() => {
-                        const totalSaved = blocks.reduce((sum, b) => sum + ((b as any).savedDays ?? 0), 0);
-                        return totalSaved > 0 ? `${totalSaved} dagar sparade` : "Inga sparade dagar";
+                        if (!result) return "Inga sparade dagar";
+                        const currentRemaining = result.parentsResult.reduce(
+                          (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+                        );
+                        // Max remaining = simulation with no blocks
+                        try {
+                          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+                          const maxResult = simulatePlan({ parents, blocks: [], transfers, constants: CONSTANTS });
+                          const maxRemaining = maxResult.parentsResult.reduce(
+                            (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+                          );
+                          const totalUsed = Math.round(maxRemaining - currentRemaining);
+                          // "Saved" = remaining days not consumed by the plan
+                          const totalSaved = Math.round(currentRemaining);
+                          return totalSaved > 0 ? `${totalSaved} dagar kvar` : "Inga sparade dagar";
+                        } catch {
+                          return "Inga sparade dagar";
+                        }
                       })()}
                     </p>
                     <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
