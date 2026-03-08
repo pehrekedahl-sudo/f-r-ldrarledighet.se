@@ -155,6 +155,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
 
   const result: SimResult = {
     parentsResult: [],
+    parentBenefits: parents.map(p => computeParentBenefit(p.id, p.monthlyIncomeFixed)),
     warnings: { budgetInsufficient: false, overrideAdjusted: false },
     validationErrors: [],
     unfulfilledDaysTotal: 0,
