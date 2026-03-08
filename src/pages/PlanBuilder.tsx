@@ -83,6 +83,7 @@ const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [originalBlocks, setOriginalBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
+  const [savedDaysCount, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
