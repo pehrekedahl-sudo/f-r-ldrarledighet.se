@@ -479,19 +479,28 @@ const PlanBuilder = () => {
         const activeMonths = Array.from(monthTotals.values()).filter(v => v > 0).length;
         const avgMonthly = activeMonths > 0 ? totalGross / activeMonths : 0;
 
-        // Per-parent FK benefit info
-        const benefits = result.parentBenefits ?? [];
-        // Weighted average: weight each parent's monthly FK benefit by their taken days
-        const weightedAvg = (() => {
-          let totalWeight = 0;
-          let weightedSum = 0;
-          for (const b of benefits) {
-            const pr = result.parentsResult.find(p => p.parentId === b.parentId);
-            const takenDays = pr ? pr.taken.sickness + pr.taken.lowest : 0;
-            weightedSum += b.monthlyBenefitEquivalent * takenDays;
-            totalWeight += takenDays;
+        // Compute avg as total FK benefit across all blocks / total plan months
+        const computedAvg = (() => {
+          const summary = result.parentSummary ?? [];
+          if (summary.length === 0) return avgMonthly;
+          // Total benefit paid = sum over all blocks of (monthlyBenefitForBlock × block duration in months)
+          let totalBenefitMonths = 0;
+          let totalMonths = 0;
+          for (const b of validBlocks) {
+            const parent = parents.find(p => p.id === b.parentId);
+            if (!parent) continue;
+            // duration in months ≈ calendar days / 30.44
+            let dayCount = 0;
+            for (let d = b.startDate; d <= b.endDate; d = (() => { const dt = new Date(d + "T12:00:00"); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); })()) {
+              dayCount++;
+            }
+            const durationMonths = dayCount / 30.44;
+            const { computeBlockMonthlyBenefit } = require("@/lib/fkConstants");
+            const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
+            totalBenefitMonths += monthlyForBlock * durationMonths;
+            totalMonths += durationMonths;
           }
-          return totalWeight > 0 ? weightedSum / totalWeight : avgMonthly;
+          return totalMonths > 0 ? totalBenefitMonths / totalMonths : avgMonthly;
         })();
 
         const totalAll = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0);
