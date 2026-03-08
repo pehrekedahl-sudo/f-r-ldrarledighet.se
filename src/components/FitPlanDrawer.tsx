@@ -270,69 +270,6 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
             </div>
           )}
 
-          {/* D) Debug panel — single source of truth from meta */}
-          {!computing && proposal && (
-            <details className="border-t border-border pt-4">
-              <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
-                <ChevronDown className="h-3 w-3" />
-                DEBUG (rescue)
-              </summary>
-              <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3 font-mono text-[10px] text-muted-foreground max-h-60 overflow-y-auto">
-                <div>
-                  <p className="font-semibold text-foreground/70">Blocks BEFORE ({proposal.debugBefore.length})</p>
-                  {proposal.debugBefore.map((b, i) => (
-                    <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
-                  ))}
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground/70">Blocks AFTER ({proposal.debugAfter.length})</p>
-                  {proposal.debugAfter.map((b, i) => (
-                    <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
-                  ))}
-                </div>
-
-                {proposal.reductions.length > 0 && (
-                  <div>
-                    <p className="font-semibold text-foreground/70">Reductions ({proposal.reductions.length})</p>
-                    {proposal.reductions.map((r, i) => (
-                      <p key={i}>{r.parentId} | {r.startDate}→{r.endDate} | {r.oldDpw}→{r.newDpw} | {r.weeksCount}w</p>
-                    ))}
-                  </div>
-                )}
-
-                <p className="font-semibold text-foreground/70">Verified proposal (single source)</p>
-                <div className="pl-3 space-y-0.5">
-                  <p>mode = {proposal.meta.mode}</p>
-                  {proposal.meta.weights && (
-                    <p>weights: {proposal.meta.weights.p1Id.slice(0,8)}={proposal.meta.weights.p1Weight}, {proposal.meta.weights.p2Id.slice(0,8)}={proposal.meta.weights.p2Weight}</p>
-                  )}
-                  <p>shortageBefore = {proposal.meta.shortageBefore}</p>
-                  <p>maxTransfer = {proposal.meta.maxTransfer}</p>
-                  <p>transferDays = {proposal.meta.transferDays}</p>
-                  <p>shortageAfterTransfer = {proposal.meta.shortageAfterTransfer} (engine)</p>
-                  <p>weeksTotalApplied = {proposal.meta.weeksTotalApplied} (from Σ reductions)</p>
-                  <p>perParentWeeksApplied = {JSON.stringify(proposal.meta.perParentWeeksApplied)}</p>
-                  <p className={
-                    Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0) === proposal.meta.weeksTotalApplied
-                      ? "text-primary" : "text-destructive font-bold"
-                  }>
-                    Σ perParent = {Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0)} {
-                      Object.values(proposal.meta.perParentWeeksApplied).reduce((s, v) => s + v, 0) === proposal.meta.weeksTotalApplied ? "✓" : "⚠"
-                    }
-                  </p>
-                  <p className={proposal.meta.unfulfilledAfterFull === 0 ? "text-primary" : "text-destructive font-bold"}>
-                    unfulfilledAfterFull = {proposal.meta.unfulfilledAfterFull} (engine) {proposal.meta.unfulfilledAfterFull === 0 ? "✓" : "⚠"}
-                  </p>
-                  <p className="text-foreground/50 pt-1">
-                    Check: transferDays({proposal.meta.transferDays}) + weeksTotalApplied({proposal.meta.weeksTotalApplied}) = {proposal.meta.transferDays + proposal.meta.weeksTotalApplied} vs shortageBefore({proposal.meta.shortageBefore}) {
-                      proposal.meta.transferDays + proposal.meta.weeksTotalApplied >= proposal.meta.shortageBefore ? "≥ ✓" : "< ⚠"
-                    }
-                  </p>
-                  <p>transferConfig = {proposal.meta.transferConfig}</p>
-                </div>
-              </div>
-            </details>
-          )}
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
