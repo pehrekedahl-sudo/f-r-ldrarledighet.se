@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RotateCcw, Upload } from "lucide-react";
 import { saveWizardDraft, loadWizardDraft, clearAllDrafts } from "@/lib/persistence";
+import { addDays, addMonths, diffDaysInclusive } from "@/utils/dateOnly";
 
 export type WizardResult = {
   parent1Name: string;
@@ -22,13 +23,23 @@ export type WizardResult = {
   has240Days2: boolean;
   preBirthParent: string | null;
   preBirthWeeks: number;
+  endDate1: string;
+  endDate2: string;
+  preBirthDate: string | null;
 };
 
 type Props = {
   onComplete: (result: WizardResult) => void;
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
+
+/** Approximate months between two YYYY-MM-DD dates */
+function approxMonths(from: string, to: string): number {
+  if (!from || !to) return 0;
+  const days = diffDaysInclusive(from, to);
+  return Math.max(0, Math.round(days / 30.44));
+}
 
 const OnboardingWizard = ({ onComplete }: Props) => {
   const draft = loadWizardDraft();
@@ -41,18 +52,24 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   // Step 2: Due date
   const [dueDate, setDueDate] = useState(draft?.dueDate ?? "");
 
-  // Step 3: Income (optional)
+  // Step 3: Pre-birth leave
+  const [preBirthChoice, setPreBirthChoice] = useState<"none" | "1week" | "custom">(draft?.preBirthChoice ?? "none");
+  const [preBirthDate, setPreBirthDate] = useState(draft?.preBirthDate ?? "");
+
+  // Step 4: Income (optional)
   const [wantIncome, setWantIncome] = useState<boolean | null>(draft?.wantIncome ?? null);
   const [income1, setIncome1] = useState(draft?.income1 ?? "");
   const [income2, setIncome2] = useState(draft?.income2 ?? "");
   const [has240Days1, setHas240Days1] = useState(draft?.has240Days1 ?? true);
   const [has240Days2, setHas240Days2] = useState(draft?.has240Days2 ?? true);
 
-  // Step 4: Months
+  // Step 5: End dates (with months for compat)
   const [months1, setMonths1] = useState(draft?.months1 ?? 6);
   const [months2, setMonths2] = useState(draft?.months2 ?? 6);
+  const [endDate1, setEndDate1] = useState(draft?.endDate1 ?? "");
+  const [endDate2, setEndDate2] = useState(draft?.endDate2 ?? "");
 
-  // Step 5: Days per week
+  // Step 6: Days per week
   const [daysPerWeek1, setDaysPerWeek1] = useState(draft?.daysPerWeek1 ?? 5);
   const [daysPerWeek2, setDaysPerWeek2] = useState(draft?.daysPerWeek2 ?? 5);
 
@@ -62,6 +79,28 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
 
+  // Pre-populate end dates from months when entering step 5
+  useEffect(() => {
+    if (step === 5 && dueDate) {
+      if (!endDate1) {
+        setEndDate1(addMonths(dueDate, months1));
+      }
+      if (!endDate2) {
+        const base = endDate1 || addMonths(dueDate, months1);
+        setEndDate2(addMonths(base, months2));
+      }
+    }
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync preBirthDate when choice is "1week"
+  useEffect(() => {
+    if (preBirthChoice === "1week" && dueDate) {
+      setPreBirthDate(addDays(dueDate, -7));
+    } else if (preBirthChoice === "none") {
+      setPreBirthDate("");
+    }
+  }, [preBirthChoice, dueDate]);
+
   // Auto-save draft
   useEffect(() => {
     saveWizardDraft({
@@ -70,14 +109,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       wantIncome, income1, income2,
       has240Days1, has240Days2,
       dueDate,
-      preBirthChoice: null, preBirthDate: null,
+      preBirthChoice, preBirthDate,
+      endDate1, endDate2,
       months1, months2,
       daysPerWeek1, daysPerWeek2,
       savingPreset: null, savedDays: 0,
       step,
     });
   }, [parent1Name, parent2Name, wantIncome, income1, income2,
-    has240Days1, has240Days2, dueDate, months1, months2,
+    has240Days1, has240Days2, dueDate, preBirthChoice, preBirthDate,
+    endDate1, endDate2, months1, months2,
     daysPerWeek1, daysPerWeek2, step]);
 
   const handleReset = useCallback(() => {
@@ -87,6 +128,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setWantIncome(null); setIncome1(""); setIncome2("");
     setHas240Days1(true); setHas240Days2(true);
     setDueDate("");
+    setPreBirthChoice("none"); setPreBirthDate("");
+    setEndDate1(""); setEndDate2("");
     setMonths1(6); setMonths2(6);
     setDaysPerWeek1(5); setDaysPerWeek2(5);
   }, []);
@@ -95,9 +138,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     switch (step) {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
       case 2: return dueDate.length > 0;
-      case 3: return wantIncome !== null;
-      case 4: return months1 >= 1 && months2 >= 1;
-      case 5: return true;
+      case 3: return preBirthChoice === "none" || preBirthChoice === "1week" || (preBirthChoice === "custom" && !!preBirthDate);
+      case 4: return wantIncome !== null;
+      case 5: return !!endDate1 && !!endDate2;
+      case 6: return true;
       default: return false;
     }
   };
@@ -106,6 +150,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
     } else {
+      // Compute preBirth info for result
+      const hasPre = preBirthChoice !== "none" && !!preBirthDate && !!dueDate;
+      const preWeeks = hasPre ? Math.max(1, Math.round(diffDaysInclusive(preBirthDate, dueDate) / 7)) : 0;
+
       onComplete({
         parent1Name,
         parent2Name,
@@ -119,8 +167,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         income2: wantIncome ? (Number(income2) || 0) : null,
         has240Days1: wantIncome ? has240Days1 : true,
         has240Days2: wantIncome ? has240Days2 : true,
-        preBirthParent: null,
-        preBirthWeeks: 0,
+        preBirthParent: hasPre ? "p1" : null,
+        preBirthWeeks: preWeeks,
+        endDate1,
+        endDate2,
+        preBirthDate: hasPre ? preBirthDate : null,
       });
     }
   };
@@ -128,6 +179,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const handleBack = () => {
     if (step > 1) setStep(step - 1);
   };
+
+  const cardClass = (active: boolean) =>
+    `w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${active ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`;
 
   const stepContent = () => {
     switch (step) {
@@ -165,17 +219,69 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 3:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Tar någon ledighet innan förlossningen?</h1>
+              <p className="text-muted-foreground">Många väljer att börja ta ut dagar någon vecka innan beräknat datum.</p>
+            </div>
+            <div className="space-y-3">
+              <button onClick={() => setPreBirthChoice("none")} className={cardClass(preBirthChoice === "none")}>
+                Nej
+              </button>
+              <button
+                onClick={() => setPreBirthChoice("1week")}
+                className={cardClass(preBirthChoice === "1week")}
+                disabled={!dueDate}
+              >
+                Ja, en vecka innan
+                {preBirthChoice === "1week" && dueDate && (
+                  <span className="block text-sm text-muted-foreground mt-0.5">Från {addDays(dueDate, -7)}</span>
+                )}
+              </button>
+              <button onClick={() => setPreBirthChoice("custom")} className={cardClass(preBirthChoice === "custom")}>
+                Ja, välj datum
+              </button>
+            </div>
+            {preBirthChoice === "custom" && (
+              <div className="space-y-2 animate-in fade-in duration-200">
+                {dueDate ? (
+                  <>
+                    <Label className="text-base">Startdatum för ledighet</Label>
+                    <Input
+                      type="date"
+                      className="text-lg h-12"
+                      value={preBirthDate}
+                      max={addDays(dueDate, -1)}
+                      onChange={(e) => setPreBirthDate(e.target.value)}
+                      autoFocus
+                    />
+                    {preBirthDate && (
+                      <p className="text-sm text-muted-foreground">
+                        ≈ {Math.round(diffDaysInclusive(preBirthDate, dueDate) / 7)} veckor innan BF
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Ange beräknat datum för förlossning i föregående steg för att välja startdatum.</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="text-3xl font-bold tracking-tight text-center">Vill ni se en uppskattning av ersättningen?</h1>
             <div className="space-y-3">
               <button
                 onClick={() => setWantIncome(true)}
-                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${wantIncome === true ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
+                className={cardClass(wantIncome === true)}
               >
                 Ja, ange inkomst
               </button>
               <button
                 onClick={() => setWantIncome(false)}
-                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors text-base ${wantIncome === false ? "border-primary bg-primary/5 font-medium" : "border-border bg-card hover:bg-muted"}`}
+                className={cardClass(wantIncome === false)}
               >
                 Nej, hoppa över
               </button>
@@ -203,24 +309,51 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-base">Antal månader – {parent1Name || "Förälder 1"}</Label>
-                <Input type="number" min={1} max={24} className="text-lg h-12" value={months1} onChange={(e) => setMonths1(Math.max(1, Math.min(24, Number(e.target.value) || 1)))} autoFocus />
+            {!dueDate ? (
+              <p className="text-sm text-muted-foreground text-center">Ange beräknat datum för förlossning i föregående steg för att välja slutdatum.</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-base">{parent1Name || "Förälder 1"} slutar</Label>
+                  <Input
+                    type="date"
+                    className="text-lg h-12"
+                    value={endDate1}
+                    min={dueDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEndDate1(val);
+                      if (val) setMonths1(approxMonths(dueDate, val));
+                    }}
+                    autoFocus
+                  />
+                  {endDate1 && <p className="text-sm text-muted-foreground">≈ {approxMonths(dueDate, endDate1)} månader</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-base">{parent2Name || "Förälder 2"} slutar</Label>
+                  <Input
+                    type="date"
+                    className="text-lg h-12"
+                    value={endDate2}
+                    min={endDate1 || dueDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEndDate2(val);
+                      if (val && endDate1) setMonths2(approxMonths(endDate1, val));
+                    }}
+                  />
+                  {endDate2 && endDate1 && <p className="text-sm text-muted-foreground">≈ {approxMonths(endDate1, endDate2)} månader</p>}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-base">Antal månader – {parent2Name || "Förälder 2"}</Label>
-                <Input type="number" min={1} max={24} className="text-lg h-12" value={months2} onChange={(e) => setMonths2(Math.max(1, Math.min(24, Number(e.target.value) || 1)))} />
-              </div>
-            </div>
+            )}
           </div>
         );
 
-      case 5:
+      case 6:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
@@ -284,6 +417,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               setWantIncome(d.wantIncome); setIncome1(d.income1); setIncome2(d.income2);
               setHas240Days1(d.has240Days1); setHas240Days2(d.has240Days2);
               setDueDate(d.dueDate);
+              setPreBirthChoice(d.preBirthChoice ?? "none");
+              setPreBirthDate(d.preBirthDate ?? "");
+              setEndDate1(d.endDate1 ?? ""); setEndDate2(d.endDate2 ?? "");
               setMonths1(d.months1); setMonths2(d.months2);
               setDaysPerWeek1(d.daysPerWeek1); setDaysPerWeek2(d.daysPerWeek2);
               setStep(d.step);
