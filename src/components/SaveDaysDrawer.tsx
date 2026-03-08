@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { ChevronDown } from "lucide-react";
+
 import { simulatePlan } from "@/lib/simulatePlan";
 import {
   applySmartChange,
   proposeEvenSpreadReduction,
   normalizeBlocks,
-  MIN_AUTO_DPW,
+  
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
@@ -72,8 +72,6 @@ type Proposal = {
   deltaMonthly: number;
   newEndDate: string;
   direction: "save";
-  debugBefore: Block[];
-  debugAfter: Block[];
 };
 
 // ── helpers ──
@@ -290,8 +288,6 @@ function computeProposal(
       deltaMonthly: Math.round(newAvg - origAvg),
       newEndDate: latestEnd,
       direction: "save",
-      debugBefore: originalBlocks,
-      debugAfter: resultBlocks,
     };
   }
 
@@ -324,8 +320,6 @@ function computeProposal(
     deltaMonthly: Math.round(newAvg - origAvg),
     newEndDate: latestEnd,
     direction: "save",
-    debugBefore: originalBlocks,
-    debugAfter: resultBlocks,
   };
 }
 
@@ -541,41 +535,6 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                   </p>
                 </div>
               </div>
-
-              {/* DEBUG (policy) */}
-              <details className="border-t border-border pt-4">
-                <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none">
-                  <ChevronDown className="h-3 w-3" />
-                  DEBUG (policy)
-                </summary>
-                <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3 font-mono text-[10px] text-muted-foreground max-h-60 overflow-y-auto">
-                  <div>
-                    <p className="font-semibold text-foreground/70">Blocks BEFORE normalize ({proposal.debugBefore.length})</p>
-                    {proposal.debugBefore.map((b, i) => (
-                      <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground/70">Blocks AFTER normalize ({proposal.debugAfter.length})</p>
-                    {proposal.debugAfter.map((b, i) => (
-                      <p key={i}>{b.id.slice(0,12)} | {b.parentId} | {b.startDate}→{b.endDate} | dpw={b.daysPerWeek}</p>
-                    ))}
-                  </div>
-                  {proposal.summary && (
-                    <div>
-                      <p className="font-semibold text-foreground/70">Proposal Summary</p>
-                      <p>weeksAffectedTotal = {proposal.summary.weeksAffectedTotal}</p>
-                      <p>reductionPerWeek = {proposal.summary.reductionPerWeek}</p>
-                      <p>startDateOfReduction = {proposal.summary.startDateOfReduction ?? "—"}</p>
-                      <p>endDateOfReduction = {proposal.summary.endDateOfReduction ?? "—"}</p>
-                      <p>MIN_AUTO_DPW = {MIN_AUTO_DPW}</p>
-                      {proposal.summary.perParent.map((pp, i) => (
-                        <p key={i}>  {pp.parentId}: {pp.weeksAffected}w, {pp.oldDpw}→{pp.newDpw}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </details>
             </div>
           ) : targetDays === current.currentTotal ? (
             <p className="text-sm text-muted-foreground italic">
