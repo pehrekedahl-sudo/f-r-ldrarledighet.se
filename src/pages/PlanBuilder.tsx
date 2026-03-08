@@ -876,6 +876,22 @@ const PlanBuilder = () => {
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
         }}
       />
+      <TransferDaysDrawer
+        open={transferDaysOpen}
+        onOpenChange={setTransferDaysOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+        constants={CONSTANTS}
+        transfer={transfer}
+        onApply={(newTransfer) => {
+          setTransfer(newTransfer);
+          setTransferAmount(newTransfer?.sicknessDays ?? 0);
+          setTransferError(null);
+          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+          savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+        }}
+      />
     </div>
   );
 };
