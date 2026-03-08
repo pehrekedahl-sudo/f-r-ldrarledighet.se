@@ -355,7 +355,6 @@ const PlanBuilder = () => {
       </div>
       <div className="flex gap-3">
         <Button onClick={addBlock}>Lägg till block</Button>
-        <Button variant="secondary" onClick={addDoubleDays}>Lägg till dubbeldagar (överlapp)</Button>
       </div>
     </section>
   );
