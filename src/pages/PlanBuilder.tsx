@@ -983,11 +983,27 @@ const PlanBuilder = () => {
         onApply={(newBlocks) => {
           const merged = applySmartChange(blocks, newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
+          // Compute saved days by comparing remaining before and after
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const calcRemaining = (blks: typeof merged) => {
+            try {
+              const valid = blks.filter(b => b.startDate && b.endDate && b.endDate >= b.startDate)
+                .sort((a, b) => a.startDate.localeCompare(b.startDate));
+              if (valid.length === 0) return 0;
+              const sim = simulatePlan({ parents, blocks: valid, transfers, constants: CONSTANTS });
+              return Math.round(sim.parentsResult.reduce(
+                (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+              ));
+            } catch { return 0; }
+          };
+          const remainingBefore = calcRemaining(originalBlocks);
+          const remainingAfter = calcRemaining(merged);
+          const newSavedDays = Math.max(0, remainingAfter - remainingBefore + savedDaysCount);
+          setSavedDaysCount(newSavedDays);
           setBlocks(merged);
           setOriginalBlocks(merged);
           setHasManualEdits(false);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount: newSavedDays });
         }}
       />
       <FitPlanDrawer
