@@ -477,6 +477,22 @@ const PlanBuilder = () => {
         }
         const activeMonths = Array.from(monthTotals.values()).filter(v => v > 0).length;
         const avgMonthly = activeMonths > 0 ? totalGross / activeMonths : 0;
+
+        // Per-parent FK benefit info
+        const benefits = result.parentBenefits ?? [];
+        // Weighted average: weight each parent's monthly FK benefit by their taken days
+        const weightedAvg = (() => {
+          let totalWeight = 0;
+          let weightedSum = 0;
+          for (const b of benefits) {
+            const pr = result.parentsResult.find(p => p.parentId === b.parentId);
+            const takenDays = pr ? pr.taken.sickness + pr.taken.lowest : 0;
+            weightedSum += b.monthlyBenefitEquivalent * takenDays;
+            totalWeight += takenDays;
+          }
+          return totalWeight > 0 ? weightedSum / totalWeight : avgMonthly;
+        })();
+
         const totalAll = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0);
         const unfulfilled = result.unfulfilledDaysTotal ?? 0;
 
