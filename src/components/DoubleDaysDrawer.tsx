@@ -120,8 +120,18 @@ const DoubleDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tran
     if (overlapBlocks.length === 0) return { days: 0, startDate: null as string | null, endDate: null as string | null, daysPerWeek: 5 };
     const start = overlapBlocks.reduce((min, b) => compareDates(b.startDate, min) < 0 ? b.startDate : min, overlapBlocks[0].startDate);
     const end = overlapBlocks.reduce((max, b) => compareDates(b.endDate, max) > 0 ? b.endDate : max, overlapBlocks[0].endDate);
-    const totalCalDays = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const weekdays = Math.round(totalCalDays * 5 / 7);
+    // Count actual weekdays (Mon-Fri) using dateOnly utils
+    let weekdays = 0;
+    const seen = new Set<string>();
+    for (const ob of overlapBlocks) {
+      const key = `${ob.startDate}_${ob.endDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDays(d, 1)) {
+        const wd = isoWeekdayIndex(d); // 0=Mon..6=Sun
+        if (wd < 5) weekdays++;
+      }
+    }
     const dpw = overlapBlocks[0].daysPerWeek;
     return { days: weekdays, startDate: start, endDate: end, daysPerWeek: dpw };
   }, [blocks]);
