@@ -113,7 +113,10 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     // Check overlap with other blocks of same parent
     const otherP1 = blocks.filter(b => b.parentId === parent1.id && b.id !== p1Block.id);
     for (const ob of otherP1) {
-      if (compareDates(ob.startDate, newP1End) <= 0 && compareDates(ob.endDate, p1Block.startDate) >= 0) {
+      if (
+        compareDates(ob.startDate, newP1End) < 0 &&
+        compareDates(ob.endDate, p1Block.startDate) >= 0
+      ) {
         return { error: `Överlapp med ett annat block för ${parent1.name}.` };
       }
     }
