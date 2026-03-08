@@ -1019,7 +1019,7 @@ const PlanBuilder = () => {
           setBlocks(normalized);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
-          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <HandoverDrawer
