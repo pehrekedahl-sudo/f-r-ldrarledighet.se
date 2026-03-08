@@ -170,7 +170,23 @@ const PlanBuilder = () => {
     setBlocks((prev) => [...prev, b1, b2]);
   };
   const updateBlock = (id: string, patch: Partial<Block>) =>
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    setBlocks((prev) => {
+      const updated = prev.map((b) => (b.id === id ? { ...b, ...patch } : b));
+      // Sync overlap pair daysPerWeek
+      if (patch.daysPerWeek !== undefined) {
+        const changed = updated.find(b => b.id === id);
+        if (changed?.isOverlap) {
+          return updated.map(b => {
+            if (b.id !== id && b.isOverlap && b.parentId !== changed.parentId &&
+                b.startDate === changed.startDate && b.endDate === changed.endDate) {
+              return { ...b, daysPerWeek: patch.daysPerWeek! };
+            }
+            return b;
+          });
+        }
+      }
+      return updated;
+    });
   const removeBlock = (id: string) =>
     setBlocks((prev) => prev.filter((b) => b.id !== id));
 
