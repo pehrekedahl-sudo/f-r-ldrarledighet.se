@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { type Block } from "@/lib/adjustmentPolicy";
-import { addDays, compareDates } from "@/utils/dateOnly";
+import { addDays, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
 import { generateBlockId } from "@/lib/blockIdUtils";
 
 type Parent = {
