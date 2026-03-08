@@ -443,6 +443,7 @@ const PlanBuilder = () => {
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
+                setSavedDaysCount(0);
                 setTransferAmount(0);
                 setTransferError(null);
               }}>Generera startplan</Button>
