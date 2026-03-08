@@ -251,7 +251,7 @@ const PlanBuilder = () => {
     const remaining = blocks.filter(b => b.id !== id);
     const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
   const blockErrors = useMemo(
