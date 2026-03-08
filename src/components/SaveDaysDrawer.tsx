@@ -288,8 +288,6 @@ function computeProposal(
       deltaMonthly: Math.round(newAvg - origAvg),
       newEndDate: latestEnd,
       direction: "save",
-      debugBefore: originalBlocks,
-      debugAfter: resultBlocks,
     };
   }
 
