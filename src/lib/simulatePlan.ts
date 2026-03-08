@@ -16,6 +16,8 @@ type BlockInput = {
   endDate: string; // YYYY-MM-DD (inclusive)
   daysPerWeek: number; // 0..7 integer
   lowestDaysPerWeek?: number; // 0..7 integer, optional, <= daysPerWeek
+  overlapGroupId?: string; // DD blocks — allowed to overlap with regular blocks
+  isOverlap?: boolean;
 };
 
 type TransferInput = {
