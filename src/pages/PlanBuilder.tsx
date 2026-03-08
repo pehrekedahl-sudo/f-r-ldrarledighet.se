@@ -704,25 +704,8 @@ const PlanBuilder = () => {
                     }
                   }
 
-                  const handleClick = () => {
-                    if (hasOverlap) {
-                      // Scroll to the overlap block in the timeline
-                      const overlapEl = document.querySelector('[data-overlap="true"]');
-                      if (overlapEl) {
-                        overlapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        overlapEl.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
-                        setTimeout(() => overlapEl.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2000);
-                      }
-                    } else {
-                      setDoubleDaysOpen(true);
-                    }
-                  };
-
                   return (
-                    <div
-                      className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={handleClick}
-                    >
+                    <div className="flex items-center justify-between px-5 py-4">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground">Dubbeldagar</p>
                         <p className="text-sm text-muted-foreground">Båda tar ut ersättning samtidigt — max 30 dagar under barnets första år</p>
@@ -731,9 +714,28 @@ const PlanBuilder = () => {
                         <p className="text-sm text-foreground font-medium">
                           {hasOverlap ? `${overlapDayCount} dagar inlagda` : "Inga dubbeldagar"}
                         </p>
-                        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">
-                          {hasOverlap ? "Se i tidslinje" : "Lägg till"} <span>→</span>
-                        </span>
+                        {hasOverlap ? (
+                          <button
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 rounded-full px-3 py-1 transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (window.confirm("Ta bort dubbeldagarna?")) {
+                                const updated = blocks.filter(b => !b.isOverlap);
+                                setBlocks(updated);
+                                const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+                                savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS });
+                              }
+                            }}
+                          >
+                            Ta bort <span>→</span>
+                          </button>
+                        ) : (
+                          <button
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer"
+                            onClick={() => setDoubleDaysOpen(true)}
+                          >
+                            Lägg till <span>→</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
