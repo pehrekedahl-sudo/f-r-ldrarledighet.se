@@ -482,20 +482,17 @@ const PlanBuilder = () => {
         // Compute avg as total FK benefit across all blocks / total plan months
         const computedAvg = (() => {
           const summary = result.parentSummary ?? [];
-          if (summary.length === 0) return avgMonthly;
-          // Total benefit paid = sum over all blocks of (monthlyBenefitForBlock × block duration in months)
+          if (summary.length === 0 || validBlocks.length === 0) return avgMonthly;
           let totalBenefitMonths = 0;
           let totalMonths = 0;
           for (const b of validBlocks) {
             const parent = parents.find(p => p.id === b.parentId);
             if (!parent) continue;
-            // duration in months ≈ calendar days / 30.44
-            let dayCount = 0;
-            for (let d = b.startDate; d <= b.endDate; d = (() => { const dt = new Date(d + "T12:00:00"); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); })()) {
-              dayCount++;
-            }
+            // Approximate duration in months
+            const startMs = new Date(b.startDate + "T12:00:00").getTime();
+            const endMs = new Date(b.endDate + "T12:00:00").getTime();
+            const dayCount = Math.round((endMs - startMs) / 86400000) + 1;
             const durationMonths = dayCount / 30.44;
-            const { computeBlockMonthlyBenefit } = require("@/lib/fkConstants");
             const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
             totalBenefitMonths += monthlyForBlock * durationMonths;
             totalMonths += durationMonths;
