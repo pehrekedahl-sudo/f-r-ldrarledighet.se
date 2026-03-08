@@ -654,7 +654,7 @@ const PlanBuilder = () => {
                           ? `${transfer.sicknessDays} dagar ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
                           : "Ingen överföring"}
                       </p>
-                      <p className="text-sm text-primary hover:underline">Justera →</p>
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
                     </div>
                   </div>
                 )}
