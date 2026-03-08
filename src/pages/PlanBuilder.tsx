@@ -604,6 +604,14 @@ const PlanBuilder = () => {
                 parents={parents}
                 unfulfilledDaysTotal={unfulfilled}
                 onBlockClick={handleTimelineBlockClick}
+                onDeleteOverlap={(blockId) => {
+                  if (window.confirm("Ta bort dubbeldagarna?")) {
+                    const updated = blocks.filter(b => b.id !== blockId);
+                    setBlocks(updated);
+                    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS });
+                  }
+                }}
               />
             </section>
 
