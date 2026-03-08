@@ -62,19 +62,27 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const parent2 = parents[1];
 
   // Find handover blocks
-  const p1Block = useMemo(() => {
-    if (!parent1) return null;
+  const { p1Block, p2Block } = useMemo(() => {
+    if (!parent1 || !parent2) return { p1Block: null, p2Block: null };
     const p1Blocks = blocks.filter(b => b.parentId === parent1.id);
-    if (p1Blocks.length === 0) return null;
-    return p1Blocks.reduce((max, b) => compareDates(b.endDate, max.endDate) > 0 ? b : max);
-  }, [blocks, parent1]);
-
-  const p2Block = useMemo(() => {
-    if (!parent2) return null;
     const p2Blocks = blocks.filter(b => b.parentId === parent2.id);
-    if (p2Blocks.length === 0) return null;
-    return p2Blocks.reduce((min, b) => compareDates(b.startDate, min.startDate) < 0 ? b : min);
-  }, [blocks, parent2]);
+    if (p1Blocks.length === 0 || p2Blocks.length === 0) return { p1Block: null, p2Block: null };
+
+    // Find the pair where p1 ends and p2 begins (the handover boundary)
+    const earliestP2 = p2Blocks.reduce((min, b) =>
+      compareDates(b.startDate, min.startDate) < 0 ? b : min
+    );
+    const handoverDate = earliestP2.startDate;
+
+    // p1 block = the one whose endDate is the day before handoverDate (or closest before it)
+    const p1Candidates = p1Blocks.filter(b => compareDates(b.endDate, handoverDate) < 0);
+    if (p1Candidates.length === 0) return { p1Block: null, p2Block: null };
+    const latestP1 = p1Candidates.reduce((max, b) =>
+      compareDates(b.endDate, max.endDate) > 0 ? b : max
+    );
+
+    return { p1Block: latestP1, p2Block: earliestP2 };
+  }, [blocks, parent1, parent2]);
 
   // Current handover date = p2Block.startDate
   const currentHandover = p2Block?.startDate ?? null;
