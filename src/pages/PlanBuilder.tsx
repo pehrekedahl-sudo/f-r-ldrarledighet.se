@@ -1034,7 +1034,7 @@ const PlanBuilder = () => {
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS });
+          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <DoubleDaysDrawer
