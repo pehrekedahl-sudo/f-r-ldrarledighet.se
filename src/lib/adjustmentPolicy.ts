@@ -133,7 +133,7 @@ function absorbMicroBlocks(blocks: Block[]): Block[] {
       const next: Block[] = [];
       for (let i = 0; i < merged.length; i++) {
         const b = merged[i];
-        if (calendarDays(b) < 14 && merged.length > 1) {
+        if (calendarDays(b) < 14 && merged.length > 1 && !b.isOverlap) {
           const prev = i > 0 ? next[next.length - 1] : null;
           const nextB = i < merged.length - 1 ? merged[i + 1] : null;
           if (prev && (!nextB || Math.abs(prev.daysPerWeek - b.daysPerWeek) <= Math.abs(nextB.daysPerWeek - b.daysPerWeek))) {
@@ -198,7 +198,7 @@ export function proposeEvenSpreadReduction(opts: {
   while (remaining > 0 && safetyLimit-- > 0) {
     // Find the highest dpw level among eligible blocks
     const eligible = working.filter(
-      b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1
+      b => allowedParents.has(b.parentId) && b.daysPerWeek >= MIN_AUTO_DPW + 1 && !b.isOverlap
     );
     if (eligible.length === 0) break;
 
