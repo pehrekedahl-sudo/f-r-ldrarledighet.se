@@ -200,7 +200,7 @@ function binarySearchIncrease(opts: {
 
     while (stillNeeded > 0 && safetyLimit-- > 0) {
       const candidates = working
-        .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7)
+        .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7 && !b.isOverlap)
         .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest first
       if (candidates.length === 0) break;
 
