@@ -25,9 +25,8 @@ type Parent = {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  blocks: Block[];
   parents: Parent[];
-  onApply: (newBlocks: Block[]) => void;
+  onApply: (newBlock: Block) => void;
 };
 
 function weekdaysToCalendarDays(weekdays: number): number {
