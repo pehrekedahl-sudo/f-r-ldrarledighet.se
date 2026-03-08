@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths } from "@/utils/dateOnly";
 import { ChevronDown } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
-import { FK_CONSTANTS } from "@/lib/fkConstants";
+import { FK, FK_CONSTANTS } from "@/lib/fkConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
