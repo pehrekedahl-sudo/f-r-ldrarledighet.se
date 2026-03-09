@@ -15,7 +15,6 @@ import { Slider } from "@/components/ui/slider";
 import { simulatePlan } from "@/lib/simulatePlan";
 import {
   applySmartChange,
-  proposeEvenSpreadReduction,
   normalizeBlocks,
   
   type Block,
@@ -112,7 +111,12 @@ function getCurrentState(blocks: Block[], parents: Parent[], constants: Constant
 
 // ── Binary-search helper: find daysToReduce such that simulatePlan gives remaining == target ──
 
-function binarySearchReduction(opts: {
+/**
+ * Directly lower dpw from the end of blocks to save days.
+ * Works backwards through the target parent's blocks, reducing dpw by 1
+ * for as many weeks as needed. Never goes below 1.
+ */
+function directReduceDpw(opts: {
   originalBlocks: Block[];
   parents: Parent[];
   constants: Constants;
@@ -128,41 +132,80 @@ function binarySearchReduction(opts: {
   const daysToSave = targetTotal - originalTotal;
   if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
 
-  let lo = Math.max(0, daysToSave - 10);
-  let hi = daysToSave * 3 + 50;
+  const weeksToSave = Math.ceil(daysToSave);
+
+  // Binary search: find how many week-reductions produce the right remaining count
+  let lo = Math.max(1, weeksToSave - 10);
+  let hi = weeksToSave * 3 + 50;
   let bestBlocks: Block[] = originalBlocks;
   let bestSummary: ReductionSummary | null = null;
   let bestDiff = Infinity;
 
-  for (let iter = 0; iter < 20; iter++) {
+  for (let iter = 0; iter < 25; iter++) {
     const mid = Math.round((lo + hi) / 2);
     if (mid <= 0) { lo = 1; continue; }
 
-    let result: { nextBlocks: Block[]; summary: ReductionSummary };
-    if (source === "both" && parents.length >= 2) {
-      result = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: "all", daysToReduce: mid });
-    } else {
-      result = proposeEvenSpreadReduction({ plan: originalBlocks, parentScope: allowedParentIds, daysToReduce: mid });
+    const working = originalBlocks.map(b => ({ ...b }));
+    let stillNeeded = mid;
+
+    // Get eligible blocks for this parent, sorted latest first
+    const eligible = working
+      .filter(b => allowedParentIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
+      .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest block first
+
+    for (const target of eligible) {
+      if (stillNeeded <= 0) break;
+      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
+      if (blockWeeks <= 0) continue;
+
+      const weeksFromThis = Math.min(stillNeeded, blockWeeks);
+
+      if (weeksFromThis >= blockWeeks) {
+        // Lower the entire block's dpw by 1
+        target.daysPerWeek = Math.max(1, target.daysPerWeek - 1);
+        target.source = "system";
+      } else {
+        // Split: keep head at original dpw, lower tail's dpw by 1
+        const headWeeks = blockWeeks - weeksFromThis;
+        const splitDate = addDays(target.startDate, headWeeks * 7);
+        working.push({
+          id: generateBlockId("save-red"),
+          parentId: target.parentId,
+          startDate: splitDate,
+          endDate: target.endDate,
+          daysPerWeek: Math.max(1, target.daysPerWeek - 1),
+          lowestDaysPerWeek: target.lowestDaysPerWeek,
+          overlapGroupId: target.overlapGroupId,
+          source: "system",
+        });
+        target.endDate = addDays(splitDate, -1);
+        target.source = "system";
+      }
+      stillNeeded -= weeksFromThis;
     }
 
-    const simResult = simulatePlan({ parents, blocks: result.nextBlocks, transfers, constants });
+    const candidateBlocks = normalizeBlocks(working);
+    const simResult = simulatePlan({ parents, blocks: candidateBlocks, transfers, constants });
     const remaining = calcRemaining(simResult.parentsResult).currentTotal;
     const diff = remaining - targetTotal;
 
     if (Math.abs(diff) < Math.abs(bestDiff)) {
       bestDiff = diff;
-      bestBlocks = result.nextBlocks;
-      bestSummary = result.summary;
+      bestBlocks = candidateBlocks;
     }
     if (diff === 0) break;
-    if (diff > 0) hi = mid - 1;
-    else lo = mid + 1;
+    if (diff > 0) hi = mid - 1; // too many remaining → reduce less
+    else lo = mid + 1;          // too few remaining → reduce more
   }
 
   return { blocks: bestBlocks, summary: bestSummary };
 }
 
-function binarySearchIncrease(opts: {
+/**
+ * Increase dpw (use more days) to reduce remaining total.
+ * Raises lowest-dpw blocks first, latest blocks first within each level.
+ */
+function directIncreaseDpw(opts: {
   originalBlocks: Block[];
   parents: Parent[];
   constants: Constants;
@@ -175,12 +218,11 @@ function binarySearchIncrease(opts: {
   const transfers = getTransfers(transfer);
   const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
 
-  const daysToUse = originalTotal - targetTotal; // how many more days to take out vs original
+  const daysToUse = originalTotal - targetTotal;
   if (daysToUse <= 0) return { blocks: originalBlocks, summary: null };
 
-  // Max capacity: weeks * (7 - currentDpw) per block, capped at 7
   const maxCapacity = originalBlocks
-    .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7)
+    .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7 && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(diffDaysInclusive(b.startDate, b.endDate) / 7) * (7 - b.daysPerWeek), 0);
   if (maxCapacity <= 0) return null;
 
@@ -189,11 +231,10 @@ function binarySearchIncrease(opts: {
   let bestBlocks: Block[] = originalBlocks;
   let bestDiff = Infinity;
 
-  for (let iter = 0; iter < 20; iter++) {
+  for (let iter = 0; iter < 25; iter++) {
     const mid = Math.round((lo + hi) / 2);
     if (mid <= 0) { lo = 1; continue; }
 
-    // Increase dpw from originalBlocks, raise lowest-dpw blocks first (latest first within each level)
     const working = originalBlocks.map(b => ({ ...b }));
     let stillNeeded = mid;
     let safetyLimit = 20;
@@ -201,7 +242,7 @@ function binarySearchIncrease(opts: {
     while (stillNeeded > 0 && safetyLimit-- > 0) {
       const candidates = working
         .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7 && !b.isOverlap)
-        .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest first
+        .sort((a, b) => compareDates(b.startDate, a.startDate));
       if (candidates.length === 0) break;
 
       const minDpw = Math.min(...candidates.map(b => b.daysPerWeek));
@@ -214,6 +255,7 @@ function binarySearchIncrease(opts: {
         const weeksToRaise = Math.min(stillNeeded, blockWeeks);
         if (weeksToRaise >= blockWeeks) {
           target.daysPerWeek = target.daysPerWeek + 1;
+          target.source = "system";
         } else {
           const headDays = (blockWeeks - weeksToRaise) * 7;
           const splitDate = addDays(target.startDate, headDays);
@@ -225,8 +267,10 @@ function binarySearchIncrease(opts: {
             daysPerWeek: target.daysPerWeek + 1,
             lowestDaysPerWeek: target.lowestDaysPerWeek,
             overlapGroupId: target.overlapGroupId,
+            source: "system",
           });
           target.endDate = addDays(splitDate, -1);
+          target.source = "system";
         }
         stillNeeded -= weeksToRaise;
       }
@@ -242,8 +286,8 @@ function binarySearchIncrease(opts: {
       bestBlocks = candidateBlocks;
     }
     if (diff === 0) break;
-    if (diff < 0) hi = mid - 1; // too few remaining = took out too much = increase less
-    else lo = mid + 1;          // too many remaining = didn't take out enough = increase more
+    if (diff < 0) hi = mid - 1;
+    else lo = mid + 1;
   }
 
   return { blocks: bestBlocks, summary: null };
@@ -265,7 +309,7 @@ function computeProposal(
 
   if (targetTotal < originalTotal) {
     // USE direction: take out more days than original by increasing dpw toward 7
-    const searched = binarySearchIncrease({
+    const searched = directIncreaseDpw({
       originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
     });
     if (!searched) return null;
@@ -293,7 +337,7 @@ function computeProposal(
 
   // targetTotal > originalTotal: user wants to SAVE more days (reduce dpw)
 
-  const searched = binarySearchReduction({
+  const searched = directReduceDpw({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
   });
   if (!searched) return null;

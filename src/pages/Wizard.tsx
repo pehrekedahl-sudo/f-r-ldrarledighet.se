@@ -25,6 +25,7 @@ type Block = {
   endDate: string;
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
+  source?: "system" | "user";
 };
 
 let nextId = 1;
@@ -63,6 +64,7 @@ const Wizard = () => {
           startDate: preBirthStart,
           endDate: addDays(due, -1),
           daysPerWeek: Math.round(preDpw),
+          source: "system",
         });
       }
     }
@@ -73,8 +75,8 @@ const Wizard = () => {
 
     const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
     [
-      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1) }),
-      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2) }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1), source: "system" }),
+      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2), source: "system" }),
     ].forEach(b => b && generatedBlocks.push(b));
 
     if (generatedBlocks.length === 0) return;
