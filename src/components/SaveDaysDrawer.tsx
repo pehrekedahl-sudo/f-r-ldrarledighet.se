@@ -505,6 +505,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             />
             {clampHint ? (
               <p className="text-xs text-destructive">{clampHint}</p>
+            ) : overLimitError ? (
+              <p className="text-xs text-destructive">{overLimitError}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 0 – {maxRemaining} dagar
