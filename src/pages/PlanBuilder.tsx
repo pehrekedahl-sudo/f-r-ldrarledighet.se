@@ -88,7 +88,7 @@ const PlanBuilder = () => {
   const [savedDaysCount, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Block[][]>([]);
+  const [history, setHistory] = useState<{ blocks: Block[]; savedDaysCount: number }[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [months1, setMonths1] = useState(6);
@@ -173,18 +173,19 @@ const PlanBuilder = () => {
   };
 
   const pushHistory = () => {
-    setHistory(prev => [...prev.slice(-19), blocks]);
+    setHistory(prev => [...prev.slice(-19), { blocks, savedDaysCount }]);
     setCanUndo(true);
   };
 
   const handleUndo = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
-    setBlocks(prev);
+    setBlocks(prev.blocks);
+    setSavedDaysCount(prev.savedDaysCount);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-    savePlanInput({ parents, blocks: prev, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
   };
 
   const sharePlan = useCallback(() => {
