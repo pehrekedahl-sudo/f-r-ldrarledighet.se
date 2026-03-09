@@ -439,7 +439,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       const result = computeProposal(
         parents, constants, transfer,
         targetTotal,
-        originalBlocks, maxDays,
+        originalBlocks, current.currentTotal,
         src
       );
       setProposal(result);
