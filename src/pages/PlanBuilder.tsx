@@ -1039,7 +1039,8 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
-          const normalized = normalizeBlocks(newBlocks);
+          pushHistory();
+          const normalized = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(normalized, "FitPlanDrawer-apply");
           setBlocks(normalized);
           setTransfer(newTransfer);
