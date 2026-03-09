@@ -509,7 +509,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               <p className="text-xs text-destructive">{overLimitError}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                0 – {maxRemaining} dagar
+                0 – {originalState.currentTotal} dagar
               </p>
             )}
           </div>
