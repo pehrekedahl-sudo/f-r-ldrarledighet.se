@@ -574,7 +574,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
-          <Button disabled={!proposal} onClick={handleApply}>
+          <Button disabled={!proposal || !!overLimitError} onClick={handleApply}>
             Applicera ändring
           </Button>
           <SheetClose asChild>
