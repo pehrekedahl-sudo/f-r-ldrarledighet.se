@@ -85,7 +85,7 @@ const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [originalBlocks, setOriginalBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number } | null>(null);
-  const [savedDaysCount, setSavedDaysCount] = useState(0);
+  const [_savedDaysCountLegacy, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [history, setHistory] = useState<{ blocks: Block[]; savedDaysCount: number }[]>([]);
@@ -297,6 +297,25 @@ const PlanBuilder = () => {
       return null;
     }
   }, [planInput]);
+
+  const savedDaysCount = useMemo(() => {
+    if (!result) return 0;
+    const currentRemaining = Math.round(
+      result.parentsResult.reduce(
+        (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+      )
+    );
+    try {
+      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const maxResult = simulatePlan({ parents, blocks: [], transfers, constants: CONSTANTS });
+      const maxDays = Math.round(
+        maxResult.parentsResult.reduce(
+          (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+        )
+      );
+      return Math.max(0, maxDays - currentRemaining);
+    } catch { return 0; }
+  }, [result, parents, transfer]);
 
   const handleTransfer = (toParentId: string) => {
     const fromParentId = toParentId === "p1" ? "p2" : "p1";
@@ -613,8 +632,6 @@ const PlanBuilder = () => {
                 </>
               )}
             </section>
-
-
             {/* ── INFO PANEL ── */}
             <Collapsible>
               <CollapsibleTrigger className="flex items-center justify-between w-full text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
