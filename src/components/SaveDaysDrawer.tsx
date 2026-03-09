@@ -15,7 +15,6 @@ import { Slider } from "@/components/ui/slider";
 import { simulatePlan } from "@/lib/simulatePlan";
 import {
   applySmartChange,
-  proposeEvenSpreadReduction,
   normalizeBlocks,
   
   type Block,
