@@ -1069,12 +1069,12 @@ const PlanBuilder = () => {
         onOpenChange={setDoubleDaysOpen}
         parents={parents}
         onApply={(newBlock) => {
-          setBlocks(prev => {
-            const updated = [...prev, newBlock];
-            const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
-            return updated;
-          });
+          pushHistory();
+          const updated = canonicalizeBlocks([...blocks, newBlock]);
+          assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
+          setBlocks(updated);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <TransferDaysDrawer
