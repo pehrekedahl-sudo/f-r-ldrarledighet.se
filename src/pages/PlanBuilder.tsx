@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
 import { normalizeBlocks, applySmartChange } from "@/lib/adjustmentPolicy";
+import { canonicalizeBlocks } from "@/lib/canonicalizeBlocks";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
