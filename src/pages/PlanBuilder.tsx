@@ -173,18 +173,19 @@ const PlanBuilder = () => {
   };
 
   const pushHistory = () => {
-    setHistory(prev => [...prev.slice(-19), blocks]);
+    setHistory(prev => [...prev.slice(-19), { blocks, savedDaysCount }]);
     setCanUndo(true);
   };
 
   const handleUndo = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
-    setBlocks(prev);
+    setBlocks(prev.blocks);
+    setSavedDaysCount(prev.savedDaysCount);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
     const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-    savePlanInput({ parents, blocks: prev, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
   };
 
   const sharePlan = useCallback(() => {
