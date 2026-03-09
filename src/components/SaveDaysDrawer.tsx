@@ -310,7 +310,7 @@ function computeProposal(
 
   if (targetTotal < originalTotal) {
     // USE direction: take out more days than original by increasing dpw toward 7
-    const searched = binarySearchIncrease({
+    const searched = directIncreaseDpw({
       originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
     });
     if (!searched) return null;
