@@ -484,7 +484,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               id="target-days-input"
               type="number"
               min={0}
-              max={maxRemaining}
+              max={originalState.currentTotal}
               value={rawInput}
               onChange={(e) => {
                 setRawInput(e.target.value);
