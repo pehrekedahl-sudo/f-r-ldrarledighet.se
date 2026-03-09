@@ -338,7 +338,7 @@ function computeProposal(
 
   // targetTotal > originalTotal: user wants to SAVE more days (reduce dpw)
 
-  const searched = binarySearchReduction({
+  const searched = directReduceDpw({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
   });
   if (!searched) return null;
