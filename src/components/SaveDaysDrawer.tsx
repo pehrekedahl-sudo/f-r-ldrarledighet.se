@@ -161,16 +161,17 @@ function directReduceDpw(opts: {
         if (idx === -1) continue;
 
         if (weeksToReduce >= blockWeeks) {
-          result[idx] = { ...result[idx], daysPerWeek: block.daysPerWeek - 1, source: "system" };
+          result[idx] = { ...result[idx], daysPerWeek: result[idx].daysPerWeek - 1, source: "system" };
         } else {
           const splitDate = addDays(block.endDate, -(weeksToReduce * 7));
+          const newDpw = result[idx].daysPerWeek - 1;
           result[idx] = { ...result[idx], endDate: splitDate, source: "system" };
           result.push({
             ...block,
             id: generateBlockId("save-red"),
             startDate: addDays(splitDate, 1),
             endDate: block.endDate,
-            daysPerWeek: block.daysPerWeek - 1,
+            daysPerWeek: newDpw,
             source: "system",
           });
         }
