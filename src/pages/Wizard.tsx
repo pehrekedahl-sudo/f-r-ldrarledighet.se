@@ -64,6 +64,7 @@ const Wizard = () => {
           startDate: preBirthStart,
           endDate: addDays(due, -1),
           daysPerWeek: Math.round(preDpw),
+          source: "system",
         });
       }
     }
