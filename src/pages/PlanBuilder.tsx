@@ -783,20 +783,18 @@ const PlanBuilder = () => {
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
                 </div>
                 {result.parentSummary.map(s => (
-                  <div key={s.parentId} className="flex items-center justify-between px-5 py-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">{s.name}</p>
-                      <p className="text-sm text-muted-foreground">≈ {Math.round(s.monthlyBenefitAvg).toLocaleString("sv-SE")} kr/mån</p>
+                  <div key={s.parentId} className="px-5 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{s.name}</p>
+                        <p className="text-sm text-muted-foreground">≈ {Math.round(s.monthlyBenefitAvg).toLocaleString("sv-SE")} kr/mån</p>
+                      </div>
                     </div>
-                    </div>
-                    <div className="flex items-center justify-between px-5 py-4">
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground px-5 -mt-3 pb-3">
-                    {s.isAboveSgiTak
-                      ? `Din lön överstiger FK:s tak – du får max ${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån från FK`
-                      : "FK betalar 77,6% av din lön"}
-                  </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {s.isAboveSgiTak
+                        ? `Din lön överstiger FK:s tak – du får max ${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån från FK`
+                        : "FK betalar 77,6% av din lön"}
+                    </p>
                   </div>
                 ))}
               </section>
