@@ -151,7 +151,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     switch (step) {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
       case 2: return dueDate.length > 0 && (preBirthChoice === "none" || preBirthChoice === "1week" || (preBirthChoice === "custom" && !!preBirthDate));
-      case 3: return wantIncome !== null;
+      case 3: return Number(income1) > 0 && Number(income2) > 0;
       case 4: return durationMode === "months" ? (months1 >= 1 && months2 >= 1) : (!!endDate1 && !!endDate2);
       case 5: return true;
       default: return false;
@@ -182,10 +182,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         daysPerWeek1: Math.round(Math.max(0, Math.min(7, daysPerWeek1))),
         daysPerWeek2: Math.round(Math.max(0, Math.min(7, daysPerWeek2))),
         savedDaysTarget: 0,
-        income1: wantIncome ? (Number(income1) || 0) : null,
-        income2: wantIncome ? (Number(income2) || 0) : null,
-        has240Days1: wantIncome ? has240Days1 : true,
-        has240Days2: wantIncome ? has240Days2 : true,
+        income1: Number(income1) || 0,
+        income2: Number(income2) || 0,
+        has240Days1,
+        has240Days2,
         preBirthParent: hasPre ? "p1" : null,
         preBirthWeeks: preWeeks,
         endDate1: finalEndDate1,
@@ -300,35 +300,25 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 3:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-            <h1 className="text-3xl font-bold tracking-tight text-center">Vill ni se en uppskattning av ersättningen?</h1>
-            <div className="space-y-3">
-              <button onClick={() => setWantIncome(true)} className={cardClass(wantIncome === true)}>
-                Ja, ange inkomst
-              </button>
-              <button onClick={() => setWantIncome(false)} className={cardClass(wantIncome === false)}>
-                Nej, hoppa över
-              </button>
-            </div>
-            {wantIncome && (
-              <div className="space-y-5 animate-in fade-in duration-200">
-                <div className="space-y-2">
-                  <Label className="text-base">Månadsinkomst {parent1Name || "Förälder 1"} (kr)</Label>
-                  <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(e.target.value)} />
-                  <div className="flex items-center gap-2 pt-1">
-                    <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
-                    <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-base">Månadsinkomst {parent2Name || "Förälder 2"} (kr)</Label>
-                  <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(e.target.value)} />
-                  <div className="flex items-center gap-2 pt-1">
-                    <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
-                    <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
-                  </div>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Vad tjänar ni per månad?</h1>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label className="text-base">Månadsinkomst {parent1Name || "Förälder 1"} (kr)</Label>
+                <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(e.target.value)} autoFocus />
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
+                  <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
                 </div>
               </div>
-            )}
+              <div className="space-y-2">
+                <Label className="text-base">Månadsinkomst {parent2Name || "Förälder 2"} (kr)</Label>
+                <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(e.target.value)} />
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
+                  <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
+                </div>
+              </div>
+            </div>
           </div>
         );
 
