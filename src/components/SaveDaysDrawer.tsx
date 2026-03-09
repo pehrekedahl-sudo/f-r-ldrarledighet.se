@@ -374,10 +374,10 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const applyValue = (raw: number) => {
     if (isNaN(raw)) raw = originalState.currentTotal;
-    if (raw > maxRemaining) {
-      setClampHint(`Max är ${maxRemaining}.`);
-      setTargetDays(maxRemaining);
-      setRawInput(String(maxRemaining));
+    if (raw > originalState.currentTotal) {
+      setClampHint(`Max är ${originalState.currentTotal}.`);
+      setTargetDays(originalState.currentTotal);
+      setRawInput(String(originalState.currentTotal));
     } else if (raw < 0) {
       setClampHint("Min är 0.");
       setTargetDays(0);
