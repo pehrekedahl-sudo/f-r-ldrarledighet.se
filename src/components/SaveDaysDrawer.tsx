@@ -494,7 +494,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             />
             <Slider
               min={0}
-              max={maxRemaining}
+              max={originalState.currentTotal}
               step={1}
               value={[targetDays]}
               onValueChange={([v]) => {
