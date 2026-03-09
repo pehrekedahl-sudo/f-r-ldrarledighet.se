@@ -284,8 +284,8 @@ function computeProposal(
   if (targetTotal === originalTotal) return null;
 
   if (targetTotal < originalTotal) {
-    // USE direction: take out more days than original by increasing dpw toward 7
-    const searched = directIncreaseDpw({
+    // SAVE direction: user wants fewer remaining days = take out more = increase dpw
+    const searched = directReduceDpw({
       originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
     });
     if (!searched) return null;
@@ -300,7 +300,7 @@ function computeProposal(
       : "";
     return {
       newBlocks: resultBlocks,
-      summary: null,
+      summary: searched.summary,
       newSickness: newR.remainingSickness,
       newLowest: newR.remainingLowest,
       newTotal: newR.currentTotal,
@@ -311,9 +311,9 @@ function computeProposal(
     };
   }
 
-  // targetTotal > originalTotal: user wants to SAVE more days (reduce dpw)
+  // targetTotal > originalTotal: user wants to USE fewer days = save more = increase dpw
 
-  const searched = directReduceDpw({
+  const searched = directIncreaseDpw({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
   });
   if (!searched) return null;
