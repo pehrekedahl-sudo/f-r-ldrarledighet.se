@@ -88,6 +88,8 @@ const PlanBuilder = () => {
   const [savedDaysCount, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [history, setHistory] = useState<Block[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
