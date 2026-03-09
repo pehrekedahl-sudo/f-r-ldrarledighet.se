@@ -348,36 +348,36 @@ function computeProposal(
 const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
   
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
-  const originalState = useMemo(
-    () => getCurrentState(originalBlocks, parents, constants, transfer),
-    [originalBlocks, parents, constants, transfer]
-  );
+  const maxDays = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
 
-  const [targetDays, setTargetDays] = useState(originalState.currentTotal);
-  const [rawInput, setRawInput] = useState<string>("");
+  // targetDays = "how many days the user wants to SAVE" (not use)
+  const [targetDays, setTargetDays] = useState(0);
+  const [rawInput, setRawInput] = useState<string>("0");
   const [clampHint, setClampHint] = useState<string | null>(null);
   const [source, setSource] = useState<SaveSource>("both");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const currentSavedDays = Math.max(0, maxDays - current.currentTotal);
+
   useEffect(() => {
     if (open) {
-      setTargetDays(current.currentTotal);
-      setRawInput(String(current.currentTotal));
+      setTargetDays(currentSavedDays);
+      setRawInput(String(currentSavedDays));
       setClampHint(null);
       setSource("both");
       setProposal(null);
       setComputing(false);
     }
-  }, [open, current.currentTotal]);
+  }, [open, currentSavedDays]);
 
   const applyValue = (raw: number) => {
-    if (isNaN(raw)) raw = originalState.currentTotal;
-    if (raw > originalState.currentTotal) {
-      setClampHint(`Max är ${originalState.currentTotal}.`);
-      setTargetDays(originalState.currentTotal);
-      setRawInput(String(originalState.currentTotal));
+    if (isNaN(raw)) raw = currentSavedDays;
+    if (raw > maxDays) {
+      setClampHint(`Max är ${maxDays}.`);
+      setTargetDays(maxDays);
+      setRawInput(String(maxDays));
     } else if (raw < 0) {
       setClampHint("Min är 0.");
       setTargetDays(0);
@@ -390,9 +390,10 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     }
   };
 
-  const computeDebounced = useCallback((target: number, src: SaveSource) => {
+  const computeDebounced = useCallback((savedDays: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (target === current.currentTotal) {
+    const targetTotal = maxDays - savedDays;
+    if (targetTotal === current.currentTotal) {
       setProposal(null);
       setComputing(false);
       return;
@@ -401,22 +402,22 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     debounceRef.current = setTimeout(() => {
       const result = computeProposal(
         parents, constants, transfer,
-        target,
-        originalBlocks, originalState.currentTotal,
+        targetTotal,
+        originalBlocks, maxDays,
         src
       );
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [parents, constants, transfer, originalBlocks, originalState.currentTotal, current.currentTotal]);
+  }, [parents, constants, transfer, originalBlocks, maxDays, current.currentTotal]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [targetDays, source, computeDebounced]);
 
-  const overLimitError = targetDays > originalState.currentTotal
-    ? "Du kan inte ha fler dagar kvar än du har totalt"
+  const overLimitError = targetDays > maxDays
+    ? "Du kan inte spara fler dagar än du har totalt"
     : null;
 
   const handleApply = () => {
