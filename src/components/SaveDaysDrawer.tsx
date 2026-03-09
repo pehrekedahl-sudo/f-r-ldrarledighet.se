@@ -415,8 +415,12 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [targetDays, source, computeDebounced]);
 
+  const overLimitError = targetDays > originalState.currentTotal
+    ? "Du kan inte ha fler dagar kvar än du har totalt"
+    : null;
+
   const handleApply = () => {
-    if (!proposal) return;
+    if (!proposal || overLimitError) return;
     const final = applySmartChange(blocks, proposal.newBlocks);
     onApply(final);
     onOpenChange(false);
@@ -501,6 +505,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             />
             {clampHint ? (
               <p className="text-xs text-destructive">{clampHint}</p>
+            ) : overLimitError ? (
+              <p className="text-xs text-destructive">{overLimitError}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 0 – {maxRemaining} dagar
@@ -568,7 +574,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
         </div>
 
         <SheetFooter className="flex-col gap-2 sm:flex-col">
-          <Button disabled={!proposal} onClick={handleApply}>
+          <Button disabled={!proposal || !!overLimitError} onClick={handleApply}>
             Applicera ändring
           </Button>
           <SheetClose asChild>
