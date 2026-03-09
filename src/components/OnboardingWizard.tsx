@@ -151,7 +151,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     switch (step) {
       case 1: return parent1Name.trim().length > 0 && parent2Name.trim().length > 0;
       case 2: return dueDate.length > 0 && (preBirthChoice === "none" || preBirthChoice === "1week" || (preBirthChoice === "custom" && !!preBirthDate));
-      case 3: return wantIncome !== null;
+      case 3: return Number(income1) > 0 && Number(income2) > 0;
       case 4: return durationMode === "months" ? (months1 >= 1 && months2 >= 1) : (!!endDate1 && !!endDate2);
       case 5: return true;
       default: return false;
