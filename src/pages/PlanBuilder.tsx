@@ -1053,7 +1053,8 @@ const PlanBuilder = () => {
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
           pushHistory();
-          const normalized = canonicalizeBlocks(newBlocks);
+          const withSource = newBlocks.map(b => ({ ...b, source: b.source ?? ("system" as const) }));
+          const normalized = canonicalizeBlocks(withSource);
           assertUniqueBlockIds(normalized, "FitPlanDrawer-apply");
           setBlocks(normalized);
           setTransfer(newTransfer);
