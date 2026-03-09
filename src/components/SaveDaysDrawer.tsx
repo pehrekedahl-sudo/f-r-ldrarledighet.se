@@ -346,7 +346,7 @@ function computeProposal(
 // ── component ──
 
 const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
-  const maxRemaining = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
+  
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
   const originalState = useMemo(
     () => getCurrentState(originalBlocks, parents, constants, transfer),
@@ -374,10 +374,10 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const applyValue = (raw: number) => {
     if (isNaN(raw)) raw = originalState.currentTotal;
-    if (raw > maxRemaining) {
-      setClampHint(`Max är ${maxRemaining}.`);
-      setTargetDays(maxRemaining);
-      setRawInput(String(maxRemaining));
+    if (raw > originalState.currentTotal) {
+      setClampHint(`Max är ${originalState.currentTotal}.`);
+      setTargetDays(originalState.currentTotal);
+      setRawInput(String(originalState.currentTotal));
     } else if (raw < 0) {
       setClampHint("Min är 0.");
       setTargetDays(0);
@@ -484,7 +484,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               id="target-days-input"
               type="number"
               min={0}
-              max={maxRemaining}
+              max={originalState.currentTotal}
               value={rawInput}
               onChange={(e) => {
                 setRawInput(e.target.value);
@@ -494,7 +494,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             />
             <Slider
               min={0}
-              max={maxRemaining}
+              max={originalState.currentTotal}
               step={1}
               value={[targetDays]}
               onValueChange={([v]) => {
@@ -509,7 +509,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               <p className="text-xs text-destructive">{overLimitError}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                0 – {maxRemaining} dagar
+                0 – {originalState.currentTotal} dagar
               </p>
             )}
           </div>
