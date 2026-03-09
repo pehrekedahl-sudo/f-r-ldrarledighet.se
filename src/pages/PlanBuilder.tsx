@@ -777,28 +777,55 @@ const PlanBuilder = () => {
             </div>
 
             {/* ── ERSÄTTNING PER FÖRÄLDER ── */}
-            {(result.parentSummary ?? []).length > 0 && (
+            {(result.parentSummary ?? []).length > 0 && (() => {
+              const svMonths = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+              const fmtPeriod = (start: string, end: string) => {
+                const [sy, sm] = start.split("-").map(Number);
+                const [ey, em] = end.split("-").map(Number);
+                const s = `${svMonths[sm - 1]}`;
+                const e = `${svMonths[em - 1]}`;
+                if (sy === ey) return `${s} – ${e} ${ey}`;
+                return `${s} ${sy} – ${e} ${ey}`;
+              };
+              const hasAnyAboveTak = result.parentSummary.some(s => s.isAboveSgiTak);
+              return (
               <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
                 <div className="px-5 pt-4 pb-2">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
                 </div>
-                {result.parentSummary.map(s => (
-                  <div key={s.parentId} className="px-5 py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{s.name}</p>
-                        <p className="text-sm text-muted-foreground">≈ {Math.round(s.monthlyBenefitAvg).toLocaleString("sv-SE")} kr/mån</p>
-                      </div>
+                {result.parentSummary.map(s => {
+                  const parentBlocks = blocks
+                    .filter(b => b.parentId === s.parentId && !b.isOverlap)
+                    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+                  return (
+                    <div key={s.parentId} className="px-5 py-4 space-y-2">
+                      <p className="font-medium text-foreground">{s.name}</p>
+                      {parentBlocks.map(b => {
+                        const monthlyFull = computeBlockMonthlyBenefit(
+                          parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0,
+                          5
+                        );
+                        const monthly = monthlyFull * (b.daysPerWeek / 5);
+                        return (
+                          <div key={b.id} className="flex items-baseline justify-between text-sm">
+                            <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} dagar/v</span>
+                            <span className="font-medium text-foreground tabular-nums">≈ {Math.round(monthly).toLocaleString("sv-SE")} kr/mån</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {s.isAboveSgiTak
-                        ? `Din lön överstiger FK:s tak – du får max ${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån från FK`
-                        : "FK betalar 77,6% av din lön"}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
+                <div className="px-5 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {hasAnyAboveTak
+                      ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån). Lön därutöver ersätts inte.`
+                      : "FK betalar 77,6% av din lön."}
+                  </p>
+                </div>
               </section>
-            )}
+              );
+            })()}
 
             <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
               <CollapsibleTrigger id="adjust-section" className="flex items-center justify-between w-full border border-border rounded-lg p-4 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
