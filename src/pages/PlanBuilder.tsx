@@ -614,6 +614,25 @@ const PlanBuilder = () => {
               )}
             </section>
 
+  const savedDaysCount = useMemo(() => {
+    if (!result) return 0;
+    const currentRemaining = Math.round(
+      result.parentsResult.reduce(
+        (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+      )
+    );
+    try {
+      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const maxResult = simulatePlan({ parents, blocks: [], transfers, constants: CONSTANTS });
+      const maxDays = Math.round(
+        maxResult.parentsResult.reduce(
+          (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
+        )
+      );
+      return Math.max(0, maxDays - currentRemaining);
+    } catch { return 0; }
+  }, [result, parents, transfer]);
+
 
             {/* ── INFO PANEL ── */}
             <Collapsible>
