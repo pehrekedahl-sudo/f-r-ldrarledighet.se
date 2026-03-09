@@ -480,12 +480,12 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
           {/* Target input */}
           <div className="space-y-3">
-            <Label htmlFor="target-days-input">Hur många dagar vill ni ha kvar totalt?</Label>
+            <Label htmlFor="target-days-input">Hur många dagar vill du spara?</Label>
             <Input
               id="target-days-input"
               type="number"
               min={0}
-              max={originalState.currentTotal}
+              max={maxDays}
               value={rawInput}
               onChange={(e) => {
                 setRawInput(e.target.value);
@@ -495,7 +495,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             />
             <Slider
               min={0}
-              max={originalState.currentTotal}
+              max={maxDays}
               step={1}
               value={[targetDays]}
               onValueChange={([v]) => {
@@ -510,7 +510,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
               <p className="text-xs text-destructive">{overLimitError}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                0 – {originalState.currentTotal} dagar
+                0 – {maxDays} dagar
               </p>
             )}
           </div>
