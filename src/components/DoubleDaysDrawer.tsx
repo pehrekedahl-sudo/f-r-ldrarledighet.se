@@ -64,6 +64,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
       endDate,
       daysPerWeek,
       isOverlap: true,
+      source: "system",
     };
 
     onApply(newBlock);

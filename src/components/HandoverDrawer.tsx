@@ -118,8 +118,8 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
     // Build proposal blocks
     const newBlocks = blocks.map(b => {
-      if (b.id === p1Block.id) return { ...b, endDate: newP1End };
-      if (b.id === p2Block.id) return { ...b, startDate: newP2Start };
+      if (b.id === p1Block.id) return { ...b, endDate: newP1End, source: "system" as const };
+      if (b.id === p2Block.id) return { ...b, startDate: newP2Start, source: "system" as const };
       return { ...b };
     });
 
