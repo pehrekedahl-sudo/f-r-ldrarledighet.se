@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
 import { normalizeBlocks, applySmartChange } from "@/lib/adjustmentPolicy";
+import { canonicalizeBlocks } from "@/lib/canonicalizeBlocks";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
@@ -50,6 +51,7 @@ type Block = {
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
   isOverlap?: boolean;
+  source?: "system" | "user";
 };
 
 let nextId = 2;
@@ -86,6 +88,8 @@ const PlanBuilder = () => {
   const [savedDaysCount, setSavedDaysCount] = useState(0);
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [history, setHistory] = useState<Block[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [months1, setMonths1] = useState(6);
   const [months2, setMonths2] = useState(6);
@@ -163,7 +167,24 @@ const PlanBuilder = () => {
   const handleClearPlan = () => {
     localStorage.removeItem("planBuilderLastPlanV1");
     setLoaded(false);
+    setHistory([]);
+    setCanUndo(false);
     navigate("/wizard", { replace: true });
+  };
+
+  const pushHistory = () => {
+    setHistory(prev => [...prev.slice(-19), blocks]);
+    setCanUndo(true);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    setBlocks(prev);
+    setHistory(h => h.slice(0, -1));
+    setCanUndo(history.length > 1);
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: prev, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
   const sharePlan = useCallback(() => {
@@ -438,14 +459,16 @@ const PlanBuilder = () => {
                 if (!dueDate) return;
                 const end1 = addMonths(dueDate, months1);
                 const end2 = addMonths(end1, months2);
-                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5 };
-                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5 };
+                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5, source: "system" };
+                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5, source: "system" };
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
                 setSavedDaysCount(0);
                 setTransferAmount(0);
                 setTransferError(null);
+                setHistory([]);
+                setCanUndo(false);
               }}>Generera startplan</Button>
             </div>
 
@@ -736,6 +759,19 @@ const PlanBuilder = () => {
                     </div>
                   );
                 })()}
+
+                {/* Ångra senaste ändring */}
+                <div className="px-5 py-3 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!canUndo}
+                    onClick={handleUndo}
+                    className="w-full text-muted-foreground"
+                  >
+                    ↩ Ångra senaste ändring
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -982,7 +1018,8 @@ const PlanBuilder = () => {
         transfer={transfer}
         hasManualEdits={hasManualEdits}
         onApply={(newBlocks) => {
-          const merged = applySmartChange(blocks, newBlocks);
+          pushHistory();
+          const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           // Compute saved days by comparing remaining before and after
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -1015,7 +1052,8 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks, newTransfer) => {
-          const normalized = normalizeBlocks(newBlocks);
+          pushHistory();
+          const normalized = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(normalized, "FitPlanDrawer-apply");
           setBlocks(normalized);
           setTransfer(newTransfer);
@@ -1031,7 +1069,8 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks) => {
-          const merged = applySmartChange(blocks, newBlocks);
+          pushHistory();
+          const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
@@ -1043,12 +1082,12 @@ const PlanBuilder = () => {
         onOpenChange={setDoubleDaysOpen}
         parents={parents}
         onApply={(newBlock) => {
-          setBlocks(prev => {
-            const updated = [...prev, newBlock];
-            const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
-            return updated;
-          });
+          pushHistory();
+          const updated = canonicalizeBlocks([...blocks, newBlock]);
+          assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
+          setBlocks(updated);
+          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <TransferDaysDrawer

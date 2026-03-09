@@ -7,6 +7,7 @@ type Block = {
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
   isOverlap?: boolean;
+  source?: "system" | "user";
 };
 
 import { addDays } from "@/utils/dateOnly";

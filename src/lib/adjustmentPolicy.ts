@@ -12,6 +12,7 @@ export type Block = {
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
   isOverlap?: boolean;
+  source?: "system" | "user";
 };
 
 // ── Constants ──

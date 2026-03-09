@@ -28,6 +28,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  source?: "system" | "user";
 };
 
 type Parent = {
@@ -146,6 +147,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     daysPerWeek,
     lowestDaysPerWeek: lowestDaysPerWeek > 0 ? lowestDaysPerWeek : undefined,
     overlapGroupId: mode === "edit" && block ? block.overlapGroupId : undefined,
+    source: "user",
   };
 
   const overlapError = useMemo(() => checkOverlap(draft, allBlocks), [draft, allBlocks]);
