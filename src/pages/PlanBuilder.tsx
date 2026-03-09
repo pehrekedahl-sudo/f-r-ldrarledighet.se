@@ -759,6 +759,19 @@ const PlanBuilder = () => {
                     </div>
                   );
                 })()}
+
+                {/* Ångra senaste ändring */}
+                <div className="px-5 py-3 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!canUndo}
+                    onClick={handleUndo}
+                    className="w-full text-muted-foreground"
+                  >
+                    ↩ Ångra senaste ändring
+                  </Button>
+                </div>
               </div>
             </div>
 
