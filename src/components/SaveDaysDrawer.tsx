@@ -128,7 +128,7 @@ function directReduceDpw(opts: {
   const { originalBlocks, parents, source, targetTotal, originalTotal } = opts;
   const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
 
-  const daysToSave = targetTotal - originalTotal;
+  const daysToSave = originalTotal - targetTotal;
   if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
 
   const weeksToSave = Math.ceil(daysToSave / 7);
