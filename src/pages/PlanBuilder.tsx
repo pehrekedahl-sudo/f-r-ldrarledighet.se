@@ -1056,7 +1056,8 @@ const PlanBuilder = () => {
         constants={CONSTANTS}
         transfer={transfer}
         onApply={(newBlocks) => {
-          const merged = applySmartChange(blocks, newBlocks);
+          pushHistory();
+          const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
