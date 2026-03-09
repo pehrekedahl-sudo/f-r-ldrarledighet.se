@@ -1005,7 +1005,8 @@ const PlanBuilder = () => {
         transfer={transfer}
         hasManualEdits={hasManualEdits}
         onApply={(newBlocks) => {
-          const merged = applySmartChange(blocks, newBlocks);
+          pushHistory();
+          const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "SaveDaysDrawer-apply");
           // Compute saved days by comparing remaining before and after
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
