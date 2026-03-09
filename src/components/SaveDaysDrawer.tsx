@@ -549,9 +549,9 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="border border-border rounded-lg p-3 bg-card">
-                  <p className="text-xs text-muted-foreground">Ändring i sparade dagar</p>
+                  <p className="text-xs text-muted-foreground">Sparade dagar efter ändring</p>
                   <p className="text-lg font-bold text-primary">
-                    {proposal.deltaDays >= 0 ? "+" : ""}{proposal.deltaDays}
+                    {maxDays - proposal.newTotal}
                   </p>
                 </div>
                 <div className="border border-border rounded-lg p-3 bg-card">
