@@ -25,6 +25,7 @@ type Block = {
   endDate: string;
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
+  source?: "system" | "user";
 };
 
 let nextId = 1;
