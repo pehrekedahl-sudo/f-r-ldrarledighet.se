@@ -10,6 +10,7 @@ type Block = {
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
   isOverlap?: boolean;
+  source?: "system" | "user";
 };
 
 function calendarDays(b: Block): number {
