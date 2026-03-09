@@ -125,80 +125,56 @@ function directReduceDpw(opts: {
   targetTotal: number;
   originalTotal: number;
 }): { blocks: Block[]; summary: ReductionSummary | null } | null {
-  const { originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
-  const transfers = getTransfers(transfer);
+  const { originalBlocks, parents, source, targetTotal, originalTotal } = opts;
   const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
 
   const daysToSave = targetTotal - originalTotal;
   if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
 
-  const weeksToSave = Math.ceil(daysToSave);
+  const weeksToSave = Math.ceil(daysToSave / 7);
 
-  // Binary search: find how many week-reductions produce the right remaining count
-  let lo = Math.max(1, weeksToSave - 10);
-  let hi = weeksToSave * 3 + 50;
-  let bestBlocks: Block[] = originalBlocks;
-  let bestSummary: ReductionSummary | null = null;
-  let bestDiff = Infinity;
+  // Get affected blocks sorted latest-first
+  const affectedBlocks = originalBlocks
+    .filter(b => allowedParentIds.includes(b.parentId) && !b.isOverlap)
+    .sort((a, b) => compareDates(b.endDate, a.endDate)); // latest block first
 
-  for (let iter = 0; iter < 25; iter++) {
-    const mid = Math.round((lo + hi) / 2);
-    if (mid <= 0) { lo = 1; continue; }
+  let weeksLeft = weeksToSave;
+  const result = originalBlocks.map(b => ({ ...b })); // deep copy all blocks
 
-    const working = originalBlocks.map(b => ({ ...b }));
-    let stillNeeded = mid;
+  for (const block of affectedBlocks) {
+    if (weeksLeft <= 0) break;
+    if (block.daysPerWeek <= 1) continue; // can't lower below 1
 
-    // Get eligible blocks for this parent, sorted latest first
-    const eligible = working
-      .filter(b => allowedParentIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
-      .sort((a, b) => compareDates(b.startDate, a.startDate)); // latest block first
+    const blockWeeks = Math.floor(diffDaysInclusive(block.startDate, block.endDate) / 7);
+    if (blockWeeks <= 0) continue;
 
-    for (const target of eligible) {
-      if (stillNeeded <= 0) break;
-      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
-      if (blockWeeks <= 0) continue;
+    const weeksToReduce = Math.min(weeksLeft, blockWeeks);
+    const idx = result.findIndex(b => b.id === block.id);
 
-      const weeksFromThis = Math.min(stillNeeded, blockWeeks);
-
-      if (weeksFromThis >= blockWeeks) {
-        // Lower the entire block's dpw by 1
-        target.daysPerWeek = Math.max(1, target.daysPerWeek - 1);
-        target.source = "system";
-      } else {
-        // Split: keep head at original dpw, lower tail's dpw by 1
-        const headWeeks = blockWeeks - weeksFromThis;
-        const splitDate = addDays(target.startDate, headWeeks * 7);
-        working.push({
-          id: generateBlockId("save-red"),
-          parentId: target.parentId,
-          startDate: splitDate,
-          endDate: target.endDate,
-          daysPerWeek: Math.max(1, target.daysPerWeek - 1),
-          lowestDaysPerWeek: target.lowestDaysPerWeek,
-          overlapGroupId: target.overlapGroupId,
-          source: "system",
-        });
-        target.endDate = addDays(splitDate, -1);
-        target.source = "system";
-      }
-      stillNeeded -= weeksFromThis;
+    if (weeksToReduce >= blockWeeks) {
+      // Lower the entire block's dpw by 1
+      result[idx] = { ...result[idx], daysPerWeek: block.daysPerWeek - 1, source: "system" };
+    } else {
+      // Split: keep head at original dpw, lower tail's dpw by 1
+      const splitDate = addDays(block.endDate, -(weeksToReduce * 7));
+      result[idx] = {
+        ...result[idx],
+        endDate: splitDate,
+        source: "system",
+      };
+      result.push({
+        ...block,
+        id: generateBlockId("save-red"),
+        startDate: addDays(splitDate, 1),
+        endDate: block.endDate,
+        daysPerWeek: block.daysPerWeek - 1,
+        source: "system",
+      });
     }
-
-    const candidateBlocks = normalizeBlocks(working);
-    const simResult = simulatePlan({ parents, blocks: candidateBlocks, transfers, constants });
-    const remaining = calcRemaining(simResult.parentsResult).currentTotal;
-    const diff = remaining - targetTotal;
-
-    if (Math.abs(diff) < Math.abs(bestDiff)) {
-      bestDiff = diff;
-      bestBlocks = candidateBlocks;
-    }
-    if (diff === 0) break;
-    if (diff > 0) hi = mid - 1; // too many remaining → reduce less
-    else lo = mid + 1;          // too few remaining → reduce more
+    weeksLeft -= weeksToReduce;
   }
 
-  return { blocks: bestBlocks, summary: bestSummary };
+  return { blocks: result, summary: null };
 }
 
 /**
