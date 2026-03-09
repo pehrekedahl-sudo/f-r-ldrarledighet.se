@@ -563,7 +563,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 </div>
               </div>
             </div>
-          ) : targetDays === current.currentTotal ? (
+          ) : targetDays === currentSavedDays ? (
             <p className="text-sm text-muted-foreground italic">
               Flytta reglaget för att justera antal sparade dagar.
             </p>
