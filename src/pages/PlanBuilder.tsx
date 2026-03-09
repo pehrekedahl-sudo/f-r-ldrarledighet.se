@@ -167,7 +167,24 @@ const PlanBuilder = () => {
   const handleClearPlan = () => {
     localStorage.removeItem("planBuilderLastPlanV1");
     setLoaded(false);
+    setHistory([]);
+    setCanUndo(false);
     navigate("/wizard", { replace: true });
+  };
+
+  const pushHistory = () => {
+    setHistory(prev => [...prev.slice(-19), blocks]);
+    setCanUndo(true);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    setBlocks(prev);
+    setHistory(h => h.slice(0, -1));
+    setCanUndo(history.length > 1);
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: prev, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
   const sharePlan = useCallback(() => {
