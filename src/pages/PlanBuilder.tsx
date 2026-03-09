@@ -442,14 +442,16 @@ const PlanBuilder = () => {
                 if (!dueDate) return;
                 const end1 = addMonths(dueDate, months1);
                 const end2 = addMonths(end1, months2);
-                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5 };
-                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5 };
+                const b1: Block = { id: `b${nextId++}`, parentId: "p1", startDate: dueDate, endDate: end1, daysPerWeek: 5, source: "system" };
+                const b2: Block = { id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: 5, source: "system" };
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
                 setSavedDaysCount(0);
                 setTransferAmount(0);
                 setTransferError(null);
+                setHistory([]);
+                setCanUndo(false);
               }}>Generera startplan</Button>
             </div>
 
