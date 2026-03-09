@@ -415,8 +415,12 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [targetDays, source, computeDebounced]);
 
+  const overLimitError = targetDays > originalState.currentTotal
+    ? "Du kan inte ha fler dagar kvar än du har totalt"
+    : null;
+
   const handleApply = () => {
-    if (!proposal) return;
+    if (!proposal || overLimitError) return;
     const final = applySmartChange(blocks, proposal.newBlocks);
     onApply(final);
     onOpenChange(false);
