@@ -137,68 +137,44 @@ function directReduceDpw(opts: {
   const result = originalBlocks.map(b => ({ ...b })); // deep copy all blocks
 
   if (source === "both" && parents.length >= 2) {
-    // Alternate between parents for even distribution
-    const p1Blocks = originalBlocks
-      .filter(b => b.parentId === parents[0].id && !b.isOverlap && b.daysPerWeek > 1)
-      .sort((a, b) => compareDates(b.endDate, a.endDate));
-    const p2Blocks = originalBlocks
-      .filter(b => b.parentId === parents[1].id && !b.isOverlap && b.daysPerWeek > 1)
-      .sort((a, b) => compareDates(b.endDate, a.endDate));
+    // Split evenly: p2 gets extra week if odd
+    const p2Weeks = Math.ceil(weeksToSave / 2);
+    const p1Weeks = weeksToSave - p2Weeks;
 
-    // Collect weeks per block via alternating allocation
-    const weeksPerBlock = new Map<string, number>();
-    let p1i = 0, p2i = 0, p1wu = 0, p2wu = 0;
-    let turn = 1; // start with p2
+    // Reduce each parent using the same logic as single-parent
+    for (const { pid, weeksForParent } of [
+      { pid: parents[0].id, weeksForParent: p1Weeks },
+      { pid: parents[1].id, weeksForParent: p2Weeks },
+    ]) {
+      if (weeksForParent <= 0) continue;
+      const affectedBlocks = originalBlocks
+        .filter(b => b.parentId === pid && !b.isOverlap && b.daysPerWeek > 1)
+        .sort((a, b) => compareDates(b.endDate, a.endDate));
 
-    while (weeksLeft > 0) {
-      const useP2 = turn === 1;
-      const bList = useP2 ? p2Blocks : p1Blocks;
-      const bi = useP2 ? p2i : p1i;
+      let wl = weeksForParent;
+      for (const block of affectedBlocks) {
+        if (wl <= 0) break;
+        const blockWeeks = Math.floor(diffDaysInclusive(block.startDate, block.endDate) / 7);
+        if (blockWeeks <= 0) continue;
+        const weeksToReduce = Math.min(wl, blockWeeks);
+        const idx = result.findIndex(b => b.id === block.id);
+        if (idx === -1) continue;
 
-      if (bi >= bList.length) {
-        // This parent exhausted, try the other
-        const otherList = useP2 ? p1Blocks : p2Blocks;
-        const otherIdx = useP2 ? p1i : p2i;
-        if (otherIdx >= otherList.length) break;
-        turn = useP2 ? 0 : 1;
-        continue;
-      }
-
-      const blk = bList[bi];
-      const bw = Math.floor(diffDaysInclusive(blk.startDate, blk.endDate) / 7);
-      if (bw <= 0) { if (useP2) p2i++; else p1i++; continue; }
-      const au = useP2 ? p2wu : p1wu;
-      if (bw - au <= 0) {
-        if (useP2) { p2i++; p2wu = 0; } else { p1i++; p1wu = 0; }
-        continue;
-      }
-
-      weeksPerBlock.set(blk.id, (weeksPerBlock.get(blk.id) ?? 0) + 1);
-      if (useP2) p2wu++; else p1wu++;
-      weeksLeft--;
-      turn = 1 - turn;
-    }
-
-    // Apply reductions from weeksPerBlock
-    for (const [blockId, weeksToReduce] of weeksPerBlock) {
-      const idx = result.findIndex(b => b.id === blockId);
-      if (idx === -1) continue;
-      const block = result[idx];
-      const blockWeeks = Math.floor(diffDaysInclusive(block.startDate, block.endDate) / 7);
-
-      if (weeksToReduce >= blockWeeks) {
-        result[idx] = { ...result[idx], daysPerWeek: block.daysPerWeek - 1, source: "system" };
-      } else {
-        const splitDate = addDays(block.endDate, -(weeksToReduce * 7));
-        result[idx] = { ...result[idx], endDate: splitDate, source: "system" };
-        result.push({
-          ...block,
-          id: generateBlockId("save-red"),
-          startDate: addDays(splitDate, 1),
-          endDate: block.endDate,
-          daysPerWeek: block.daysPerWeek - 1,
-          source: "system",
-        });
+        if (weeksToReduce >= blockWeeks) {
+          result[idx] = { ...result[idx], daysPerWeek: block.daysPerWeek - 1, source: "system" };
+        } else {
+          const splitDate = addDays(block.endDate, -(weeksToReduce * 7));
+          result[idx] = { ...result[idx], endDate: splitDate, source: "system" };
+          result.push({
+            ...block,
+            id: generateBlockId("save-red"),
+            startDate: addDays(splitDate, 1),
+            endDate: block.endDate,
+            daysPerWeek: block.daysPerWeek - 1,
+            source: "system",
+          });
+        }
+        wl -= weeksToReduce;
       }
     }
   } else {
