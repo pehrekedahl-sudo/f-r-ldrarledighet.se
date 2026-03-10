@@ -108,6 +108,33 @@ function getCurrentState(blocks: Block[], parents: Parent[], constants: Constant
   return { ...r, avgMonthly: calcAvgMonthly(result.parentsResult) };
 }
 
+/**
+ * Get sorted non-overlap blocks for a specific parent.
+ */
+function getParentBlocks(working: Block[], parentId: string): Block[] {
+  return working
+    .filter(b => b.parentId === parentId && !b.isOverlap)
+    .sort((a, b) => compareDates(a.startDate, b.startDate));
+}
+
+/**
+ * Check if changing a block's dpw by delta would violate the adjacency constraint:
+ * adjacent blocks (same parent, sorted by time) must not differ by more than 1 in dpw.
+ */
+function wouldViolateAdjacency(working: Block[], blockId: string, parentId: string, delta: number): boolean {
+  const sorted = getParentBlocks(working, parentId);
+  const idx = sorted.findIndex(b => b.id === blockId);
+  if (idx === -1) return false;
+  const newDpw = sorted[idx].daysPerWeek + delta;
+  if (idx > 0 && Math.abs(newDpw - sorted[idx - 1].daysPerWeek) > 1) return true;
+  if (idx < sorted.length - 1 && Math.abs(newDpw - sorted[idx + 1].daysPerWeek) > 1) return true;
+  return false;
+}
+
+function countNonOverlapBlocks(working: Block[]): number {
+  return working.filter(b => !b.isOverlap).length;
+}
+
 function adjustToTarget(opts: {
   blocks: Block[];
   parents: Parent[];
@@ -124,10 +151,17 @@ function adjustToTarget(opts: {
   const savingMore = targetTotal > originalTotal;
 
   let working = blocks.map(b => ({ ...b }));
-  let bestBlocks = working;
+  let bestBlocks = working.map(b => ({ ...b }));
   let bestDiff = Infinity;
 
-  // Max 60 iterationer, varje iteration justerar en vecka i ett block
+  // Check if already at target
+  const initSim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+  const initRemaining = calcRemaining(initSim.parentsResult).currentTotal;
+  if (initRemaining === targetTotal) return { blocks: normalizeBlocks(working), summary: null };
+
+  // For "both" source, alternate between parents for even distribution
+  let parentTurnIndex = 0;
+
   for (let iter = 0; iter < 60; iter++) {
     const sim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
     const remaining = calcRemaining(sim.parentsResult).currentTotal;
@@ -139,58 +173,101 @@ function adjustToTarget(opts: {
     }
     if (remaining === targetTotal) break;
 
+    // Determine which parent to adjust this iteration
+    let iterAllowedIds: string[];
+    if (source === "both" && allowedIds.length > 1) {
+      iterAllowedIds = [allowedIds[parentTurnIndex % allowedIds.length]];
+      parentTurnIndex++;
+    } else {
+      iterAllowedIds = allowedIds;
+    }
+
+    let adjusted = false;
+
     if (savingMore) {
-      // Spara fler = sänk dpw, från SLUTET av planen
+      // Spara fler = sänk dpw, från SLUTET av planen, högst dpw först
       const candidates = working
-        .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
-        .sort((a, b) => compareDates(b.endDate, a.endDate)); // senaste först
-      if (candidates.length === 0) break;
-      const target = candidates[0];
-      const idx = working.findIndex(b => b.id === target.id);
-      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
-      if (blockWeeks <= 1) {
-        working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
-      } else {
-        const splitDate = addDays(target.endDate, -7);
-        working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
-        working.push({
-          ...target,
-          id: generateBlockId("save-red"),
-          startDate: addDays(splitDate, 1),
-          endDate: target.endDate,
-          daysPerWeek: target.daysPerWeek - 1,
-          source: "system",
+        .filter(b => iterAllowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
+        .sort((a, b) => {
+          if (b.daysPerWeek !== a.daysPerWeek) return b.daysPerWeek - a.daysPerWeek;
+          return compareDates(b.endDate, a.endDate);
         });
+
+      for (const candidate of candidates) {
+        if (wouldViolateAdjacency(working, candidate.id, candidate.parentId, -1)) continue;
+
+        const idx = working.findIndex(b => b.id === candidate.id);
+        const blockWeeks = Math.floor(diffDaysInclusive(candidate.startDate, candidate.endDate) / 7);
+
+        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+          // Modify whole block
+          working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
+        } else {
+          // Split: last part gets lower dpw
+          const splitDate = addDays(candidate.endDate, -7);
+          working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+          working.push({
+            ...candidate,
+            id: generateBlockId("save-red"),
+            startDate: addDays(splitDate, 1),
+            endDate: candidate.endDate,
+            daysPerWeek: candidate.daysPerWeek - 1,
+            source: "system",
+          });
+        }
+        adjusted = true;
+        break;
       }
     } else {
-      // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först för jämn fördelning
+      // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först
       const candidates = working
-        .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
+        .filter(b => iterAllowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
         .sort((a, b) => {
-          // Lägst dpw först, vid lika → tidigast startdatum
           if (a.daysPerWeek !== b.daysPerWeek) return a.daysPerWeek - b.daysPerWeek;
           return compareDates(a.startDate, b.startDate);
         });
-      if (candidates.length === 0) break;
-      const target = candidates[0];
-      const idx = working.findIndex(b => b.id === target.id);
-      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
-      if (blockWeeks <= 1) {
-        working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
-      } else {
-        // Splitta i början av blocket (höj dpw i första veckan)
-        const splitDate = addDays(target.startDate, 7);
-        working.push({
-          ...target,
-          id: generateBlockId("adj-use"),
-          startDate: target.startDate,
-          endDate: addDays(splitDate, -1),
-          daysPerWeek: target.daysPerWeek + 1,
-          source: "system",
-        });
-        working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
+
+      for (const candidate of candidates) {
+        if (wouldViolateAdjacency(working, candidate.id, candidate.parentId, +1)) continue;
+
+        const idx = working.findIndex(b => b.id === candidate.id);
+        const blockWeeks = Math.floor(diffDaysInclusive(candidate.startDate, candidate.endDate) / 7);
+
+        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+          // Modify whole block
+          working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
+        } else {
+          // Split: first part gets higher dpw
+          const splitDate = addDays(candidate.startDate, 7);
+          working.push({
+            ...candidate,
+            id: generateBlockId("adj-use"),
+            startDate: candidate.startDate,
+            endDate: addDays(splitDate, -1),
+            daysPerWeek: candidate.daysPerWeek + 1,
+            source: "system",
+          });
+          working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
+        }
+        adjusted = true;
+        break;
       }
     }
+
+    if (!adjusted) break; // No valid candidate found
+  }
+
+  // Final verification
+  const finalSim = simulatePlan({ parents, blocks: normalizeBlocks(bestBlocks), transfers, constants });
+  const finalRemaining = calcRemaining(finalSim.parentsResult).currentTotal;
+  const finalDiff = Math.abs(finalRemaining - targetTotal);
+
+  // Check if last working state is better
+  const lastNorm = normalizeBlocks(working);
+  const lastSim = simulatePlan({ parents, blocks: lastNorm, transfers, constants });
+  const lastRemaining = calcRemaining(lastSim.parentsResult).currentTotal;
+  if (Math.abs(lastRemaining - targetTotal) < finalDiff) {
+    return { blocks: lastNorm, summary: null };
   }
 
   return { blocks: bestBlocks, summary: null };
