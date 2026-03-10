@@ -320,9 +320,9 @@ function computeProposal(
 
   if (targetTotal === originalTotal) return null;
 
-  if (targetTotal > originalTotal) {
-    // Användaren vill att fler dagar ska vara kvar = spara mer = minska dpw
-    const searched = directReduceDpw({
+  if (targetTotal < originalTotal) {
+    // Användaren vill använda fler dagar (färre kvar) → öka dpw
+    const searched = directIncreaseDpw({
       originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
     });
     if (!searched) return null;
@@ -344,13 +344,13 @@ function computeProposal(
       deltaDays: newR.currentTotal - originalTotal,
       deltaMonthly: Math.round(newAvg - origAvg),
       newEndDate: latestEnd,
-      direction: "save",
+      direction: "use",
     };
   }
 
-  // targetTotal < originalTotal: användaren vill att färre dagar ska vara kvar = ta ut fler = öka dpw
+  // targetTotal > originalTotal: användaren vill spara fler dagar (fler kvar) → minska dpw
 
-  const searched = directIncreaseDpw({
+  const searched = directReduceDpw({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
   });
   if (!searched) return null;
