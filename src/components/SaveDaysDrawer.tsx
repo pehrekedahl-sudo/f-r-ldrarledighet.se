@@ -120,7 +120,8 @@ function adjustToTarget(opts: {
   const { blocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
   const transfers = getTransfers(transfer);
   const allowedIds = source === "both" ? parents.map(p => p.id) : [source];
-  const savingMore = targetTotal < originalTotal; // targetTotal < originalTotal = färre kvar = spara fler = sänk dpw
+  // targetTotal > originalTotal = fler kvar = spara fler = sänk dpw
+  const savingMore = targetTotal > originalTotal;
 
   let working = blocks.map(b => ({ ...b }));
   let bestBlocks = working;
