@@ -108,15 +108,8 @@ function getCurrentState(blocks: Block[], parents: Parent[], constants: Constant
   return { ...r, avgMonthly: calcAvgMonthly(result.parentsResult) };
 }
 
-// ── Binary-search helper: find daysToReduce such that simulatePlan gives remaining == target ──
-
-/**
- * Directly lower dpw from the end of blocks to save days.
- * Works backwards through the target parent's blocks, reducing dpw by 1
- * for as many weeks as needed. Never goes below 1.
- */
-function directReduceDpw(opts: {
-  originalBlocks: Block[];
+function adjustToTarget(opts: {
+  blocks: Block[];
   parents: Parent[];
   constants: Constants;
   transfer: Props["transfer"];
@@ -124,173 +117,74 @@ function directReduceDpw(opts: {
   targetTotal: number;
   originalTotal: number;
 }): { blocks: Block[]; summary: ReductionSummary | null } | null {
-  const { originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
+  const { blocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
   const transfers = getTransfers(transfer);
-  const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
+  const allowedIds = source === "both" ? parents.map(p => p.id) : [source];
+  const savingMore = targetTotal > originalTotal; // spara fler = sänk dpw
 
-  const daysToSave = targetTotal - originalTotal;
-  if (daysToSave <= 0) return { blocks: originalBlocks, summary: null };
-
-  const maxCapacity = originalBlocks
-    .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek > 1 && !b.isOverlap)
-    .reduce((s, b) => s + Math.floor(diffDaysInclusive(b.startDate, b.endDate) / 7), 0);
-
-  if (maxCapacity <= 0) return null;
-
-  let lo = Math.max(0, daysToSave - 20);
-  let hi = Math.min(daysToSave + 30, maxCapacity);
-  let bestBlocks: Block[] = originalBlocks;
+  let working = blocks.map(b => ({ ...b }));
+  let bestBlocks = working;
   let bestDiff = Infinity;
 
-  for (let iter = 0; iter < 25; iter++) {
-    const mid = Math.round((lo + hi) / 2);
-    if (mid <= 0) { lo = 1; continue; }
+  // Max 60 iterationer, varje iteration justerar en vecka i ett block
+  for (let iter = 0; iter < 60; iter++) {
+    const sim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+    const remaining = calcRemaining(sim.parentsResult).currentTotal;
+    const diff = Math.abs(remaining - targetTotal);
 
-    const working = originalBlocks.map(b => ({ ...b }));
-
-    const targets = source === "both" && parents.length >= 2
-      ? [
-          { pid: parents[0].id, weeks: mid - Math.ceil(mid / 2) },
-          { pid: parents[1].id, weeks: Math.ceil(mid / 2) },
-        ]
-      : [{ pid: allowedParentIds[0], weeks: mid }];
-
-    for (const { pid, weeks } of targets) {
-      let wl = weeks;
-      const affected = originalBlocks
-        .filter(b => b.parentId === pid && !b.isOverlap && b.daysPerWeek > 1)
-        .sort((a, b) => compareDates(b.endDate, a.endDate));
-
-      for (const block of affected) {
-        if (wl <= 0) break;
-        const blockWeeks = Math.floor(diffDaysInclusive(block.startDate, block.endDate) / 7);
-        if (blockWeeks <= 0) continue;
-        const weeksToReduce = Math.min(wl, blockWeeks);
-        const idx = working.findIndex(b => b.id === block.id);
-        if (idx === -1) continue;
-
-        if (weeksToReduce >= blockWeeks) {
-          working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
-        } else {
-          const splitDate = addDays(block.endDate, -(weeksToReduce * 7));
-          working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
-          working.push({
-            ...block,
-            id: generateBlockId("save-red"),
-            startDate: addDays(splitDate, 1),
-            endDate: block.endDate,
-            daysPerWeek: block.daysPerWeek - 1,
-            source: "system",
-          });
-        }
-        wl -= weeksToReduce;
-      }
-    }
-
-    const candidateBlocks = normalizeBlocks(working);
-    const simResult = simulatePlan({ parents, blocks: candidateBlocks, transfers, constants });
-    const remaining = calcRemaining(simResult.parentsResult).currentTotal;
-    const diff = remaining - targetTotal;
-
-    if (Math.abs(diff) < Math.abs(bestDiff)) {
+    if (diff < bestDiff) {
       bestDiff = diff;
-      bestBlocks = candidateBlocks;
+      bestBlocks = normalizeBlocks(working).map(b => ({ ...b }));
     }
-    if (diff === 0) break;
-    if (diff > 0) hi = mid - 1;
-    else lo = mid + 1;
-  }
+    if (remaining === targetTotal) break;
 
-  return { blocks: bestBlocks, summary: null };
-}
-
-/**
- * Increase dpw (use more days) to reduce remaining total.
- * Raises lowest-dpw blocks first, latest blocks first within each level.
- */
-function directIncreaseDpw(opts: {
-  originalBlocks: Block[];
-  parents: Parent[];
-  constants: Constants;
-  transfer: Props["transfer"];
-  source: SaveSource;
-  targetTotal: number;
-  originalTotal: number;
-}): { blocks: Block[]; summary: ReductionSummary | null } | null {
-  const { originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
-  const transfers = getTransfers(transfer);
-  const allowedParentIds = source === "both" ? parents.map(p => p.id) : [source as string];
-
-  const daysToUse = originalTotal - targetTotal;
-  if (daysToUse <= 0) return { blocks: originalBlocks, summary: null };
-
-  const maxCapacity = originalBlocks
-    .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7 && !b.isOverlap)
-    .reduce((s, b) => s + Math.floor(diffDaysInclusive(b.startDate, b.endDate) / 7) * (7 - b.daysPerWeek), 0);
-  if (maxCapacity <= 0) return null;
-
-  let lo = Math.max(0, daysToUse - 20);
-  let hi = Math.min(daysToUse + 30, maxCapacity);
-  let bestBlocks: Block[] = originalBlocks;
-  let bestDiff = Infinity;
-
-  for (let iter = 0; iter < 25; iter++) {
-    const mid = Math.round((lo + hi) / 2);
-    if (mid <= 0) { lo = 1; continue; }
-
-    const working = originalBlocks.map(b => ({ ...b }));
-    let stillNeeded = mid;
-    let safetyLimit = 20;
-
-    while (stillNeeded > 0 && safetyLimit-- > 0) {
+    if (savingMore) {
+      // Sänk dpw med 1 i sista möjliga vecka
       const candidates = working
-        .filter(b => allowedParentIds.includes(b.parentId) && b.daysPerWeek < 7 && !b.isOverlap)
-        .sort((a, b) => compareDates(b.startDate, a.startDate));
+        .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
+        .sort((a, b) => compareDates(b.endDate, a.endDate));
       if (candidates.length === 0) break;
-
-      const minDpw = Math.min(...candidates.map(b => b.daysPerWeek));
-      const atMinLevel = candidates.filter(b => b.daysPerWeek === minDpw);
-
-      for (const target of atMinLevel) {
-        if (stillNeeded <= 0) break;
-        const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
-        if (blockWeeks <= 0) continue;
-        const weeksToRaise = Math.min(stillNeeded, blockWeeks);
-        if (weeksToRaise >= blockWeeks) {
-          target.daysPerWeek = target.daysPerWeek + 1;
-          target.source = "system";
-        } else {
-          const headDays = (blockWeeks - weeksToRaise) * 7;
-          const splitDate = addDays(target.startDate, headDays);
-          working.push({
-            id: generateBlockId("adj-use"),
-            parentId: target.parentId,
-            startDate: splitDate,
-            endDate: target.endDate,
-            daysPerWeek: target.daysPerWeek + 1,
-            lowestDaysPerWeek: target.lowestDaysPerWeek,
-            overlapGroupId: target.overlapGroupId,
-            source: "system",
-          });
-          target.endDate = addDays(splitDate, -1);
-          target.source = "system";
-        }
-        stillNeeded -= weeksToRaise;
+      const target = candidates[0];
+      const idx = working.findIndex(b => b.id === target.id);
+      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
+      if (blockWeeks <= 1) {
+        working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
+      } else {
+        const splitDate = addDays(target.endDate, -7);
+        working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+        working.push({
+          ...target,
+          id: generateBlockId("save-red"),
+          startDate: addDays(splitDate, 1),
+          endDate: target.endDate,
+          daysPerWeek: target.daysPerWeek - 1,
+          source: "system",
+        });
+      }
+    } else {
+      // Höj dpw med 1 i sista möjliga vecka
+      const candidates = working
+        .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
+        .sort((a, b) => compareDates(b.endDate, a.endDate));
+      if (candidates.length === 0) break;
+      const target = candidates[0];
+      const idx = working.findIndex(b => b.id === target.id);
+      const blockWeeks = Math.floor(diffDaysInclusive(target.startDate, target.endDate) / 7);
+      if (blockWeeks <= 1) {
+        working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
+      } else {
+        const splitDate = addDays(target.endDate, -7);
+        working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+        working.push({
+          ...target,
+          id: generateBlockId("adj-use"),
+          startDate: addDays(splitDate, 1),
+          endDate: target.endDate,
+          daysPerWeek: target.daysPerWeek + 1,
+          source: "system",
+        });
       }
     }
-
-    const candidateBlocks = normalizeBlocks(working);
-    const simResult = simulatePlan({ parents, blocks: candidateBlocks, transfers, constants });
-    const remaining = calcRemaining(simResult.parentsResult).currentTotal;
-    const diff = remaining - targetTotal;
-
-    if (Math.abs(diff) < Math.abs(bestDiff)) {
-      bestDiff = diff;
-      bestBlocks = candidateBlocks;
-    }
-    if (diff === 0) break;
-    if (diff < 0) hi = mid - 1;
-    else lo = mid + 1;
   }
 
   return { blocks: bestBlocks, summary: null };
@@ -301,57 +195,22 @@ function computeProposal(
   constants: Constants,
   transfer: Props["transfer"],
   targetTotal: number,
-  originalBlocks: Block[],
+  blocks: Block[],
   originalTotal: number,
   source: SaveSource,
 ): Proposal | null {
-  if (originalBlocks.length === 0) return null;
+  if (blocks.length === 0) return null;
+  if (targetTotal === originalTotal) return null;
   const transfers = getTransfers(transfer);
 
-  if (targetTotal === originalTotal) return null;
-
-  if (targetTotal < originalTotal) {
-    // Användaren vill använda fler dagar (färre kvar) → öka dpw
-    const searched = directIncreaseDpw({
-      originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
-    });
-    if (!searched) return null;
-    const resultBlocks = searched.blocks;
-    const newResult = simulatePlan({ parents, blocks: resultBlocks, transfers, constants });
-    const newR = calcRemaining(newResult.parentsResult);
-    const newAvg = calcAvgMonthly(newResult.parentsResult);
-    const origResult = simulatePlan({ parents, blocks: originalBlocks, transfers, constants });
-    const origAvg = calcAvgMonthly(origResult.parentsResult);
-    const latestEnd = resultBlocks.length > 0
-      ? resultBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, resultBlocks[0].endDate)
-      : "";
-    return {
-      newBlocks: resultBlocks,
-      summary: searched.summary,
-      newSickness: newR.remainingSickness,
-      newLowest: newR.remainingLowest,
-      newTotal: newR.currentTotal,
-      deltaDays: newR.currentTotal - originalTotal,
-      deltaMonthly: Math.round(newAvg - origAvg),
-      newEndDate: latestEnd,
-      direction: "save",
-    };
-  }
-
-  // targetTotal > originalTotal: användaren vill spara fler dagar (fler kvar) → minska dpw
-
-  const searched = directReduceDpw({
-    originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
-  });
+  const searched = adjustToTarget({ blocks, parents, constants, transfer, source, targetTotal, originalTotal });
   if (!searched) return null;
 
   const resultBlocks = searched.blocks;
-  const summary = searched.summary;
-
   const newResult = simulatePlan({ parents, blocks: resultBlocks, transfers, constants });
   const newR = calcRemaining(newResult.parentsResult);
   const newAvg = calcAvgMonthly(newResult.parentsResult);
-  const origResult = simulatePlan({ parents, blocks: originalBlocks, transfers, constants });
+  const origResult = simulatePlan({ parents, blocks, transfers, constants });
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const latestEnd = resultBlocks.length > 0
     ? resultBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, resultBlocks[0].endDate)
@@ -359,7 +218,7 @@ function computeProposal(
 
   return {
     newBlocks: resultBlocks,
-    summary,
+    summary: null,
     newSickness: newR.remainingSickness,
     newLowest: newR.remainingLowest,
     newTotal: newR.currentTotal,
