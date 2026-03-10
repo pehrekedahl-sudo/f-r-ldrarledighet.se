@@ -245,7 +245,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentSavedDays = Math.max(0, maxDays - current.currentTotal);
+  // "Saved days" = remaining/unused FK-days
+  const currentSavedDays = current.currentTotal;
 
   useEffect(() => {
     if (open) {
