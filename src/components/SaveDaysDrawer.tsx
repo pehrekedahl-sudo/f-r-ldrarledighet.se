@@ -418,7 +418,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
               <p className="text-sm font-medium">
-                  {proposal.deltaDays < 0 ? "För att ta ut fler dagar föreslår vi:" : "För att spara fler dagar föreslår vi:"}
+                  {proposal.deltaDays > 0 ? "För att spara fler dagar föreslår vi:" : "För att ta ut fler dagar föreslår vi:"}
                 </p>
                 {proposal.summary && proposal.summary.weeksAffectedTotal > 0 ? (
                   <p className="text-sm text-muted-foreground">
