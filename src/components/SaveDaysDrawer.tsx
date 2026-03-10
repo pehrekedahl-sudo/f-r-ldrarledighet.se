@@ -51,7 +51,6 @@ type Props = {
   transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
   onApply: (newBlocks: Block[]) => void;
   hasManualEdits?: boolean;
-  originalBlocks: Block[];
 };
 
 type CurrentState = {
