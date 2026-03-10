@@ -381,7 +381,7 @@ function computeProposal(
 
 // ── component ──
 
-const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
+const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits }: Props) => {
   
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
   const maxDays = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
