@@ -344,7 +344,7 @@ function computeProposal(
       deltaDays: newR.currentTotal - originalTotal,
       deltaMonthly: Math.round(newAvg - origAvg),
       newEndDate: latestEnd,
-      direction: "use",
+      direction: "save",
     };
   }
 
