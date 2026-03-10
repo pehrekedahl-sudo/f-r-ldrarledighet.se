@@ -140,10 +140,10 @@ function adjustToTarget(opts: {
     if (remaining === targetTotal) break;
 
     if (savingMore) {
-      // Sänk dpw med 1 i sista möjliga vecka
+      // Spara fler = sänk dpw, från SLUTET av planen
       const candidates = working
         .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
-        .sort((a, b) => compareDates(b.endDate, a.endDate));
+        .sort((a, b) => compareDates(b.endDate, a.endDate)); // senaste först
       if (candidates.length === 0) break;
       const target = candidates[0];
       const idx = working.findIndex(b => b.id === target.id);
@@ -163,10 +163,14 @@ function adjustToTarget(opts: {
         });
       }
     } else {
-      // Höj dpw med 1 i sista möjliga vecka
+      // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först för jämn fördelning
       const candidates = working
         .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
-        .sort((a, b) => compareDates(b.endDate, a.endDate));
+        .sort((a, b) => {
+          // Lägst dpw först, vid lika → tidigast startdatum
+          if (a.daysPerWeek !== b.daysPerWeek) return a.daysPerWeek - b.daysPerWeek;
+          return compareDates(a.startDate, b.startDate);
+        });
       if (candidates.length === 0) break;
       const target = candidates[0];
       const idx = working.findIndex(b => b.id === target.id);
@@ -174,16 +178,17 @@ function adjustToTarget(opts: {
       if (blockWeeks <= 1) {
         working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
       } else {
-        const splitDate = addDays(target.endDate, -7);
-        working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+        // Splitta i början av blocket (höj dpw i första veckan)
+        const splitDate = addDays(target.startDate, 7);
         working.push({
           ...target,
           id: generateBlockId("adj-use"),
-          startDate: addDays(splitDate, 1),
-          endDate: target.endDate,
+          startDate: target.startDate,
+          endDate: addDays(splitDate, -1),
           daysPerWeek: target.daysPerWeek + 1,
           source: "system",
         });
+        working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
       }
     }
   }
