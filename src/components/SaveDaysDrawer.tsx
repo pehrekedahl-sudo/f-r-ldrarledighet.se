@@ -320,8 +320,8 @@ function computeProposal(
 
   if (targetTotal === originalTotal) return null;
 
-  if (targetTotal < originalTotal) {
-    // SAVE direction: user wants fewer remaining days = take out more = increase dpw
+  if (targetTotal > originalTotal) {
+    // Användaren vill att fler dagar ska vara kvar = spara mer = minska dpw
     const searched = directReduceDpw({
       originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
     });
@@ -348,7 +348,7 @@ function computeProposal(
     };
   }
 
-  // targetTotal > originalTotal: user wants to USE fewer days = save more = increase dpw
+  // targetTotal < originalTotal: användaren vill att färre dagar ska vara kvar = ta ut fler = öka dpw
 
   const searched = directIncreaseDpw({
     originalBlocks, parents, constants, transfer, source, targetTotal, originalTotal
