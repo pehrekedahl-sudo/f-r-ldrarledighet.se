@@ -313,7 +313,7 @@ const PlanBuilder = () => {
           (s: number, pr: any) => s + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest, 0
         )
       );
-      return Math.max(0, maxDays - currentRemaining);
+      return currentRemaining;
     } catch { return 0; }
   }, [result, parents, transfer]);
 

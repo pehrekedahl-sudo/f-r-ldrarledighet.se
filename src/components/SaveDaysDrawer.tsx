@@ -120,7 +120,8 @@ function adjustToTarget(opts: {
   const { blocks, parents, constants, transfer, source, targetTotal, originalTotal } = opts;
   const transfers = getTransfers(transfer);
   const allowedIds = source === "both" ? parents.map(p => p.id) : [source];
-  const savingMore = targetTotal < originalTotal; // targetTotal < originalTotal = färre kvar = spara fler = sänk dpw
+  // targetTotal > originalTotal = fler kvar = spara fler = sänk dpw
+  const savingMore = targetTotal > originalTotal;
 
   let working = blocks.map(b => ({ ...b }));
   let bestBlocks = working;
@@ -139,10 +140,10 @@ function adjustToTarget(opts: {
     if (remaining === targetTotal) break;
 
     if (savingMore) {
-      // Sänk dpw med 1 i sista möjliga vecka
+      // Spara fler = sänk dpw, från SLUTET av planen
       const candidates = working
         .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
-        .sort((a, b) => compareDates(b.endDate, a.endDate));
+        .sort((a, b) => compareDates(b.endDate, a.endDate)); // senaste först
       if (candidates.length === 0) break;
       const target = candidates[0];
       const idx = working.findIndex(b => b.id === target.id);
@@ -162,10 +163,14 @@ function adjustToTarget(opts: {
         });
       }
     } else {
-      // Höj dpw med 1 i sista möjliga vecka
+      // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först för jämn fördelning
       const candidates = working
         .filter(b => allowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
-        .sort((a, b) => compareDates(b.endDate, a.endDate));
+        .sort((a, b) => {
+          // Lägst dpw först, vid lika → tidigast startdatum
+          if (a.daysPerWeek !== b.daysPerWeek) return a.daysPerWeek - b.daysPerWeek;
+          return compareDates(a.startDate, b.startDate);
+        });
       if (candidates.length === 0) break;
       const target = candidates[0];
       const idx = working.findIndex(b => b.id === target.id);
@@ -173,16 +178,17 @@ function adjustToTarget(opts: {
       if (blockWeeks <= 1) {
         working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
       } else {
-        const splitDate = addDays(target.endDate, -7);
-        working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+        // Splitta i början av blocket (höj dpw i första veckan)
+        const splitDate = addDays(target.startDate, 7);
         working.push({
           ...target,
           id: generateBlockId("adj-use"),
-          startDate: addDays(splitDate, 1),
-          endDate: target.endDate,
+          startDate: target.startDate,
+          endDate: addDays(splitDate, -1),
           daysPerWeek: target.daysPerWeek + 1,
           source: "system",
         });
+        working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
       }
     }
   }
@@ -245,7 +251,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentSavedDays = Math.max(0, maxDays - current.currentTotal);
+  // "Saved days" = remaining/unused FK-days
+  const currentSavedDays = current.currentTotal;
 
   useEffect(() => {
     if (open) {
@@ -278,7 +285,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const computeDebounced = useCallback((savedDays: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const targetTotal = maxDays - savedDays;
+    // savedDays = target remaining days (slider value IS the remaining target)
+    const targetTotal = savedDays;
     if (targetTotal === current.currentTotal) {
       setProposal(null);
       setComputing(false);
@@ -410,7 +418,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <div className="space-y-4">
               <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
               <p className="text-sm font-medium">
-                  {proposal.deltaDays < 0 ? "För att ta ut fler dagar föreslår vi:" : "För att spara fler dagar föreslår vi:"}
+                  {proposal.deltaDays > 0 ? "För att spara fler dagar föreslår vi:" : "För att ta ut fler dagar föreslår vi:"}
                 </p>
                 {proposal.summary && proposal.summary.weeksAffectedTotal > 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -437,7 +445,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 <div className="border border-border rounded-lg p-3 bg-card">
                   <p className="text-xs text-muted-foreground">Sparade dagar efter ändring</p>
                   <p className="text-lg font-bold text-primary">
-                    {maxDays - proposal.newTotal}
+                    {proposal.newTotal}
                   </p>
                 </div>
                 <div className="border border-border rounded-lg p-3 bg-card">
