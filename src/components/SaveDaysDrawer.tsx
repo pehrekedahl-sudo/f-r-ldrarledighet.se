@@ -279,7 +279,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const computeDebounced = useCallback((savedDays: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const targetTotal = maxDays - savedDays;
+    // savedDays = target remaining days (slider value IS the remaining target)
+    const targetTotal = savedDays;
     if (targetTotal === current.currentTotal) {
       setProposal(null);
       setComputing(false);
