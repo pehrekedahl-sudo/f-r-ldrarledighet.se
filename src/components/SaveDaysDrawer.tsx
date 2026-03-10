@@ -51,7 +51,6 @@ type Props = {
   transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
   onApply: (newBlocks: Block[]) => void;
   hasManualEdits?: boolean;
-  originalBlocks: Block[];
 };
 
 type CurrentState = {
@@ -382,7 +381,7 @@ function computeProposal(
 
 // ── component ──
 
-const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits, originalBlocks }: Props) => {
+const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply, hasManualEdits }: Props) => {
   
   const current = useMemo(() => getCurrentState(blocks, parents, constants, transfer), [blocks, parents, constants, transfer]);
   const maxDays = useMemo(() => calcMaxRemaining(parents, constants, transfer), [parents, constants, transfer]);
@@ -440,13 +439,13 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       const result = computeProposal(
         parents, constants, transfer,
         targetTotal,
-        originalBlocks, current.currentTotal,
+        blocks, current.currentTotal,
         src
       );
       setProposal(result);
       setComputing(false);
     }, 250);
-  }, [parents, constants, transfer, originalBlocks, maxDays, current.currentTotal]);
+  }, [parents, constants, transfer, blocks, maxDays, current.currentTotal]);
 
   useEffect(() => {
     computeDebounced(targetDays, source);

@@ -1053,7 +1053,6 @@ const PlanBuilder = () => {
         open={saveDaysOpen}
         onOpenChange={setSaveDaysOpen}
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
-        originalBlocks={originalBlocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
         constants={CONSTANTS}
         transfer={transfer}
