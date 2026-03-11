@@ -218,15 +218,18 @@ function adjustToTarget(opts: {
         const idx = working.findIndex(b => b.id === chosen!.id);
         const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
-        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
+          // Block too short to split safely (both halves must be ≥14 days), modify whole block
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
         } else {
-          const splitDate = addDays(chosen.endDate, -7);
-          working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+          // Split so tail gets reduced dpw, both parts ≥14 days
+          const splitDate = addDays(chosen.endDate, -13); // tail = 14 days
+          working[idx] = { ...working[idx], endDate: addDays(splitDate, -1), source: "system" };
           working.push({
             ...chosen,
             id: `save-red-${iter}-${chosen.parentId}`,
-            startDate: addDays(splitDate, 1),
+            startDate: splitDate,
             endDate: chosen.endDate,
             daysPerWeek: chosen.daysPerWeek - 1,
             source: "system",
