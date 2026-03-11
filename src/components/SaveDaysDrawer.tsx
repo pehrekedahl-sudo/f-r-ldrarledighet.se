@@ -425,8 +425,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const handleApply = () => {
     if (!proposal || overLimitError) return;
-    const final = applySmartChange(blocks, proposal.newBlocks);
-    onApply(final);
+    // Blocks are already canonicalized by adjustToTarget — pass directly
+    onApply(proposal.newBlocks);
     onOpenChange(false);
   };
 
