@@ -293,20 +293,16 @@ function adjustToTarget(opts: {
     if (!adjusted) break; // No valid candidate found
   }
 
-  // Final verification
-  const finalSim = simulatePlan({ parents, blocks: normalizeBlocks(bestBlocks), transfers, constants });
-  const finalRemaining = calcRemaining(finalSim.parentsResult).currentTotal;
-  const finalDiff = Math.abs(finalRemaining - targetTotal);
-
-  // Check if last working state is better
-  const lastNorm = normalizeBlocks(working);
-  const lastSim = simulatePlan({ parents, blocks: lastNorm, transfers, constants });
+  // Also check last working state
+  const lastSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const lastRemaining = calcRemaining(lastSim.parentsResult).currentTotal;
-  if (Math.abs(lastRemaining - targetTotal) < finalDiff) {
-    return { blocks: lastNorm, summary: null };
+  if (Math.abs(lastRemaining - targetTotal) < bestDiff) {
+    bestBlocks = working.map(b => ({ ...b }));
   }
 
-  return { blocks: bestBlocks, summary: null };
+  // ONE canonicalization pass — this is the final output
+  const finalBlocks = canonicalizeBlocks(bestBlocks);
+  return { blocks: finalBlocks, summary: null };
 }
 
 function computeProposal(
