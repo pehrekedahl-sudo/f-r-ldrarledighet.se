@@ -14,12 +14,10 @@ import { Slider } from "@/components/ui/slider";
 
 import { simulatePlan } from "@/lib/simulatePlan";
 import {
-  applySmartChange,
-  normalizeBlocks,
-  
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
+import { canonicalizeBlocks } from "@/lib/canonicalizeBlocks";
 import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
 
 
