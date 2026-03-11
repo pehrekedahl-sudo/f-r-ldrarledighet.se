@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { toast } from "@/hooks/use-toast";
 import {
   Sheet,
   SheetContent,
@@ -428,6 +429,15 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     // Blocks are already canonicalized by adjustToTarget — pass directly
     onApply(proposal.newBlocks);
     onOpenChange(false);
+
+    // Notify if result differs from requested target
+    if (proposal.newTotal !== targetDays) {
+      toast({
+        title: "Sparade dagar justerades",
+        description: `Du valde ${targetDays} dagar, men närmaste möjliga blev ${proposal.newTotal} dagar.`,
+        duration: 5000,
+      });
+    }
   };
 
   const sourceOptions: { value: SaveSource; label: string }[] = [
