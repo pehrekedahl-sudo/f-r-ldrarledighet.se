@@ -186,112 +186,113 @@ function adjustToTarget(opts: {
 
     let adjusted = false;
 
-    if (savingMore) {
-      // Spara fler = sänk dpw, från SLUTET av planen, högst dpw först
-      const candidates = working
-        .filter(b => iterAllowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
-        .sort((a, b) => {
-          if (b.daysPerWeek !== a.daysPerWeek) return b.daysPerWeek - a.daysPerWeek;
-          return compareDates(b.endDate, a.endDate);
-        });
+    // Try to find and adjust a candidate; if "both" mode and primary parent fails, retry with the other
+    const tryAdjust = (ids: string[]): boolean => {
+      if (savingMore) {
+        const candidates = working
+          .filter(b => ids.includes(b.parentId) && !b.isOverlap && b.daysPerWeek > 1)
+          .sort((a, b) => {
+            if (b.daysPerWeek !== a.daysPerWeek) return b.daysPerWeek - a.daysPerWeek;
+            return compareDates(b.endDate, a.endDate);
+          });
 
-      let chosen: (typeof candidates)[number] | null = null;
-      for (const candidate of candidates) {
-        if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, -1)) {
-          chosen = candidate;
-          break;
-        }
-        // Propagate forward: find a neighbor we can lower instead
-        const sorted = getParentBlocks(working, candidate.parentId);
-        const cidx = sorted.findIndex(b => b.id === candidate.id);
-        for (let ni = cidx + 1; ni < sorted.length; ni++) {
-          const neighbor = sorted[ni];
-          if (neighbor.daysPerWeek <= 1) break;
-          if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, -1)) {
-            chosen = neighbor;
+        let chosen: (typeof candidates)[number] | null = null;
+        for (const candidate of candidates) {
+          if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, -1)) {
+            chosen = candidate;
             break;
           }
+          const sorted = getParentBlocks(working, candidate.parentId);
+          const cidx = sorted.findIndex(b => b.id === candidate.id);
+          for (let ni = cidx + 1; ni < sorted.length; ni++) {
+            const neighbor = sorted[ni];
+            if (neighbor.daysPerWeek <= 1) break;
+            if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, -1)) {
+              chosen = neighbor;
+              break;
+            }
+          }
+          if (chosen) break;
         }
-        if (chosen) break;
-      }
 
-      if (chosen) {
-        const idx = working.findIndex(b => b.id === chosen!.id);
-        const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
-
-        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
-        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
-          // Block too short to split safely (both halves must be ≥14 days), modify whole block
-          working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
-        } else {
-          // Split so tail gets reduced dpw, both parts ≥14 days
-          const splitDate = addDays(chosen.endDate, -13); // tail = 14 days
-          working[idx] = { ...working[idx], endDate: addDays(splitDate, -1), source: "system" };
-          working.push({
-            ...chosen,
-            id: `save-red-${iter}-${chosen.parentId}`,
-            startDate: splitDate,
-            endDate: chosen.endDate,
-            daysPerWeek: chosen.daysPerWeek - 1,
-            source: "system",
+        if (chosen) {
+          const idx = working.findIndex(b => b.id === chosen!.id);
+          const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+          if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
+            working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
+          } else {
+            const splitDate = addDays(chosen.endDate, -13);
+            working[idx] = { ...working[idx], endDate: addDays(splitDate, -1), source: "system" };
+            working.push({
+              ...chosen,
+              id: `save-red-${iter}-${chosen.parentId}`,
+              startDate: splitDate,
+              endDate: chosen.endDate,
+              daysPerWeek: chosen.daysPerWeek - 1,
+              source: "system",
+            });
+          }
+          return true;
+        }
+      } else {
+        const candidates = working
+          .filter(b => ids.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
+          .sort((a, b) => {
+            if (a.daysPerWeek !== b.daysPerWeek) return a.daysPerWeek - b.daysPerWeek;
+            return compareDates(a.startDate, b.startDate);
           });
-        }
-        adjusted = true;
-      }
-    } else {
-      // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först
-      const candidates = working
-        .filter(b => iterAllowedIds.includes(b.parentId) && !b.isOverlap && b.daysPerWeek < 7)
-        .sort((a, b) => {
-          if (a.daysPerWeek !== b.daysPerWeek) return a.daysPerWeek - b.daysPerWeek;
-          return compareDates(a.startDate, b.startDate);
-        });
 
-      let chosen: (typeof candidates)[number] | null = null;
-      for (const candidate of candidates) {
-        if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, +1)) {
-          chosen = candidate;
-          break;
-        }
-        // Propagate backward: find a neighbor we can raise instead
-        const sorted = getParentBlocks(working, candidate.parentId);
-        const cidx = sorted.findIndex(b => b.id === candidate.id);
-        for (let ni = cidx - 1; ni >= 0; ni--) {
-          const neighbor = sorted[ni];
-          if (neighbor.daysPerWeek >= 7) break;
-          if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, +1)) {
-            chosen = neighbor;
+        let chosen: (typeof candidates)[number] | null = null;
+        for (const candidate of candidates) {
+          if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, +1)) {
+            chosen = candidate;
             break;
           }
+          const sorted = getParentBlocks(working, candidate.parentId);
+          const cidx = sorted.findIndex(b => b.id === candidate.id);
+          for (let ni = cidx - 1; ni >= 0; ni--) {
+            const neighbor = sorted[ni];
+            if (neighbor.daysPerWeek >= 7) break;
+            if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, +1)) {
+              chosen = neighbor;
+              break;
+            }
+          }
+          if (chosen) break;
         }
-        if (chosen) break;
-      }
 
-      if (chosen) {
-        const idx = working.findIndex(b => b.id === chosen!.id);
-        const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
-
-        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
-        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
-          working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
-        } else {
-          // Split so head gets raised dpw, both parts ≥14 days
-          const splitEnd = addDays(chosen.startDate, 13); // head = 14 days
-          working.push({
-            ...chosen,
-            id: `adj-use-${iter}-${chosen.parentId}`,
-            startDate: chosen.startDate,
-            endDate: splitEnd,
-            daysPerWeek: chosen.daysPerWeek + 1,
-            source: "system",
-          });
-          working[idx] = { ...working[idx], startDate: addDays(splitEnd, 1), source: "system" };
+        if (chosen) {
+          const idx = working.findIndex(b => b.id === chosen!.id);
+          const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+          if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
+            working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
+          } else {
+            const splitEnd = addDays(chosen.startDate, 13);
+            working.push({
+              ...chosen,
+              id: `adj-use-${iter}-${chosen.parentId}`,
+              startDate: chosen.startDate,
+              endDate: splitEnd,
+              daysPerWeek: chosen.daysPerWeek + 1,
+              source: "system",
+            });
+            working[idx] = { ...working[idx], startDate: addDays(splitEnd, 1), source: "system" };
+          }
+          return true;
         }
-        adjusted = true;
       }
+      return false;
+    };
+
+    adjusted = tryAdjust(iterAllowedIds);
+
+    // Fallback: if "both" mode and primary parent had no candidate, try the other parent
+    if (!adjusted && source === "both" && allowedIds.length > 1) {
+      const otherIds = allowedIds.filter(id => !iterAllowedIds.includes(id));
+      adjusted = tryAdjust(otherIds);
     }
 
-    if (!adjusted) break; // No valid candidate found
+    if (!adjusted) break; // Neither parent had a valid candidate
   }
 
   // Also check last working state
