@@ -241,7 +241,7 @@ function adjustToTarget(opts: {
           const splitDate = addDays(candidate.startDate, 7);
           working.push({
             ...candidate,
-            id: generateBlockId("adj-use"),
+            id: `adj-use-${iter}-${candidate.parentId}`,
             startDate: candidate.startDate,
             endDate: addDays(splitDate, -1),
             daysPerWeek: candidate.daysPerWeek + 1,
