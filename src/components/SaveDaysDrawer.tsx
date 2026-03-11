@@ -358,8 +358,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
   const [computing, setComputing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // "Saved days" = days NOT used in the plan = maxDays - remaining
-  const currentSavedDays = maxDays - current.currentTotal;
+  // "Saved days" = remaining/unused FK-days
+  const currentSavedDays = current.currentTotal;
 
   useEffect(() => {
     if (open) {
@@ -390,10 +390,10 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     }
   };
 
-  const computeDebounced = useCallback((sliderValue: number, src: SaveSource) => {
+  const computeDebounced = useCallback((savedDays: number, src: SaveSource) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    // sliderValue = saved days; convert to remaining target
-    const targetTotal = maxDays - sliderValue;
+    // savedDays = target remaining days (slider value IS the remaining target)
+    const targetTotal = savedDays;
     if (targetTotal === current.currentTotal) {
       setProposal(null);
       setComputing(false);
