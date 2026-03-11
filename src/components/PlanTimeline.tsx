@@ -194,10 +194,51 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
 
   if (allValidBlocks.length === 0) return null;
 
-  const parentRows = parents.map((p) => ({
-    ...p,
-    blocks: validBlocks.filter((b) => b.parentId === p.id),
-  }));
+  // Clip regular blocks where DD overlaps exist, creating visual "pauses"
+  const clipBlocksForOverlaps = (parentBlocks: Block[], overlaps: Block[]): Block[] => {
+    if (overlaps.length === 0) return parentBlocks;
+    
+    const result: Block[] = [];
+    for (const b of parentBlocks) {
+      let segments: { start: string; end: string }[] = [{ start: b.startDate, end: b.endDate }];
+      
+      for (const ov of overlaps) {
+        const newSegments: { start: string; end: string }[] = [];
+        for (const seg of segments) {
+          // No overlap
+          if (compareDates(ov.endDate, seg.start) < 0 || compareDates(ov.startDate, seg.end) > 0) {
+            newSegments.push(seg);
+            continue;
+          }
+          // Before overlap
+          if (compareDates(seg.start, ov.startDate) < 0) {
+            newSegments.push({ start: seg.start, end: addDays(ov.startDate, -1) });
+          }
+          // After overlap
+          if (compareDates(seg.end, ov.endDate) > 0) {
+            newSegments.push({ start: addDays(ov.endDate, 1), end: seg.end });
+          }
+        }
+        segments = newSegments;
+      }
+      
+      for (const seg of segments) {
+        if (compareDates(seg.end, seg.start) >= 0) {
+          result.push({ ...b, id: `${b.id}-clip-${seg.start}`, startDate: seg.start, endDate: seg.end });
+        }
+      }
+    }
+    return result;
+  };
+
+  const parentRows = parents.map((p) => {
+    const parentOverlaps = validOverlaps.filter((ov) => ov.parentId === p.id);
+    const rawBlocks = validBlocks.filter((b) => b.parentId === p.id);
+    return {
+      ...p,
+      blocks: clipBlocksForOverlaps(rawBlocks, parentOverlaps),
+    };
+  });
 
   const rowHeight = 48;
   const overlapRowHeight = 36;

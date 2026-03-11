@@ -220,7 +220,7 @@ export function simulatePlan(plan: PlanInput): SimResult {
     for (let i = 0; i < sorted.length - 1; i++) {
       if (compareDates(sorted[i].endDate, sorted[i + 1].startDate) >= 0) {
         // Skip overlap error if either block is a DD (overlap) block
-        if (sorted[i].overlapGroupId || sorted[i + 1].overlapGroupId) continue;
+        if (sorted[i].overlapGroupId || sorted[i + 1].overlapGroupId || sorted[i].isOverlap || sorted[i + 1].isOverlap) continue;
         result.validationErrors.push({
           type: "overlapWithinSameParent",
           parentId: pid,

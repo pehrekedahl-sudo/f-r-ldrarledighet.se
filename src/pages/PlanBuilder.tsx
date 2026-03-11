@@ -1107,9 +1107,9 @@ const PlanBuilder = () => {
         open={doubleDaysOpen}
         onOpenChange={setDoubleDaysOpen}
         parents={parents}
-        onApply={(newBlock) => {
+        onApply={(newBlocks) => {
           pushHistory();
-          const updated = canonicalizeBlocks([...blocks, newBlock]);
+          const updated = canonicalizeBlocks([...blocks, ...newBlocks]);
           assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
           setBlocks(updated);
           const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
