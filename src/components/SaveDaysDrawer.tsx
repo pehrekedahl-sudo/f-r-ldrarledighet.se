@@ -193,30 +193,45 @@ function adjustToTarget(opts: {
           return compareDates(b.endDate, a.endDate);
         });
 
+      let chosen: (typeof candidates)[number] | null = null;
       for (const candidate of candidates) {
-        if (wouldViolateAdjacency(working, candidate.id, candidate.parentId, -1)) continue;
+        if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, -1)) {
+          chosen = candidate;
+          break;
+        }
+        // Propagate forward: find a neighbor we can lower instead
+        const sorted = getParentBlocks(working, candidate.parentId);
+        const cidx = sorted.findIndex(b => b.id === candidate.id);
+        for (let ni = cidx + 1; ni < sorted.length; ni++) {
+          const neighbor = sorted[ni];
+          if (neighbor.daysPerWeek <= 1) break;
+          if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, -1)) {
+            chosen = neighbor;
+            break;
+          }
+        }
+        if (chosen) break;
+      }
 
-        const idx = working.findIndex(b => b.id === candidate.id);
-        const blockWeeks = Math.floor(diffDaysInclusive(candidate.startDate, candidate.endDate) / 7);
+      if (chosen) {
+        const idx = working.findIndex(b => b.id === chosen!.id);
+        const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
         if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
-          // Modify whole block
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
         } else {
-          // Split: last part gets lower dpw
-          const splitDate = addDays(candidate.endDate, -7);
+          const splitDate = addDays(chosen.endDate, -7);
           working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
           working.push({
-            ...candidate,
-            id: `save-red-${iter}-${candidate.parentId}`,
+            ...chosen,
+            id: `save-red-${iter}-${chosen.parentId}`,
             startDate: addDays(splitDate, 1),
-            endDate: candidate.endDate,
-            daysPerWeek: candidate.daysPerWeek - 1,
+            endDate: chosen.endDate,
+            daysPerWeek: chosen.daysPerWeek - 1,
             source: "system",
           });
         }
         adjusted = true;
-        break;
       }
     } else {
       // Använda fler = höj dpw, från STARTEN av planen, lägst dpw först
@@ -227,30 +242,45 @@ function adjustToTarget(opts: {
           return compareDates(a.startDate, b.startDate);
         });
 
+      let chosen: (typeof candidates)[number] | null = null;
       for (const candidate of candidates) {
-        if (wouldViolateAdjacency(working, candidate.id, candidate.parentId, +1)) continue;
+        if (!wouldViolateAdjacency(working, candidate.id, candidate.parentId, +1)) {
+          chosen = candidate;
+          break;
+        }
+        // Propagate backward: find a neighbor we can raise instead
+        const sorted = getParentBlocks(working, candidate.parentId);
+        const cidx = sorted.findIndex(b => b.id === candidate.id);
+        for (let ni = cidx - 1; ni >= 0; ni--) {
+          const neighbor = sorted[ni];
+          if (neighbor.daysPerWeek >= 7) break;
+          if (!wouldViolateAdjacency(working, neighbor.id, neighbor.parentId, +1)) {
+            chosen = neighbor;
+            break;
+          }
+        }
+        if (chosen) break;
+      }
 
-        const idx = working.findIndex(b => b.id === candidate.id);
-        const blockWeeks = Math.floor(diffDaysInclusive(candidate.startDate, candidate.endDate) / 7);
+      if (chosen) {
+        const idx = working.findIndex(b => b.id === chosen!.id);
+        const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
         if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
-          // Modify whole block
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
         } else {
-          // Split: first part gets higher dpw
-          const splitDate = addDays(candidate.startDate, 7);
+          const splitDate = addDays(chosen.startDate, 7);
           working.push({
-            ...candidate,
-            id: `adj-use-${iter}-${candidate.parentId}`,
-            startDate: candidate.startDate,
+            ...chosen,
+            id: `adj-use-${iter}-${chosen.parentId}`,
+            startDate: chosen.startDate,
             endDate: addDays(splitDate, -1),
-            daysPerWeek: candidate.daysPerWeek + 1,
+            daysPerWeek: chosen.daysPerWeek + 1,
             source: "system",
           });
           working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
         }
         adjusted = true;
-        break;
       }
     }
 
