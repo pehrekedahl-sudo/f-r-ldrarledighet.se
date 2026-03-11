@@ -153,21 +153,24 @@ function adjustToTarget(opts: {
   let bestDiff = Infinity;
 
   // Check if already at target
-  const initSim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+  const initSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const initRemaining = calcRemaining(initSim.parentsResult).currentTotal;
-  if (initRemaining === targetTotal) return { blocks: normalizeBlocks(working), summary: null };
+  if (initRemaining === targetTotal) {
+    const final = canonicalizeBlocks(working);
+    return { blocks: final, summary: null };
+  }
 
   // For "both" source, alternate between parents for even distribution
   let parentTurnIndex = 0;
 
   for (let iter = 0; iter < 60; iter++) {
-    const sim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+    const sim = simulatePlan({ parents, blocks: working, transfers, constants });
     const remaining = calcRemaining(sim.parentsResult).currentTotal;
     const diff = Math.abs(remaining - targetTotal);
 
     if (diff < bestDiff) {
       bestDiff = diff;
-      bestBlocks = normalizeBlocks(working).map(b => ({ ...b }));
+      bestBlocks = working.map(b => ({ ...b }));
     }
     if (remaining === targetTotal) break;
 
