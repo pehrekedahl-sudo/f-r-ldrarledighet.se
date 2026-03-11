@@ -208,7 +208,7 @@ function adjustToTarget(opts: {
           working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
           working.push({
             ...candidate,
-            id: generateBlockId("save-red"),
+            id: `save-red-${iter}-${candidate.parentId}`,
             startDate: addDays(splitDate, 1),
             endDate: candidate.endDate,
             daysPerWeek: candidate.daysPerWeek - 1,
