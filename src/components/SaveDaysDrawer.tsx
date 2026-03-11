@@ -270,19 +270,21 @@ function adjustToTarget(opts: {
         const idx = working.findIndex(b => b.id === chosen!.id);
         const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
-        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
         } else {
-          const splitDate = addDays(chosen.startDate, 7);
+          // Split so head gets raised dpw, both parts ≥14 days
+          const splitEnd = addDays(chosen.startDate, 13); // head = 14 days
           working.push({
             ...chosen,
             id: `adj-use-${iter}-${chosen.parentId}`,
             startDate: chosen.startDate,
-            endDate: addDays(splitDate, -1),
+            endDate: splitEnd,
             daysPerWeek: chosen.daysPerWeek + 1,
             source: "system",
           });
-          working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
+          working[idx] = { ...working[idx], startDate: addDays(splitEnd, 1), source: "system" };
         }
         adjusted = true;
       }
