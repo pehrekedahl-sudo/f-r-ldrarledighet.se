@@ -14,12 +14,10 @@ import { Slider } from "@/components/ui/slider";
 
 import { simulatePlan } from "@/lib/simulatePlan";
 import {
-  applySmartChange,
-  normalizeBlocks,
-  
   type Block,
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
+import { canonicalizeBlocks } from "@/lib/canonicalizeBlocks";
 import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
 
 
@@ -155,21 +153,24 @@ function adjustToTarget(opts: {
   let bestDiff = Infinity;
 
   // Check if already at target
-  const initSim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+  const initSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const initRemaining = calcRemaining(initSim.parentsResult).currentTotal;
-  if (initRemaining === targetTotal) return { blocks: normalizeBlocks(working), summary: null };
+  if (initRemaining === targetTotal) {
+    const final = canonicalizeBlocks(working);
+    return { blocks: final, summary: null };
+  }
 
   // For "both" source, alternate between parents for even distribution
   let parentTurnIndex = 0;
 
   for (let iter = 0; iter < 60; iter++) {
-    const sim = simulatePlan({ parents, blocks: normalizeBlocks(working), transfers, constants });
+    const sim = simulatePlan({ parents, blocks: working, transfers, constants });
     const remaining = calcRemaining(sim.parentsResult).currentTotal;
     const diff = Math.abs(remaining - targetTotal);
 
     if (diff < bestDiff) {
       bestDiff = diff;
-      bestBlocks = normalizeBlocks(working).map(b => ({ ...b }));
+      bestBlocks = working.map(b => ({ ...b }));
     }
     if (remaining === targetTotal) break;
 
@@ -217,15 +218,18 @@ function adjustToTarget(opts: {
         const idx = working.findIndex(b => b.id === chosen!.id);
         const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
-        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
+          // Block too short to split safely (both halves must be ≥14 days), modify whole block
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
         } else {
-          const splitDate = addDays(chosen.endDate, -7);
-          working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
+          // Split so tail gets reduced dpw, both parts ≥14 days
+          const splitDate = addDays(chosen.endDate, -13); // tail = 14 days
+          working[idx] = { ...working[idx], endDate: addDays(splitDate, -1), source: "system" };
           working.push({
             ...chosen,
             id: `save-red-${iter}-${chosen.parentId}`,
-            startDate: addDays(splitDate, 1),
+            startDate: splitDate,
             endDate: chosen.endDate,
             daysPerWeek: chosen.daysPerWeek - 1,
             source: "system",
@@ -266,19 +270,21 @@ function adjustToTarget(opts: {
         const idx = working.findIndex(b => b.id === chosen!.id);
         const blockWeeks = Math.floor(diffDaysInclusive(chosen.startDate, chosen.endDate) / 7);
 
-        if (blockWeeks <= 1 || countNonOverlapBlocks(working) >= 8) {
+        const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
+        if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
           working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek + 1, source: "system" };
         } else {
-          const splitDate = addDays(chosen.startDate, 7);
+          // Split so head gets raised dpw, both parts ≥14 days
+          const splitEnd = addDays(chosen.startDate, 13); // head = 14 days
           working.push({
             ...chosen,
             id: `adj-use-${iter}-${chosen.parentId}`,
             startDate: chosen.startDate,
-            endDate: addDays(splitDate, -1),
+            endDate: splitEnd,
             daysPerWeek: chosen.daysPerWeek + 1,
             source: "system",
           });
-          working[idx] = { ...working[idx], startDate: splitDate, source: "system" };
+          working[idx] = { ...working[idx], startDate: addDays(splitEnd, 1), source: "system" };
         }
         adjusted = true;
       }
@@ -287,20 +293,16 @@ function adjustToTarget(opts: {
     if (!adjusted) break; // No valid candidate found
   }
 
-  // Final verification
-  const finalSim = simulatePlan({ parents, blocks: normalizeBlocks(bestBlocks), transfers, constants });
-  const finalRemaining = calcRemaining(finalSim.parentsResult).currentTotal;
-  const finalDiff = Math.abs(finalRemaining - targetTotal);
-
-  // Check if last working state is better
-  const lastNorm = normalizeBlocks(working);
-  const lastSim = simulatePlan({ parents, blocks: lastNorm, transfers, constants });
+  // Also check last working state
+  const lastSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const lastRemaining = calcRemaining(lastSim.parentsResult).currentTotal;
-  if (Math.abs(lastRemaining - targetTotal) < finalDiff) {
-    return { blocks: lastNorm, summary: null };
+  if (Math.abs(lastRemaining - targetTotal) < bestDiff) {
+    bestBlocks = working.map(b => ({ ...b }));
   }
 
-  return { blocks: bestBlocks, summary: null };
+  // ONE canonicalization pass — this is the final output
+  const finalBlocks = canonicalizeBlocks(bestBlocks);
+  return { blocks: finalBlocks, summary: null };
 }
 
 function computeProposal(
@@ -423,8 +425,8 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const handleApply = () => {
     if (!proposal || overLimitError) return;
-    const final = applySmartChange(blocks, proposal.newBlocks);
-    onApply(final);
+    // Blocks are already canonicalized by adjustToTarget — pass directly
+    onApply(proposal.newBlocks);
     onOpenChange(false);
   };
 
