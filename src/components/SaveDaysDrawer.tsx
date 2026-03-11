@@ -21,7 +21,7 @@ import {
   type ReductionSummary,
 } from "@/lib/adjustmentPolicy";
 import { addDays, diffDaysInclusive, compareDates } from "@/utils/dateOnly";
-import { generateBlockId } from "@/lib/blockIdUtils";
+
 
 type Parent = {
   id: string;
@@ -208,7 +208,7 @@ function adjustToTarget(opts: {
           working[idx] = { ...working[idx], endDate: splitDate, source: "system" };
           working.push({
             ...candidate,
-            id: generateBlockId("save-red"),
+            id: `save-red-${iter}-${candidate.parentId}`,
             startDate: addDays(splitDate, 1),
             endDate: candidate.endDate,
             daysPerWeek: candidate.daysPerWeek - 1,
@@ -241,7 +241,7 @@ function adjustToTarget(opts: {
           const splitDate = addDays(candidate.startDate, 7);
           working.push({
             ...candidate,
-            id: generateBlockId("adj-use"),
+            id: `adj-use-${iter}-${candidate.parentId}`,
             startDate: candidate.startDate,
             endDate: addDays(splitDate, -1),
             daysPerWeek: candidate.daysPerWeek + 1,
