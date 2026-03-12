@@ -191,7 +191,7 @@ function calcAvgMonthly(parentsResult: any[]): number {
 
 function calcParentLoad(blocks: Block[], parentId: string): number {
   return blocks
-    .filter(b => b.parentId === parentId)
+    .filter(b => b.parentId === parentId && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7) * b.daysPerWeek, 0);
 }
 
