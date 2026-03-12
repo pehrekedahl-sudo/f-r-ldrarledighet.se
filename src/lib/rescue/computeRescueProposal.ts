@@ -189,6 +189,15 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
+function calcTotalRemainingDays(simResult: any): number {
+  return Math.round(
+    (simResult?.parentsResult ?? []).reduce(
+      (sum: number, pr: any) => sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
+      0,
+    ),
+  );
+}
+
 function calcParentLoad(blocks: Block[], parentId: string): number {
   return blocks
     .filter(b => b.parentId === parentId && !b.isOverlap)
