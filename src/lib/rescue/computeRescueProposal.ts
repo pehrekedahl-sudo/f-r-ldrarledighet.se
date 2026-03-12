@@ -189,6 +189,15 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
+function calcTotalRemainingDays(simResult: any): number {
+  return Math.round(
+    (simResult?.parentsResult ?? []).reduce(
+      (sum: number, pr: any) => sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
+      0,
+    ),
+  );
+}
+
 function calcParentLoad(blocks: Block[], parentId: string): number {
   return blocks
     .filter(b => b.parentId === parentId && !b.isOverlap)
@@ -354,6 +363,7 @@ export function computeRescueProposal(
   if (shortageBefore <= 0) return null;
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
+  const baselineRemainingDays = calcTotalRemainingDays(origResult);
   const debugBefore = blocks.map(b => ({ ...b }));
 
   // ══════════════════════════════════════════════
@@ -534,48 +544,52 @@ export function computeRescueProposal(
   //     to find the MINIMUM adjustment that solves the shortage
   // ══════════════════════════════════════════════
   if (unfulfilledAfterFull <= 0) {
-    // Calculate baseline remaining days to preserve saved days
-    const baselineRemaining = parents.reduce((sum, p) => {
-      const pr = finalResult.parentsResult.find((r: any) => r.parentId === p.id);
-      if (!pr) return sum;
-      return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
-    }, 0);
-
+    const targetRemainingDays = baselineRemainingDays;
     const MAX_SHRINK = 50;
     let shrinkIters = 0;
 
     while (shrinkIters < MAX_SHRINK) {
-      // Try removing one week from the parent with the most reduction weeks
       const candidates = parents
         .filter(p => (perParentWeeks[p.id] ?? 0) > 0)
         .sort((a, b) => (perParentWeeks[b.id] ?? 0) - (perParentWeeks[a.id] ?? 0));
 
-      let shrank = false;
+      let bestShrink:
+        | {
+            pid: string;
+            testWeeks: Record<string, number>;
+            testReductions: ReductionRange[];
+            testBlocks: Block[];
+            shortage: number;
+            result: any;
+            remaining: number;
+          }
+        | null = null;
+
       for (const p of candidates) {
         const testWeeks = { ...perParentWeeks, [p.id]: perParentWeeks[p.id] - 1 };
         const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
         const testBlocks = buildProposalBlocks(blocks, testReductions);
         const { shortage, result } = engineShortage(parents, testBlocks, transferList, constants);
+        const testRemaining = calcTotalRemainingDays(result);
 
-        // Check that shrinking doesn't increase remaining days (which would mean saved days increased)
-        const testRemaining = parents.reduce((sum, pp) => {
-          const pr = result.parentsResult.find((r: any) => r.parentId === pp.id);
-          if (!pr) return sum;
-          return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
-        }, 0);
-
-        if (shortage <= 0 && testRemaining <= baselineRemaining) {
-          perParentWeeks[p.id] = testWeeks[p.id];
-          allReductions = testReductions;
-          proposalBlocks = testBlocks;
-          unfulfilledAfterFull = shortage;
-          finalResult = result;
-          shrank = true;
-          break;
+        // Preserve saved days: we may shrink only if we still solve shortage
+        // and do not go below the original saved-days baseline.
+        if (shortage <= 0 && testRemaining >= targetRemainingDays) {
+          if (!bestShrink || testRemaining < bestShrink.remaining) {
+            bestShrink = { pid: p.id, testWeeks, testReductions, testBlocks, shortage, result, remaining: testRemaining };
+          }
         }
       }
 
-      if (!shrank) break;
+      if (!bestShrink) break;
+
+      perParentWeeks[bestShrink.pid] = bestShrink.testWeeks[bestShrink.pid];
+      allReductions = bestShrink.testReductions;
+      proposalBlocks = bestShrink.testBlocks;
+      unfulfilledAfterFull = bestShrink.shortage;
+      finalResult = bestShrink.result;
+
+      if (bestShrink.remaining === targetRemainingDays) break;
       shrinkIters++;
     }
   }
