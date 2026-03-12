@@ -331,7 +331,7 @@ function buildProposalBlocks(blocks: Block[], reductions: ReductionRange[]): Blo
 /** How many reducible whole-weeks does this parent have in the original blocks */
 function parentCapacity(blocks: Block[], parentId: string): number {
   return blocks
-    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
 }
 
