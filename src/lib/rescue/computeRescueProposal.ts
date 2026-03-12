@@ -34,6 +34,7 @@ export type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  isOverlap?: boolean;
 };
 
 export type Parent = {
@@ -190,13 +191,13 @@ function calcAvgMonthly(parentsResult: any[]): number {
 
 function calcParentLoad(blocks: Block[], parentId: string): number {
   return blocks
-    .filter(b => b.parentId === parentId)
+    .filter(b => b.parentId === parentId && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7) * b.daysPerWeek, 0);
 }
 
 /** Weighted average dpw for a parent's blocks */
 function calcAvgDpw(blocks: Block[], parentId: string): number {
-  const pBlocks = blocks.filter(b => b.parentId === parentId && b.daysPerWeek >= 1);
+  const pBlocks = blocks.filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap);
   const totalWeeks = pBlocks.reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
   if (totalWeeks <= 0) return 0;
   const totalDays = pBlocks.reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7) * b.daysPerWeek, 0);
@@ -244,7 +245,7 @@ function getReductionRangesForParent(
 ): ReductionRange[] {
   if (daysNeeded <= 0) return [];
   const parentBlocks = blocks
-    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .sort((a, b) => b.endDate.localeCompare(a.endDate));
   const ranges: ReductionRange[] = [];
   let daysRemaining = daysNeeded;
@@ -279,7 +280,7 @@ function applyDeterministicReductions(
   for (const range of reductions) {
     const next: Block[] = [];
     for (const b of working) {
-      if (b.parentId !== range.parentId) { next.push(b); continue; }
+      if (b.parentId !== range.parentId || b.isOverlap) { next.push(b); continue; }
       if (b.endDate < range.startDate || b.startDate > range.endDate) { next.push(b); continue; }
 
       const overlapStart = b.startDate > range.startDate ? b.startDate : range.startDate;
@@ -330,7 +331,7 @@ function buildProposalBlocks(blocks: Block[], reductions: ReductionRange[]): Blo
 /** How many reducible whole-weeks does this parent have in the original blocks */
 function parentCapacity(blocks: Block[], parentId: string): number {
   return blocks
-    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
 }
 
@@ -533,6 +534,13 @@ export function computeRescueProposal(
   //     to find the MINIMUM adjustment that solves the shortage
   // ══════════════════════════════════════════════
   if (unfulfilledAfterFull <= 0) {
+    // Calculate baseline remaining days to preserve saved days
+    const baselineRemaining = parents.reduce((sum, p) => {
+      const pr = finalResult.parentsResult.find((r: any) => r.parentId === p.id);
+      if (!pr) return sum;
+      return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
+    }, 0);
+
     const MAX_SHRINK = 50;
     let shrinkIters = 0;
 
@@ -549,7 +557,14 @@ export function computeRescueProposal(
         const testBlocks = buildProposalBlocks(blocks, testReductions);
         const { shortage, result } = engineShortage(parents, testBlocks, transferList, constants);
 
-        if (shortage <= 0) {
+        // Check that shrinking doesn't increase remaining days (which would mean saved days increased)
+        const testRemaining = parents.reduce((sum, pp) => {
+          const pr = result.parentsResult.find((r: any) => r.parentId === pp.id);
+          if (!pr) return sum;
+          return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
+        }, 0);
+
+        if (shortage <= 0 && testRemaining <= baselineRemaining) {
           perParentWeeks[p.id] = testWeeks[p.id];
           allReductions = testReductions;
           proposalBlocks = testBlocks;
