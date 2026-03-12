@@ -245,7 +245,7 @@ function getReductionRangesForParent(
 ): ReductionRange[] {
   if (daysNeeded <= 0) return [];
   const parentBlocks = blocks
-    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1)
+    .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .sort((a, b) => b.endDate.localeCompare(a.endDate));
   const ranges: ReductionRange[] = [];
   let daysRemaining = daysNeeded;
