@@ -14,7 +14,7 @@ const Index = () => {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
           <Button size="lg" asChild>
-            <Link to="/plan-builder">Skapa vår plan</Link>
+            <Link to="/wizard">Skapa vår plan</Link>
           </Button>
           <a
             href="#hur-det-funkar"
