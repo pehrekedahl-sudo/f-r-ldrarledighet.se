@@ -218,7 +218,7 @@ function adjustToTarget(opts: {
         if (chosen) {
           const idx = working.findIndex(b => b.id === chosen!.id);
           const blockDays = diffDaysInclusive(chosen.startDate, chosen.endDate);
-          if (blockDays < 28 || countNonOverlapBlocks(working) >= 8) {
+          if (blockDays < 28 || countNonOverlapBlocksForParent(working, chosen.parentId) >= 12) {
             working[idx] = { ...working[idx], daysPerWeek: working[idx].daysPerWeek - 1, source: "system" };
           } else {
             const splitDate = addDays(chosen.endDate, -13);
