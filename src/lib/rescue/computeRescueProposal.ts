@@ -529,6 +529,43 @@ export function computeRescueProposal(
   }
 
   // ══════════════════════════════════════════════
+  // E3) Shrink pass — remove excess reduction weeks
+  //     to find the MINIMUM adjustment that solves the shortage
+  // ══════════════════════════════════════════════
+  if (unfulfilledAfterFull <= 0) {
+    const MAX_SHRINK = 50;
+    let shrinkIters = 0;
+
+    while (shrinkIters < MAX_SHRINK) {
+      // Try removing one week from the parent with the most reduction weeks
+      const candidates = parents
+        .filter(p => (perParentWeeks[p.id] ?? 0) > 0)
+        .sort((a, b) => (perParentWeeks[b.id] ?? 0) - (perParentWeeks[a.id] ?? 0));
+
+      let shrank = false;
+      for (const p of candidates) {
+        const testWeeks = { ...perParentWeeks, [p.id]: perParentWeeks[p.id] - 1 };
+        const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
+        const testBlocks = buildProposalBlocks(blocks, testReductions);
+        const { shortage, result } = engineShortage(parents, testBlocks, transferList, constants);
+
+        if (shortage <= 0) {
+          perParentWeeks[p.id] = testWeeks[p.id];
+          allReductions = testReductions;
+          proposalBlocks = testBlocks;
+          unfulfilledAfterFull = shortage;
+          finalResult = result;
+          shrank = true;
+          break;
+        }
+      }
+
+      if (!shrank) break;
+      shrinkIters++;
+    }
+  }
+
+
   // F) Derive ALL output from the final verified state
   //    reductions[] is the single source of truth.
   // ══════════════════════════════════════════════
