@@ -364,6 +364,7 @@ export function computeRescueProposal(
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const baselineRemainingDays = calcTotalRemainingDays(origResult);
+  const debugBefore = blocks.map(b => ({ ...b }));
 
   // ══════════════════════════════════════════════
   // B) Transfer-first
