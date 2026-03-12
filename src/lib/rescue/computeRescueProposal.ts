@@ -427,10 +427,8 @@ export function computeRescueProposal(
     return worstId;
   })();
 
-  // For proportional/split: direct all weeks to the parent who actually has deficit
-  // For specific parent choice: respect user's choice
-  const effectiveMode = (mode === "proportional" || mode === "split") ? deficitParentId : mode;
-  let perParentWeeks = allocateReductionWeeks(Math.ceil(shortageAfterTransfer), effectiveMode, parents, blocks);
+  // For proportional/split: respect user's choice first, fallback to deficit parent if needed
+  let perParentWeeks = allocateReductionWeeks(Math.ceil(shortageAfterTransfer), mode, parents, blocks);
 
   // ══════════════════════════════════════════════
   // E) Apply reductions + verify + extend if needed
@@ -444,14 +442,11 @@ export function computeRescueProposal(
     parents, proposalBlocks, transferList, constants,
   );
 
-  // Safety net only — if the initial estimate is correct, this should rarely run.
-  // Blocks with daysPerWeek < 7 may save fewer than 1 day per calendar week when
-  // the reduction window doesn't align to full weeks, requiring small corrections.
+  // Safety net — extend if initial estimate is insufficient
   const MAX_EXTEND = 5;
   let extendIters = 0;
 
   while (unfulfilledAfterFull > 0 && extendIters < MAX_EXTEND) {
-    // Find which parent benefits most from +1 week
     let bestPid: string | null = null;
     let bestShortage = unfulfilledAfterFull;
 
@@ -469,7 +464,7 @@ export function computeRescueProposal(
       }
     }
 
-    if (!bestPid) break; // no improvement possible
+    if (!bestPid) break;
 
     perParentWeeks[bestPid] = (perParentWeeks[bestPid] ?? 0) + 1;
     extendIters++;
@@ -479,6 +474,41 @@ export function computeRescueProposal(
     const v = engineShortage(parents, proposalBlocks, transferList, constants);
     unfulfilledAfterFull = v.shortage;
     finalResult = v.result;
+  }
+
+  // ══════════════════════════════════════════════
+  // E2) Fallback: if user's mode didn't resolve, retry with deficit parent
+  // ══════════════════════════════════════════════
+  if (unfulfilledAfterFull > 0 && (mode === "proportional" || mode === "split")) {
+    perParentWeeks = allocateReductionWeeks(Math.ceil(shortageAfterTransfer), deficitParentId, parents, blocks);
+    allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
+    proposalBlocks = buildProposalBlocks(blocks, allReductions);
+    const v2 = engineShortage(parents, proposalBlocks, transferList, constants);
+    unfulfilledAfterFull = v2.shortage;
+    finalResult = v2.result;
+
+    let extendIters2 = 0;
+    while (unfulfilledAfterFull > 0 && extendIters2 < MAX_EXTEND) {
+      let bestPid: string | null = null;
+      let bestShortage = unfulfilledAfterFull;
+
+      for (const p of parents) {
+        if ((perParentWeeks[p.id] ?? 0) >= parentCapacity(blocks, p.id)) continue;
+        const testWeeks = { ...perParentWeeks, [p.id]: (perParentWeeks[p.id] ?? 0) + 1 };
+        const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
+        const testBlocks = buildProposalBlocks(blocks, testReductions);
+        const { shortage } = engineShortage(parents, testBlocks, transferList, constants);
+        if (shortage < bestShortage) { bestShortage = shortage; bestPid = p.id; }
+      }
+      if (!bestPid) break;
+      perParentWeeks[bestPid] = (perParentWeeks[bestPid] ?? 0) + 1;
+      extendIters2++;
+      allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
+      proposalBlocks = buildProposalBlocks(blocks, allReductions);
+      const v3 = engineShortage(parents, proposalBlocks, transferList, constants);
+      unfulfilledAfterFull = v3.shortage;
+      finalResult = v3.result;
+    }
   }
 
   // ══════════════════════════════════════════════

@@ -1082,6 +1082,7 @@ const PlanBuilder = () => {
           const normalized = canonicalizeBlocks(withSource);
           assertUniqueBlockIds(normalized, "FitPlanDrawer-apply");
           setBlocks(normalized);
+          setOriginalBlocks(normalized);
           setTransfer(newTransfer);
           const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
           savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
