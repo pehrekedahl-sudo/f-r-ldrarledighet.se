@@ -130,8 +130,8 @@ function wouldViolateAdjacency(working: Block[], blockId: string, parentId: stri
   return false;
 }
 
-function countNonOverlapBlocks(working: Block[]): number {
-  return working.filter(b => !b.isOverlap).length;
+function countNonOverlapBlocksForParent(working: Block[], parentId: string): number {
+  return working.filter(b => !b.isOverlap && b.parentId === parentId).length;
 }
 
 function adjustToTarget(opts: {
