@@ -134,32 +134,40 @@ export function allocateReductionWeeks(
     return result;
   }
 
-  // Proportional (largest-remainder)
-  const load1 = calcParentLoad(blocks, p1.id);
-  const load2 = calcParentLoad(blocks, p2.id);
-  const totalLoad = load1 + load2;
+  // Proportional — equalize dpw first, then split remaining evenly
+  const avgDpw1 = calcAvgDpw(blocks, p1.id);
+  const avgDpw2 = calcAvgDpw(blocks, p2.id);
+  const cap1 = parentCapacity(blocks, p1.id);
+  const cap2 = parentCapacity(blocks, p2.id);
 
-  if (totalLoad <= 0) {
-    result[p1.id] = Math.ceil(weeksTotal / 2);
-    result[p2.id] = Math.floor(weeksTotal / 2);
-    return result;
+  let assigned1 = 0;
+  let assigned2 = 0;
+  let remaining = weeksTotal;
+
+  // Phase 1: Equalize — reduce the parent with higher avg dpw first
+  if (avgDpw1 > avgDpw2) {
+    const equalizingWeeks = Math.min(remaining, cap1, Math.ceil((avgDpw1 - avgDpw2) * cap1));
+    assigned1 = equalizingWeeks;
+    remaining -= equalizingWeeks;
+  } else if (avgDpw2 > avgDpw1) {
+    const equalizingWeeks = Math.min(remaining, cap2, Math.ceil((avgDpw2 - avgDpw1) * cap2));
+    assigned2 = equalizingWeeks;
+    remaining -= equalizingWeeks;
   }
 
-  const exact1 = (load1 / totalLoad) * weeksTotal;
-  const exact2 = (load2 / totalLoad) * weeksTotal;
-  let floor1 = Math.floor(exact1);
-  let floor2 = Math.floor(exact2);
-  let remainder = weeksTotal - floor1 - floor2;
-  const frac1 = exact1 - floor1;
-  const frac2 = exact2 - floor2;
-  while (remainder > 0) {
-    if (frac1 > frac2 || (frac1 === frac2 && load1 >= load2)) floor1++;
-    else floor2++;
-    remainder--;
+  // Phase 2: Split remaining evenly, respecting capacity
+  while (remaining > 0) {
+    const can1 = assigned1 < cap1;
+    const can2 = assigned2 < cap2;
+    if (!can1 && !can2) break;
+    if (can1 && (!can2 || assigned1 <= assigned2)) { assigned1++; }
+    else if (can2) { assigned2++; }
+    else break;
+    remaining--;
   }
 
-  result[p1.id] = floor1;
-  result[p2.id] = floor2;
+  result[p1.id] = assigned1;
+  result[p2.id] = assigned2;
   return result;
 }
 
