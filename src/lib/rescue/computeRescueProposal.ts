@@ -534,6 +534,13 @@ export function computeRescueProposal(
   //     to find the MINIMUM adjustment that solves the shortage
   // ══════════════════════════════════════════════
   if (unfulfilledAfterFull <= 0) {
+    // Calculate baseline remaining days to preserve saved days
+    const baselineRemaining = parents.reduce((sum, p) => {
+      const pr = finalResult.parentsResult.find((r: any) => r.parentId === p.id);
+      if (!pr) return sum;
+      return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
+    }, 0);
+
     const MAX_SHRINK = 50;
     let shrinkIters = 0;
 
@@ -550,7 +557,14 @@ export function computeRescueProposal(
         const testBlocks = buildProposalBlocks(blocks, testReductions);
         const { shortage, result } = engineShortage(parents, testBlocks, transferList, constants);
 
-        if (shortage <= 0) {
+        // Check that shrinking doesn't increase remaining days (which would mean saved days increased)
+        const testRemaining = parents.reduce((sum, pp) => {
+          const pr = result.parentsResult.find((r: any) => r.parentId === pp.id);
+          if (!pr) return sum;
+          return sum + pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest;
+        }, 0);
+
+        if (shortage <= 0 && testRemaining <= baselineRemaining) {
           perParentWeeks[p.id] = testWeeks[p.id];
           allReductions = testReductions;
           proposalBlocks = testBlocks;
