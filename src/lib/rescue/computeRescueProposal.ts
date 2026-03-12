@@ -194,6 +194,15 @@ function calcParentLoad(blocks: Block[], parentId: string): number {
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7) * b.daysPerWeek, 0);
 }
 
+/** Weighted average dpw for a parent's blocks */
+function calcAvgDpw(blocks: Block[], parentId: string): number {
+  const pBlocks = blocks.filter(b => b.parentId === parentId && b.daysPerWeek >= 1);
+  const totalWeeks = pBlocks.reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
+  if (totalWeeks <= 0) return 0;
+  const totalDays = pBlocks.reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7) * b.daysPerWeek, 0);
+  return totalDays / totalWeeks;
+}
+
 /** Run simulatePlan and return integer shortage */
 function engineShortage(
   parents: Parent[],
