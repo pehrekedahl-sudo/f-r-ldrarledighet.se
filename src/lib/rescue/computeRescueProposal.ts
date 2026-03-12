@@ -280,7 +280,7 @@ function applyDeterministicReductions(
   for (const range of reductions) {
     const next: Block[] = [];
     for (const b of working) {
-      if (b.parentId !== range.parentId) { next.push(b); continue; }
+      if (b.parentId !== range.parentId || b.isOverlap) { next.push(b); continue; }
       if (b.endDate < range.startDate || b.startDate > range.endDate) { next.push(b); continue; }
 
       const overlapStart = b.startDate > range.startDate ? b.startDate : range.startDate;
