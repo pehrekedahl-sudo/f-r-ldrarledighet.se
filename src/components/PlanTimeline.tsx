@@ -225,7 +225,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
       
       for (const seg of segments) {
         if (compareDates(seg.end, seg.start) >= 0) {
-          result.push({ ...b, id: `${b.id}-clip-${seg.start}`, startDate: seg.start, endDate: seg.end });
+          result.push({ ...b, id: `${b.id}-clip-${seg.start}`, _originalId: b.id, startDate: seg.start, endDate: seg.end });
         }
       }
     }
