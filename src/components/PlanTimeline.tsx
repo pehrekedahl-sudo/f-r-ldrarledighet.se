@@ -9,6 +9,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   isOverlap?: boolean;
+  _originalId?: string;
 };
 
 type Parent = {
