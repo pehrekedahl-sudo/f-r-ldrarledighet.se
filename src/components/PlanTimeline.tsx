@@ -315,7 +315,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
                       className={`absolute top-1.5 bottom-1.5 rounded-[10px] border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-sm ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
-                        onBlockClick?.(b.id);
+                        onBlockClick?.(b._originalId ?? b.id);
                       }}
                     >
                       <span className="truncate px-1">{b.daysPerWeek}d/v</span>
