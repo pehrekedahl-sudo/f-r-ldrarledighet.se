@@ -432,7 +432,7 @@ export function computeRescueProposal(
     const ppw = Object.fromEntries(parents.map(p => [p.id, 0]));
     return {
       newBlocks: blocks.map(b => ({ ...b })),
-      proposedTransfer,
+      proposedTransfer: effectiveTransfer,
       weeksTotal: 0,
       perParentWeeks: ppw,
       reductions: [],
