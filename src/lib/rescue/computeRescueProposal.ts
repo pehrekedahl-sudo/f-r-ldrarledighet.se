@@ -714,7 +714,7 @@ export function computeRescueProposal(
 
   return {
     newBlocks: proposalBlocks,
-    proposedTransfer,
+    proposedTransfer: effectiveTransfer,
     weeksTotal: weeksTotalApplied,
     perParentWeeks: perParentWeeksApplied,
     reductions: allReductions,
