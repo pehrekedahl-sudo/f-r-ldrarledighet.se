@@ -637,8 +637,7 @@ const PlanBuilder = () => {
                       size="lg"
                       variant="outline"
                       onClick={() => {
-                        setAdjustOpen(true);
-                        setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                        setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                       }}
                     >
                       Justera manuellt
