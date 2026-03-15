@@ -393,6 +393,8 @@ export function computeRescueProposal(
   const { shortage: shortageAfterTransfer, result: afterTransferResult } = engineShortage(
     parents, blocks, transferList, constants,
   );
+  console.log('[RESCUE] B) transferDays =', transferDays, ', maxTransfer =', maxTransfer);
+  console.log('[RESCUE] C) shortageAfterTransfer =', shortageAfterTransfer);
 
   // Transfer-only success
   if (shortageAfterTransfer <= 0) {
