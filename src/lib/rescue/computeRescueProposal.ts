@@ -334,6 +334,32 @@ function parentCapacity(blocks: Block[], parentId: string): number {
     .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
 }
+/** Combine existing + proposed transfers into a single effective transfer.
+ *  Same direction → add days. Opposite direction → keep both as net effect.
+ *  Returns null if no transfer at all. */
+function buildEffectiveTransfer(
+  existing: Transfer | null,
+  proposed: Transfer | null,
+): Transfer | null {
+  if (!existing || existing.sicknessDays <= 0) return proposed;
+  if (!proposed || proposed.sicknessDays <= 0) return existing;
+
+  // Same direction: combine
+  if (existing.fromParentId === proposed.fromParentId && existing.toParentId === proposed.toParentId) {
+    return { ...existing, sicknessDays: existing.sicknessDays + proposed.sicknessDays };
+  }
+
+  // Opposite direction: net out
+  if (existing.fromParentId === proposed.toParentId && existing.toParentId === proposed.fromParentId) {
+    const net = existing.sicknessDays - proposed.sicknessDays;
+    if (net > 0) return { ...existing, sicknessDays: net };
+    if (net < 0) return { ...proposed, sicknessDays: -net };
+    return null; // cancel out
+  }
+
+  // Different parents involved (shouldn't happen with 2-parent model) — prefer existing
+  return existing;
+}
 
 // ── Main computation ──
 
@@ -384,7 +410,11 @@ export function computeRescueProposal(
     proposedTransfer = { fromParentId: giver.id, toParentId: needy.id, sicknessDays: transferDays };
   }
 
-  const transferList: Transfer[] = proposedTransfer ? [proposedTransfer] : [];
+  // ── Build effective transfer list: ALWAYS preserve existingTransfer ──
+  // The proposed transfer is ADDITIONAL to any existing one.
+  // Combine into a single effective transfer for the engine.
+  const effectiveTransfer = buildEffectiveTransfer(existingTransfer, proposedTransfer);
+  const transferList: Transfer[] = effectiveTransfer ? [effectiveTransfer] : [];
   const transferConfigStr = JSON.stringify(transferList);
 
   // ══════════════════════════════════════════════
@@ -402,7 +432,7 @@ export function computeRescueProposal(
     const ppw = Object.fromEntries(parents.map(p => [p.id, 0]));
     return {
       newBlocks: blocks.map(b => ({ ...b })),
-      proposedTransfer,
+      proposedTransfer: effectiveTransfer,
       weeksTotal: 0,
       perParentWeeks: ppw,
       reductions: [],
@@ -684,7 +714,7 @@ export function computeRescueProposal(
 
   return {
     newBlocks: proposalBlocks,
-    proposedTransfer,
+    proposedTransfer: effectiveTransfer,
     weeksTotal: weeksTotalApplied,
     perParentWeeks: perParentWeeksApplied,
     reductions: allReductions,
