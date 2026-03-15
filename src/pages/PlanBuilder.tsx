@@ -578,15 +578,28 @@ const PlanBuilder = () => {
 
         return (
           <>
-            {/* ── COMPACT BANNER ── */}
-            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-4 mt-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* ── BANNER ── */}
+            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-5 mt-4 space-y-4">
+              {/* Row 1: Title + KPIs */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
                   <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Till {formattedEnd} · ~{Math.round(computedAvg).toLocaleString()} kr/mån
-                  </p>
                 </div>
+                <div className="flex gap-4 text-sm">
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
+                    <p className="font-bold text-foreground">{formattedEnd}</p>
+                  </div>
+                  <div className="w-px bg-border/60" />
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
+                    <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Parent pills + status/actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex gap-3 flex-wrap">
                   {result.parentsResult.map((pr) => {
                     const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
@@ -606,38 +619,38 @@ const PlanBuilder = () => {
                     );
                   })}
                 </div>
+
+                {/* Status + action buttons inline */}
+                {unfulfilled > 0 ? (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-sm text-destructive font-medium whitespace-nowrap">
+                      ⚠ {(() => {
+                        const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+                        const hasTransfer = householdTransferable > 0;
+                        const needsWeeks = unfulfilled > Math.floor(householdTransferable);
+                        if (hasTransfer && needsWeeks) return "Kräver omfördelning & justering";
+                        if (hasTransfer) return "Kräver omfördelning av dagar";
+                        if (needsWeeks) return "Minska uttagstakten";
+                        return "Behöver justeras";
+                      })()}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
+                      }}>Justera manuellt</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-emerald-700 font-medium">✓ Balanserad</span>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
+                    }}>Justera</Button>
+                  </div>
+                )}
               </div>
             </section>
-
-            {/* ── STATUS BAR ── */}
-            {unfulfilled > 0 ? (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
-                <p className="text-sm text-destructive font-medium">
-                  ⚠ {(() => {
-                    const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
-                    const hasTransfer = householdTransferable > 0;
-                    const needsWeeks = unfulfilled > Math.floor(householdTransferable);
-                    if (hasTransfer && needsWeeks) return "Planen kräver omfördelning och justering av uttagstakt.";
-                    if (hasTransfer) return "Planen kräver omfördelning av dagar.";
-                    if (needsWeeks) return "Ni behöver minska uttagstakten.";
-                    return "Planen behöver justeras.";
-                  })()}
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                  }}>Justera manuellt</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-2.5">
-                <p className="text-sm text-emerald-700">✓ Planen ser balanserad ut</p>
-                <Button size="sm" variant="ghost" onClick={() => {
-                  setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                }}>Justera</Button>
-              </div>
-            )}
 
             {/* ── TIMELINE ── */}
             <section className="space-y-3">
