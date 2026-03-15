@@ -504,40 +504,106 @@ export function computeRescueProposal(
     finalResult = v.result;
   }
 
-  // ══════════════════════════════════════════════
-  // E2) Fallback: if user's mode didn't resolve, retry with deficit parent
-  // ══════════════════════════════════════════════
-  if (unfulfilledAfterFull > 0 && (mode === "proportional" || mode === "split")) {
-    perParentWeeks = allocateReductionWeeks(Math.ceil(shortageAfterTransfer), deficitParentId, parents, blocks);
-    allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
-    proposalBlocks = buildProposalBlocks(blocks, allReductions);
-    const v2 = engineShortage(parents, proposalBlocks, transferList, constants);
-    unfulfilledAfterFull = v2.shortage;
-    finalResult = v2.result;
+   // ══════════════════════════════════════════════
+   // E2) Fallback: if user's mode didn't resolve, retry with deficit parent
+   // ══════════════════════════════════════════════
+   if (unfulfilledAfterFull > 0 && (mode === "proportional" || mode === "split")) {
+     perParentWeeks = allocateReductionWeeks(Math.ceil(shortageAfterTransfer), deficitParentId, parents, blocks);
+     allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
+     proposalBlocks = buildProposalBlocks(blocks, allReductions);
+     const v2 = engineShortage(parents, proposalBlocks, transferList, constants);
+     unfulfilledAfterFull = v2.shortage;
+     finalResult = v2.result;
 
-    let extendIters2 = 0;
-    while (unfulfilledAfterFull > 0 && extendIters2 < MAX_EXTEND) {
-      let bestPid: string | null = null;
-      let bestShortage = unfulfilledAfterFull;
+     let extendIters2 = 0;
+     while (unfulfilledAfterFull > 0 && extendIters2 < MAX_EXTEND) {
+       let bestPid: string | null = null;
+       let bestShortage = unfulfilledAfterFull;
 
-      for (const p of parents) {
-        if ((perParentWeeks[p.id] ?? 0) >= parentCapacity(blocks, p.id)) continue;
-        const testWeeks = { ...perParentWeeks, [p.id]: (perParentWeeks[p.id] ?? 0) + 1 };
-        const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
-        const testBlocks = buildProposalBlocks(blocks, testReductions);
-        const { shortage } = engineShortage(parents, testBlocks, transferList, constants);
-        if (shortage < bestShortage) { bestShortage = shortage; bestPid = p.id; }
-      }
-      if (!bestPid) break;
-      perParentWeeks[bestPid] = (perParentWeeks[bestPid] ?? 0) + 1;
-      extendIters2++;
-      allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
-      proposalBlocks = buildProposalBlocks(blocks, allReductions);
-      const v3 = engineShortage(parents, proposalBlocks, transferList, constants);
-      unfulfilledAfterFull = v3.shortage;
-      finalResult = v3.result;
-    }
-  }
+       for (const p of parents) {
+         if ((perParentWeeks[p.id] ?? 0) >= parentCapacity(blocks, p.id)) continue;
+         const testWeeks = { ...perParentWeeks, [p.id]: (perParentWeeks[p.id] ?? 0) + 1 };
+         const testReductions = buildReductionsFromAllocation(blocks, parents, testWeeks);
+         const testBlocks = buildProposalBlocks(blocks, testReductions);
+         const { shortage } = engineShortage(parents, testBlocks, transferList, constants);
+         if (shortage < bestShortage) { bestShortage = shortage; bestPid = p.id; }
+       }
+       if (!bestPid) break;
+       perParentWeeks[bestPid] = (perParentWeeks[bestPid] ?? 0) + 1;
+       extendIters2++;
+       allReductions = buildReductionsFromAllocation(blocks, parents, perParentWeeks);
+       proposalBlocks = buildProposalBlocks(blocks, allReductions);
+       const v3 = engineShortage(parents, proposalBlocks, transferList, constants);
+       unfulfilledAfterFull = v3.shortage;
+       finalResult = v3.result;
+     }
+   }
+
+   // ══════════════════════════════════════════════
+   // E3) Multi-pass: if single -1 dpw pass exhausted capacity but shortage
+   //     remains, apply additional reduction passes on already-reduced blocks
+   // ══════════════════════════════════════════════
+   if (unfulfilledAfterFull > 0) {
+     const MAX_MULTI_PASS = 5;
+     for (let pass = 0; pass < MAX_MULTI_PASS && unfulfilledAfterFull > 0; pass++) {
+       // Build additional reductions on the CURRENT proposalBlocks (already reduced)
+       const additionalPerParent: Record<string, number> = {};
+       for (const p of parents) additionalPerParent[p.id] = 0;
+
+       let passImproved = false;
+       let passIters = 0;
+
+       while (unfulfilledAfterFull > 0 && passIters < MAX_EXTEND) {
+         let bestPid: string | null = null;
+         let bestShortage = unfulfilledAfterFull;
+
+         for (const p of parents) {
+           const cap = parentCapacity(proposalBlocks, p.id);
+           if ((additionalPerParent[p.id] ?? 0) >= cap) continue;
+
+           const testAdditional = { ...additionalPerParent, [p.id]: (additionalPerParent[p.id] ?? 0) + 1 };
+           const testReductions = buildReductionsFromAllocation(proposalBlocks, parents, testAdditional);
+           const testBlocks = buildProposalBlocks(proposalBlocks, testReductions);
+           const { shortage } = engineShortage(parents, testBlocks, transferList, constants);
+           if (shortage < bestShortage) { bestShortage = shortage; bestPid = p.id; }
+         }
+
+         if (!bestPid) break;
+         additionalPerParent[bestPid] = (additionalPerParent[bestPid] ?? 0) + 1;
+         passIters++;
+         passImproved = true;
+
+         const additionalReductions = buildReductionsFromAllocation(proposalBlocks, parents, additionalPerParent);
+         const newBlocks = buildProposalBlocks(proposalBlocks, additionalReductions);
+         const v = engineShortage(parents, newBlocks, transferList, constants);
+         unfulfilledAfterFull = v.shortage;
+         finalResult = v.result;
+
+         if (unfulfilledAfterFull <= 0) {
+           // Commit this pass: merge additional reductions into allReductions
+           allReductions = [...allReductions, ...additionalReductions];
+           proposalBlocks = newBlocks;
+           // Update perParentWeeks for downstream reporting
+           for (const p of parents) {
+             perParentWeeks[p.id] = (perParentWeeks[p.id] ?? 0) + (additionalPerParent[p.id] ?? 0);
+           }
+           break;
+         }
+       }
+
+       if (!passImproved) break;
+
+       if (unfulfilledAfterFull > 0) {
+         // Commit partial progress for this pass and try another
+         const additionalReductions = buildReductionsFromAllocation(proposalBlocks, parents, additionalPerParent);
+         proposalBlocks = buildProposalBlocks(proposalBlocks, additionalReductions);
+         allReductions = [...allReductions, ...additionalReductions];
+         for (const p of parents) {
+           perParentWeeks[p.id] = (perParentWeeks[p.id] ?? 0) + (additionalPerParent[p.id] ?? 0);
+         }
+       }
+     }
+   }
 
   // ══════════════════════════════════════════════
   // E3) Shrink pass — remove excess reduction weeks
