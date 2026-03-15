@@ -95,8 +95,8 @@ const PlanBuilder = () => {
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "result">("result");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [_showAdvanced, _setShowAdvanced] = useState(false);
+  const [_adjustOpen, _setAdjustOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [noSavedPlan, setNoSavedPlan] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
