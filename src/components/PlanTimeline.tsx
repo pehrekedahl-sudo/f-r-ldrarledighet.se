@@ -326,11 +326,14 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                   const bEndMs = toEpochMs(b.endDate);
                   const left = ((bStartMs - timelineStartMs) / totalMs) * 100;
                   const width = Math.max(((bEndMs - bStartMs) / totalMs) * 100, 1.5);
+                  const workDays = countWorkingDays(b.startDate, b.endDate);
+                  const tooltipText = `${b.startDate} → ${b.endDate}\n${b.daysPerWeek} d/v · ${workDays} arbetsdagar`;
                   return (
                     <div
                       key={b.id}
                       data-block-id={b.id}
                       data-parent-id={b.parentId}
+                      title={tooltipText}
                       className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
