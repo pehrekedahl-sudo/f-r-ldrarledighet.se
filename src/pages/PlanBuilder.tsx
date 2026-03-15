@@ -95,8 +95,8 @@ const PlanBuilder = () => {
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "result">("result");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [_showAdvanced, _setShowAdvanced] = useState(false);
+  const [_adjustOpen, _setAdjustOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [noSavedPlan, setNoSavedPlan] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -579,19 +579,41 @@ const PlanBuilder = () => {
             {/* ── HERO ── */}
             <section className="text-center space-y-6 py-4">
               <h1 className="text-3xl font-bold tracking-tight">Er plan i korthet</h1>
-              <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
-                <div>
+              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+                <div className="rounded-lg border border-border bg-card p-4 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
-                  <p className="text-2xl font-bold mt-1">{latestEnd ?? "—"}</p>
+                  <p className="text-xl font-bold mt-1">{latestEnd ? (() => {
+                    try {
+                      const d = new Date(latestEnd + "T12:00:00");
+                      return d.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+                    } catch { return latestEnd; }
+                  })() : "—"}</p>
                 </div>
-                <div>
+                <div className="rounded-lg border border-border bg-card p-4 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Genomsnittlig ersättning</p>
-                  <p className="text-2xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
+                  <p className="text-xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar totalt</p>
-                  <p className="text-2xl font-bold mt-1">{r2(totalAll)}</p>
-                </div>
+              </div>
+
+              {/* Per-parent days remaining */}
+              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+                {result.parentsResult.map((pr, i) => {
+                  const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
+                  const totalBudget = 480;
+                  const used = Math.round(pr.taken.sickness + pr.taken.lowest);
+                  const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
+                  const isP1 = pr.parentId === "p1";
+                  return (
+                    <div key={pr.parentId} className={`rounded-lg border p-4 text-center ${isP1 ? "border-blue-200 bg-blue-50/50" : "border-emerald-200 bg-emerald-50/50"}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wide ${isP1 ? "text-blue-600" : "text-emerald-600"}`}>{pr.name}</p>
+                      <p className="text-2xl font-bold mt-1">{daysLeft} <span className="text-sm font-normal text-muted-foreground">dagar kvar</span></p>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">{Math.round(pr.taken.sickness + pr.taken.lowest)} av {totalBudget} använda</p>
+                    </div>
+                  );
+                })}
               </div>
 
               {unfulfilled > 0 ? (
@@ -615,8 +637,7 @@ const PlanBuilder = () => {
                       size="lg"
                       variant="outline"
                       onClick={() => {
-                        setAdjustOpen(true);
-                        setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                        setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                       }}
                     >
                       Justera manuellt
@@ -631,8 +652,7 @@ const PlanBuilder = () => {
                   <Button
                     size="lg"
                     onClick={() => {
-                      setAdjustOpen(true);
-                      setTimeout(() => document.getElementById("adjust-section")?.scrollIntoView({ behavior: "smooth" }), 100);
+                      setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                     }}
                   >
                     Justera planen
@@ -673,10 +693,13 @@ const PlanBuilder = () => {
                   }
                 }}
               />
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
+              </div>
             </section>
 
             {/* ── JUSTERA PLANEN ── */}
-            <div className="rounded-lg border border-border bg-muted/30">
+            <div id="adjust-panel" className="rounded-lg border border-border bg-muted/30">
               <div className="px-5 pt-4 pb-2">
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Justera planen</p>
               </div>
@@ -838,6 +861,25 @@ const PlanBuilder = () => {
                           </div>
                         );
                       })}
+                      {/* Budget breakdown */}
+                      {(() => {
+                        const pr = result.parentsResult.find(p => p.parentId === s.parentId);
+                        if (!pr) return null;
+                        return (
+                          <Collapsible>
+                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                              Detaljerad budget
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-2 space-y-1 text-xs text-muted-foreground">
+                              <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
+                              <p>Kvar överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                              <p>Kvar reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
+                              <p>Kvar lägstanivå: {Math.round(pr.remaining.lowest)}</p>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -852,180 +894,6 @@ const PlanBuilder = () => {
               );
             })()}
 
-            <Collapsible open={adjustOpen} onOpenChange={setAdjustOpen}>
-              <CollapsibleTrigger id="adjust-section" className="flex items-center justify-between w-full border border-border rounded-lg p-4 bg-card text-sm font-semibold cursor-pointer hover:bg-accent/50 transition-colors [&[data-state=open]>svg]:rotate-180">
-                Justeringar &amp; detaljer
-                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="border border-t-0 border-border rounded-b-lg p-5 bg-card space-y-8">
-
-                {/* Add period */}
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
-                </div>
-
-                {/* Transfer section */}
-                <div id="transfer-section" className="space-y-3">
-                  <h4 className="text-sm font-semibold">Omfördela dagar</h4>
-                  {(() => {
-                    const householdTransferableRemaining = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
-                    if (unfulfilled <= 0 || householdTransferableRemaining <= 0) return null;
-                    return (
-                      <div className="space-y-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-warning/50 text-warning-foreground hover:bg-warning/10"
-                          onClick={() => {
-                            const scored = result.parentsResult.map(pr => ({
-                              ...pr,
-                              totalRemaining: pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest,
-                              totalTaken: pr.taken.sickness + pr.taken.lowest,
-                            }));
-                            scored.sort((a, b) => a.totalRemaining - b.totalRemaining || b.totalTaken - a.totalTaken);
-                            const needs = scored[0];
-                            const gives = scored[scored.length - 1];
-                            const suggested = Math.max(1, Math.min(Math.floor(unfulfilled), Math.floor(gives.remaining.sicknessTransferable)));
-                            setTransferAmount(suggested);
-                            setTransferError(null);
-                            const needsName = parents.find(p => p.id === needs.parentId)?.name ?? "";
-                            toast({ description: `Förslag: ge ${suggested} dagar till ${needsName}` });
-                          }}
-                        >
-                          Föreslå omfördelning
-                        </Button>
-                        <p className="text-xs text-muted-foreground">Förslag baserat på att planen inte går ihop utan omfördelning.</p>
-                      </div>
-                    );
-                  })()}
-                  {(() => {
-                    const p1Transferable = Math.round(result.parentsResult.find(pr => pr.parentId === "p1")?.remaining.sicknessTransferable ?? 0);
-                    const p2Transferable = Math.round(result.parentsResult.find(pr => pr.parentId === "p2")?.remaining.sicknessTransferable ?? 0);
-                    const anyTransferable = p1Transferable > 0 || p2Transferable > 0;
-                    return (
-                      <>
-                        <div className="flex items-end gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-sm">Antal dagar</Label>
-                            <Input type="number" min={0} step={1} className="w-28" value={transferAmount || ""} onChange={(e) => { setTransferAmount(Math.max(0, Math.floor(Number(e.target.value) || 0))); setTransferError(null); }} disabled={!anyTransferable} />
-                          </div>
-                          <Button variant="outline" size="sm" disabled={transferAmount === 0 || p2Transferable === 0} onClick={() => handleTransfer("p1")}>
-                            Ge till {parents[0].name}
-                          </Button>
-                          <Button variant="outline" size="sm" disabled={transferAmount === 0 || p1Transferable === 0} onClick={() => handleTransfer("p2")}>
-                            Ge till {parents[1].name}
-                          </Button>
-                        </div>
-                        {!anyTransferable && (
-                          <p className="text-xs text-muted-foreground italic">Inga överförbara dagar kvar att flytta.</p>
-                        )}
-                      </>
-                    );
-                  })()}
-                  {transferError && <p className="text-xs text-destructive">{transferError}</p>}
-                  {transfer && (
-                    <p className="text-xs text-muted-foreground">
-                      Aktiv överföring: {transfer.sicknessDays} dagar från {parents.find(p => p.id === transfer.fromParentId)?.name} till {parents.find(p => p.id === transfer.toParentId)?.name}
-                    </p>
-                  )}
-                </div>
-
-                <div className="border-t border-border" />
-
-                {/* Budget details per parent */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold">Budgetdetaljer</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {result.parentsResult.map((pr) => {
-                      const parentDaysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
-                      const parentTotalGross = pr.monthlyBreakdown.reduce((s, m) => s + m.grossAmount, 0);
-                      const parentActiveMonths = pr.monthlyBreakdown.filter(m => m.grossAmount > 0).length;
-                      const parentAvgMonthly = parentActiveMonths > 0 ? Math.round(parentTotalGross / parentActiveMonths) : 0;
-                      return (
-                        <div key={pr.parentId} className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
-                          <h5 className="text-sm font-semibold">{pr.name}</h5>
-                          <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Uttagna</p>
-                              <p className="font-medium">{Math.round(pr.taken.sickness + pr.taken.lowest)} d</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Kvar</p>
-                              <p className="font-medium">{parentDaysLeft} d</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Snitt/mån</p>
-                              <p className="font-medium">{parentAvgMonthly.toLocaleString()} kr</p>
-                            </div>
-                          </div>
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                              Visa månad för månad
-                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-2 space-y-0.5">
-                              {pr.monthlyBreakdown.length > 0 ? (
-                                pr.monthlyBreakdown.map((m) => (
-                                  <p key={m.monthKey} className="text-sm text-muted-foreground">
-                                    {m.monthKey}: {Math.round(m.grossAmount).toLocaleString()} kr
-                                  </p>
-                                ))
-                              ) : (
-                                <p className="text-sm text-muted-foreground">—</p>
-                              )}
-                            </CollapsibleContent>
-                          </Collapsible>
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                              Detaljerad budget
-                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-2 space-y-2 text-xs text-muted-foreground">
-                              <div>
-                                <p className="font-medium text-foreground">Kvar</p>
-                                <p>Överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
-                                <p>Reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
-                                <p>Lägstanivå: {Math.round(pr.remaining.lowest)}</p>
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="border-t border-border" />
-
-                {/* Strategic overview */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold">Strategisk översikt</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Total ersättning</p>
-                      <p className="text-xl font-bold">{Math.round(totalGross).toLocaleString()} kr</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Genomsnitt / månad</p>
-                      <p className="text-xl font-bold">{Math.round(avgMonthly).toLocaleString()} kr</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-border" />
-
-                {/* Advanced block editor */}
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
-                  >
-                    {showAdvanced ? "Dölj avancerade inställningar" : "Avancerade inställningar"}
-                  </button>
-                  {showAdvanced && renderBlockEditor()}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
 
             {/* Disclaimer */}
             <p className="text-xs text-muted-foreground italic text-center">
