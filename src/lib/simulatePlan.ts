@@ -24,6 +24,7 @@ type TransferInput = {
   fromParentId: string;
   toParentId: string;
   sicknessDays: number;
+  lowestDays?: number;
 };
 
 type Constants = {
