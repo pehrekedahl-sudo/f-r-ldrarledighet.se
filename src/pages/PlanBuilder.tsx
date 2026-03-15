@@ -724,7 +724,7 @@ const PlanBuilder = () => {
                     onClick={() => setTransferDaysOpen(true)}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">Dagöverföring</p>
+                      <p className="font-medium text-foreground">Överförda dagar</p>
                       <p className="text-sm text-muted-foreground">Flytta dagar permanent från en förälders kvot till den andres</p>
                     </div>
                     <div className="flex-shrink-0 text-right ml-4">

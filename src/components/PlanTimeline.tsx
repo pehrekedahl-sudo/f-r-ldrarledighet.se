@@ -21,6 +21,7 @@ type Props = {
   blocks: Block[];
   parents: Parent[];
   unfulfilledDaysTotal: number;
+  todayDate?: string;
   onBlockClick?: (blockId: string) => void;
   onDeleteOverlap?: (blockId: string) => void;
 };
@@ -82,13 +83,13 @@ function shouldShowLabel(b: MonthBoundary): boolean {
 
 function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
-    if (daysPerWeek <= 4) return "bg-blue-200 border-blue-300 text-blue-900";
-    if (daysPerWeek === 5) return "bg-blue-400 border-blue-500 text-white";
-    return "bg-blue-600 border-blue-700 text-white";
+    if (daysPerWeek <= 4) return "bg-blue-100 border-blue-200/80 text-blue-800";
+    if (daysPerWeek === 5) return "bg-blue-300 border-blue-400 text-blue-900";
+    return "bg-blue-500 border-blue-600 text-white";
   }
-  if (daysPerWeek <= 4) return "bg-emerald-200 border-emerald-300 text-emerald-900";
-  if (daysPerWeek === 5) return "bg-emerald-400 border-emerald-500 text-white";
-  return "bg-emerald-600 border-emerald-700 text-white";
+  if (daysPerWeek <= 4) return "bg-emerald-100 border-emerald-200/80 text-emerald-800";
+  if (daysPerWeek === 5) return "bg-emerald-300 border-emerald-400 text-emerald-900";
+  return "bg-emerald-500 border-emerald-600 text-white";
 }
 
 function countWorkingDays(startDate: string, endDate: string): number {
@@ -126,7 +127,7 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
 
 const LABEL_WIDTH = 140;
 
-const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onDeleteOverlap }: Props) => {
+const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBlockClick, onDeleteOverlap }: Props) => {
   const [hoveredOverlap, setHoveredOverlap] = useState<string | null>(null);
 
   const regularBlocks = blocks.filter((b) => !b.isOverlap);
@@ -163,6 +164,13 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
     return ((d - timelineStartMs) / totalMs) * 100;
   }, [unfulfilledDate, timelineStartMs, totalMs]);
 
+  const todayPct = useMemo(() => {
+    if (!todayDate) return null;
+    const tMs = toEpochMs(todayDate);
+    if (tMs < timelineStartMs || tMs > timelineStartMs + totalMs) return null;
+    return ((tMs - timelineStartMs) / totalMs) * 100;
+  }, [todayDate, timelineStartMs, totalMs]);
+
   const transitionPcts = useMemo(() => {
     if (validBlocks.length < 2) return [];
     const edges: { parentId: string; date: string; type: "start" | "end" }[] = [];
@@ -195,7 +203,6 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
 
   if (allValidBlocks.length === 0) return null;
 
-  // Clip regular blocks where DD overlaps exist, creating visual "pauses"
   const clipBlocksForOverlaps = (parentBlocks: Block[], overlaps: Block[]): Block[] => {
     if (overlaps.length === 0) return parentBlocks;
     
@@ -206,16 +213,13 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
       for (const ov of overlaps) {
         const newSegments: { start: string; end: string }[] = [];
         for (const seg of segments) {
-          // No overlap
           if (compareDates(ov.endDate, seg.start) < 0 || compareDates(ov.startDate, seg.end) > 0) {
             newSegments.push(seg);
             continue;
           }
-          // Before overlap
           if (compareDates(seg.start, ov.startDate) < 0) {
             newSegments.push({ start: seg.start, end: addDays(ov.startDate, -1) });
           }
-          // After overlap
           if (compareDates(seg.end, ov.endDate) > 0) {
             newSegments.push({ start: addDays(ov.endDate, 1), end: seg.end });
           }
@@ -241,25 +245,30 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
     };
   });
 
-  const rowHeight = 48;
-  const overlapRowHeight = 36;
+  const rowHeight = 60;
+  const overlapRowHeight = 44;
   const hasOverlapRow = validOverlaps.length > 0;
   const totalRowHeight = parentRows.length * rowHeight + (hasOverlapRow ? overlapRowHeight : 0);
 
   return (
-    <div className="border border-border rounded-lg bg-card w-full">
+    <div className="rounded-xl border border-border bg-white shadow-sm w-full overflow-hidden">
       <div className="flex w-full">
         {/* Fixed label column */}
-        <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }}>
+        <div className="flex-shrink-0 bg-muted/20" style={{ width: LABEL_WIDTH }}>
           <div className="h-8" />
-          {parentRows.map((row) => (
-            <div key={row.id} className="flex items-center px-3" style={{ height: rowHeight }}>
-              <span className="text-xs font-medium text-muted-foreground truncate">{row.name}</span>
-            </div>
-          ))}
+          {parentRows.map((row) => {
+            const isP1 = row.id === "p1";
+            return (
+              <div key={row.id} className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
+                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
+                <span className={`text-xs font-semibold truncate ${isP1 ? "text-blue-700" : "text-emerald-700"}`}>{row.name}</span>
+              </div>
+            );
+          })}
           {hasOverlapRow && (
-            <div className="flex items-center px-3" style={{ height: overlapRowHeight }}>
-              <span className="text-xs font-medium text-purple-600 truncate">Dubbeldagar</span>
+            <div className="flex items-center gap-2 px-3" style={{ height: overlapRowHeight }}>
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
+              <span className="text-xs font-semibold text-purple-700 truncate">Dubbeldagar</span>
             </div>
           )}
           {unfulfilledPct !== null && <div className="h-6" />}
@@ -268,7 +277,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
         {/* Timeline area */}
         <div className="flex-1 min-w-0 relative">
           {/* Month/year header */}
-          <div className="relative h-8 border-b border-border">
+          <div className="relative h-8 border-b border-border/60">
             {monthBoundaries.map((mb) => (
               <div key={mb.index} className="absolute top-0 bottom-0" style={{ left: `${mb.pct}%` }}>
                 <div className="absolute top-4 bottom-0 w-px bg-border/60" />
@@ -290,18 +299,28 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
           <div className="relative">
             {monthBoundaries.map((mb) =>
               mb.pct > 0 ? (
-                <div key={`line-${mb.index}`} className="absolute top-0 w-px bg-border/30 z-0" style={{ left: `${mb.pct}%`, height: totalRowHeight }} />
+                <div key={`line-${mb.index}`} className="absolute top-0 w-px bg-border/20 z-0" style={{ left: `${mb.pct}%`, height: totalRowHeight }} />
               ) : null
             )}
 
             {transitionPcts.map((pct, i) => (
               <div key={`trans-${i}`} className="absolute top-0 z-10" style={{ left: `${pct}%`, height: totalRowHeight }}>
-                <div className="w-px h-full border-l border-dashed border-foreground/15" />
+                <div className="w-px h-full border-l border-dashed border-foreground/10" />
               </div>
             ))}
 
+            {/* Today marker */}
+            {todayPct !== null && (
+              <div className="absolute top-0 z-20" style={{ left: `${todayPct}%`, height: totalRowHeight }}>
+                <div className="w-0.5 h-full border-l-2 border-dashed border-amber-400/70" />
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 whitespace-nowrap shadow-sm">
+                  Idag
+                </div>
+              </div>
+            )}
+
             {parentRows.map((row) => (
-              <div key={row.id} className="relative bg-muted/30" style={{ height: rowHeight }}>
+              <div key={row.id} className="relative" style={{ height: rowHeight }}>
                 {row.blocks.map((b) => {
                   const bStartMs = toEpochMs(b.startDate);
                   const bEndMs = toEpochMs(b.endDate);
@@ -312,13 +331,13 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
                       key={b.id}
                       data-block-id={b.id}
                       data-parent-id={b.parentId}
-                      className={`absolute top-1.5 bottom-1.5 rounded-[10px] border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-sm ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring transition-shadow" : ""}`}
+                      className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
                         onBlockClick?.(b._originalId ?? b.id);
                       }}
                     >
-                      <span className="truncate px-1">{b.daysPerWeek}d/v</span>
+                      <span className="truncate px-1.5">{b.daysPerWeek}d/v</span>
                     </div>
                   );
                 })}
@@ -327,7 +346,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
 
             {/* Overlap row */}
             {hasOverlapRow && (
-              <div className="relative border-t border-border/50 bg-purple-50/30" style={{ height: overlapRowHeight }}>
+              <div className="relative border-t border-border/40 bg-purple-50/20" style={{ height: overlapRowHeight }}>
                 {validOverlaps.map((b) => {
                   const bStartMs = toEpochMs(b.startDate);
                   const bEndMs = toEpochMs(b.endDate);
@@ -341,7 +360,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, onBlockClick, onD
                       key={b.id}
                       data-block-id={b.id}
                       data-overlap="true"
-                      className="absolute top-1 bottom-1 rounded-md border border-purple-300 bg-purple-100 text-purple-700 text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all"
+                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-purple-300 bg-purple-100 text-purple-700 text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 40 }}
                       onMouseEnter={() => setHoveredOverlap(b.id)}
                       onMouseLeave={() => setHoveredOverlap(null)}
