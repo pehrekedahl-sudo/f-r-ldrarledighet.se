@@ -351,7 +351,14 @@ export function computeRescueProposal(
   // ══════════════════════════════════════════════
   const baseTransfers = existingTransfer && existingTransfer.sicknessDays > 0 ? [existingTransfer] : [];
   const { shortage: shortageBefore, result: origResult } = engineShortage(parents, blocks, baseTransfers, constants);
-  if (shortageBefore <= 0) return null;
+
+  console.group('[RESCUE] computeRescueProposal');
+  console.log('[RESCUE] A) shortageBefore =', shortageBefore);
+  for (const pr of origResult.parentsResult) {
+    console.log(`[RESCUE]   ${pr.parentId}: taken.sickness=${pr.taken.sickness}, taken.lowest=${pr.taken.lowest}, remaining.transferable=${pr.remaining.sicknessTransferable}, remaining.reserved=${pr.remaining.sicknessReserved}, remaining.lowest=${pr.remaining.lowest}`);
+  }
+
+  if (shortageBefore <= 0) { console.groupEnd(); return null; }
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const debugBefore = blocks.map(b => ({ ...b }));
