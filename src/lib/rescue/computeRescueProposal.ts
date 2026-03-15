@@ -596,6 +596,8 @@ export function computeRescueProposal(
   // ══════════════════════════════════════════════
   const { weeksTotalApplied, perParentWeeksApplied } = deriveFromReductions(allReductions, parents);
   const success = unfulfilledAfterFull <= 0;
+  console.log('[RESCUE] F) FINAL: weeksTotalApplied =', weeksTotalApplied, ', perParentWeeksApplied =', perParentWeeksApplied, ', unfulfilledAfterFull =', unfulfilledAfterFull, ', success =', success);
+  console.groupEnd();
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
   // UI text — derived from final reductions + transfer
