@@ -705,9 +705,12 @@ const PlanBuilder = () => {
                       className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setHandoverOpen(true)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground">Växlingsdatum</p>
-                        <p className="text-xs text-muted-foreground">När föräldrarnas ledigheter avlöser varandra</p>
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <CalendarSync className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm text-foreground">Växlingsdatum</p>
+                          <p className="text-xs text-muted-foreground">När ledigheter avlöser varandra</p>
+                        </div>
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
