@@ -968,6 +968,8 @@ const PlanBuilder = () => {
         onOpenChange={setDrawerOpen}
         onSave={handleDrawerSave}
         onDelete={handleDrawerDelete}
+        onSplit={handleSplitBlock}
+        onMerge={handleMergeBlock}
       />
       <SaveDaysDrawer
         open={saveDaysOpen}
