@@ -274,6 +274,64 @@ const PlanBuilder = () => {
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
+  const handleSplitBlock = (blockId: string, splitDate: string) => {
+    setHasManualEdits(true);
+    pushHistory();
+    const target = blocks.find(b => b.id === blockId);
+    if (!target) return;
+    const block1: Block = {
+      ...target,
+      endDate: addDaysUtil(splitDate, -1),
+    };
+    const block2: Block = {
+      ...target,
+      id: `b${Date.now()}-split`,
+      startDate: splitDate,
+      source: "user",
+    };
+    const newBlocks = blocks.map(b => b.id === blockId ? block1 : b).concat(block2);
+    const normalized = normalizeBlocks(newBlocks);
+    assertUniqueBlockIds(normalized, "splitBlock");
+    setBlocks(normalized);
+    const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    toast({ description: "Blocket har delats i två." });
+  };
+
+  const handleMergeBlock = (blockId: string, direction: "prev" | "next") => {
+    setHasManualEdits(true);
+    pushHistory();
+    const target = blocks.find(b => b.id === blockId);
+    if (!target) return;
+    const siblings = blocks
+      .filter(b => b.parentId === target.parentId && !b.isOverlap && b.id !== target.id)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    let neighbor: Block | null = null;
+    for (const s of siblings) {
+      if (direction === "prev" && addDaysUtil(s.endDate, 1) === target.startDate) neighbor = s;
+      if (direction === "next" && addDaysUtil(target.endDate, 1) === s.startDate) neighbor = s;
+    }
+    if (!neighbor) return;
+    // Merged block keeps target's dpw, spans both date ranges
+    const mergedBlock: Block = {
+      ...target,
+      startDate: direction === "prev" ? neighbor.startDate : target.startDate,
+      endDate: direction === "next" ? neighbor.endDate : target.endDate,
+      source: "user",
+    };
+    const newBlocks = blocks
+      .filter(b => b.id !== neighbor!.id)
+      .map(b => b.id === blockId ? mergedBlock : b);
+    const normalized = normalizeBlocks(newBlocks);
+    assertUniqueBlockIds(normalized, "mergeBlock");
+    setBlocks(normalized);
+    const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    toast({ description: "Blocken har slagits ihop." });
+  };
+
   const blockErrors = useMemo(
     () => new Map(blocks.map((b) => [b.id, validateBlock(b)])),
     [blocks]
