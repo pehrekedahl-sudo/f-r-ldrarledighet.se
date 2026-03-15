@@ -53,6 +53,8 @@ function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   for (const other of allBlocks) {
     if (other.id === block.id) continue;
     if (other.parentId !== block.parentId) continue;
+    // Double-day (isOverlap) blocks are intentional overlaps — skip them
+    if (other.isOverlap) continue;
     if (compareDates(block.startDate, other.endDate) <= 0 && compareDates(block.endDate, other.startDate) >= 0) {
       return `Överlapp med period ${other.startDate} – ${other.endDate}`;
     }
