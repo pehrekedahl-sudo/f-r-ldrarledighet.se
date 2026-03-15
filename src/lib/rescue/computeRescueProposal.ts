@@ -334,6 +334,32 @@ function parentCapacity(blocks: Block[], parentId: string): number {
     .filter(b => b.parentId === parentId && b.daysPerWeek >= 1 && !b.isOverlap)
     .reduce((s, b) => s + Math.floor(calendarDays(b.startDate, b.endDate) / 7), 0);
 }
+/** Combine existing + proposed transfers into a single effective transfer.
+ *  Same direction → add days. Opposite direction → keep both as net effect.
+ *  Returns null if no transfer at all. */
+function buildEffectiveTransfer(
+  existing: Transfer | null,
+  proposed: Transfer | null,
+): Transfer | null {
+  if (!existing || existing.sicknessDays <= 0) return proposed;
+  if (!proposed || proposed.sicknessDays <= 0) return existing;
+
+  // Same direction: combine
+  if (existing.fromParentId === proposed.fromParentId && existing.toParentId === proposed.toParentId) {
+    return { ...existing, sicknessDays: existing.sicknessDays + proposed.sicknessDays };
+  }
+
+  // Opposite direction: net out
+  if (existing.fromParentId === proposed.toParentId && existing.toParentId === proposed.fromParentId) {
+    const net = existing.sicknessDays - proposed.sicknessDays;
+    if (net > 0) return { ...existing, sicknessDays: net };
+    if (net < 0) return { ...proposed, sicknessDays: -net };
+    return null; // cancel out
+  }
+
+  // Different parents involved (shouldn't happen with 2-parent model) — prefer existing
+  return existing;
+}
 
 // ── Main computation ──
 
