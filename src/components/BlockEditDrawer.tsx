@@ -28,6 +28,7 @@ type Block = {
   daysPerWeek: number;
   lowestDaysPerWeek?: number;
   overlapGroupId?: string;
+  isOverlap?: boolean;
   source?: "system" | "user";
 };
 
