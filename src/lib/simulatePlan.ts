@@ -286,6 +286,9 @@ export function simulatePlan(plan: PlanInput): SimResult {
     (a, b) => compareDates(a.startDate, b.startDate),
   );
 
+  // Track consumed dates per parent to avoid double-counting (e.g. DD overlap blocks)
+  const consumedDates = new Map<string, Set<string>>();
+
   for (const b of sortedBlocks) {
     const p = state.get(b.parentId);
     if (!p) continue;
