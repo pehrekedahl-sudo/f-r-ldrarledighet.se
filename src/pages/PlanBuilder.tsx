@@ -861,6 +861,25 @@ const PlanBuilder = () => {
                           </div>
                         );
                       })}
+                      {/* Budget breakdown */}
+                      {(() => {
+                        const pr = result.parentsResult.find(p => p.parentId === s.parentId);
+                        if (!pr) return null;
+                        return (
+                          <Collapsible>
+                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                              Detaljerad budget
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-2 space-y-1 text-xs text-muted-foreground">
+                              <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
+                              <p>Kvar överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                              <p>Kvar reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
+                              <p>Kvar lägstanivå: {Math.round(pr.remaining.lowest)}</p>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        );
+                      })()}
                     </div>
                   );
                 })}
