@@ -699,7 +699,7 @@ const PlanBuilder = () => {
             </section>
 
             {/* ── JUSTERA PLANEN ── */}
-            <div className="rounded-lg border border-border bg-muted/30">
+            <div id="adjust-panel" className="rounded-lg border border-border bg-muted/30">
               <div className="px-5 pt-4 pb-2">
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Justera planen</p>
               </div>
