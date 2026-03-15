@@ -693,6 +693,9 @@ const PlanBuilder = () => {
                   }
                 }}
               />
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
+              </div>
             </section>
 
             {/* ── JUSTERA PLANEN ── */}
