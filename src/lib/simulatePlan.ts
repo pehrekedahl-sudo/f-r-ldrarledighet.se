@@ -277,6 +277,17 @@ export function simulatePlan(plan: PlanInput): SimResult {
     }
     from.remaining.sicknessTransferable -= amount;
     to.remaining.sicknessTransferable += amount;
+
+    // Lowest-level day transfer
+    const lowestAmount = Math.floor(t.lowestDays ?? 0);
+    if (lowestAmount > 0) {
+      if (from.remaining.lowest < lowestAmount) {
+        result.validationErrors.push({ type: "lowestTransferExceedsAvailable", transfer: t });
+        continue;
+      }
+      from.remaining.lowest -= lowestAmount;
+      to.remaining.lowest += lowestAmount;
+    }
   }
   if (result.validationErrors.some((e) => e.type === "transferExceedsAvailable")) {
     return result;
