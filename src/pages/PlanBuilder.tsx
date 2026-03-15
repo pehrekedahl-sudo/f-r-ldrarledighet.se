@@ -685,213 +685,194 @@ const PlanBuilder = () => {
               </div>
             </section>
 
-            {/* ── JUSTERA PLANEN ── */}
-            <div id="adjust-panel" className="rounded-lg border border-border bg-muted/30">
-              <div className="px-5 pt-4 pb-2">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Justera planen</p>
-              </div>
-              <div className="divide-y divide-border">
-                {/* Växlingsdatum */}
-                {parents.length >= 2 && (
-                  <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setHandoverOpen(true)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">Växlingsdatum</p>
-                      <p className="text-sm text-muted-foreground">Styr när föräldrarnas ledigheter avlöser varandra</p>
-                    </div>
-                    <div className="flex-shrink-0 text-right ml-4">
-                      <p className="text-sm text-foreground font-medium">
-                        {(() => {
-                          const p1Blocks = validBlocks.filter(b => b.parentId === parents[0].id && !b.isOverlap);
-                          if (p1Blocks.length === 0) return "Inte inställt";
-                          const p1End = p1Blocks.reduce((max, b) => b.endDate > max ? b.endDate : max, p1Blocks[0].endDate);
-                          try {
-                            const d = new Date(p1End + "T12:00:00");
-                            return `${parents[0].name} lämnar ${d.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" })}`;
-                          } catch {
-                            return "Inte inställt";
-                          }
-                        })()}
-                      </p>
-                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Sparade dagar */}
-                <div
-                  className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => setSaveDaysOpen(true)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">Sparade dagar</p>
-                    <p className="text-sm text-muted-foreground">Håll dagar i reserv för VAB eller oplanerad ledighet</p>
-                  </div>
-                  <div className="flex-shrink-0 text-right ml-4">
-                    <p className="text-sm text-foreground font-medium">
-                      {savedDaysCount > 0 ? `${savedDaysCount} dagar sparade` : "Inga sparade dagar"}
-                    </p>
-                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
-                  </div>
+            {/* ── TWO-COLUMN: JUSTERA + ERSÄTTNING ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left: Justera planen */}
+              <div id="adjust-panel" className="rounded-lg border border-border bg-muted/30">
+                <div className="px-4 pt-3 pb-1.5">
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Justera planen</p>
                 </div>
-
-                {/* Dagöverföring */}
-                {parents.length >= 2 && (
-                  <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setTransferDaysOpen(true)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">Överförda dagar</p>
-                      <p className="text-sm text-muted-foreground">Flytta dagar permanent från en förälders kvot till den andres</p>
-                    </div>
-                    <div className="flex-shrink-0 text-right ml-4">
-                      <p className="text-sm text-foreground font-medium">
-                        {transfer && transfer.sicknessDays > 0
-                          ? `${transfer.sicknessDays} dagar ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
-                          : "Ingen överföring"}
-                      </p>
-                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">Justera <span>→</span></span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Dubbeldagar */}
-                {parents.length >= 2 && (() => {
-                  const overlaps = blocks.filter(b => b.isOverlap === true);
-                  let overlapDayCount = 0;
-                  if (overlaps.length > 0) {
-                    const seen = new Set<string>();
-                    for (const ob of overlaps) {
-                      const key = `${ob.startDate}_${ob.endDate}`;
-                      if (seen.has(key)) continue;
-                      seen.add(key);
-                      for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDaysUtil(d, 1)) {
-                        const wd = isoWeekdayIndex(d);
-                        if (wd < 5) overlapDayCount++;
-                      }
-                    }
-                  }
-
-                  return (
+                <div className="divide-y divide-border">
+                  {/* Växlingsdatum */}
+                  {parents.length >= 2 && (
                     <div
-                      className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => setDoubleDaysOpen(true)}
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => setHandoverOpen(true)}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">Dubbeldagar</p>
-                        <p className="text-sm text-muted-foreground">Båda tar ut ersättning samtidigt — max 30 dagar under barnets första år</p>
+                        <p className="font-medium text-sm text-foreground">Växlingsdatum</p>
+                        <p className="text-xs text-muted-foreground">När föräldrarnas ledigheter avlöser varandra</p>
                       </div>
-                      <div className="flex-shrink-0 text-right ml-4">
-                        <p className="text-sm text-foreground font-medium">
-                          {overlaps.length > 0 ? `${overlapDayCount} dagar inlagda` : "Inga dubbeldagar"}
+                      <div className="flex-shrink-0 text-right ml-3">
+                        <p className="text-xs text-foreground font-medium">
+                          {(() => {
+                            const p1Blocks = validBlocks.filter(b => b.parentId === parents[0].id && !b.isOverlap);
+                            if (p1Blocks.length === 0) return "Inte inställt";
+                            const p1End = p1Blocks.reduce((max, b) => b.endDate > max ? b.endDate : max, p1Blocks[0].endDate);
+                            try {
+                              const d = new Date(p1End + "T12:00:00");
+                              return `${parents[0].name} → ${d.toLocaleDateString("sv-SE", { day: "numeric", month: "short" })}`;
+                            } catch {
+                              return "Inte inställt";
+                            }
+                          })()}
                         </p>
-                        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full px-3 py-1 transition-colors cursor-pointer">
-                          Lägg till <span>→</span>
-                        </span>
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Justera →</span>
                       </div>
                     </div>
-                  );
-                })()}
+                  )}
 
-                {/* Ångra senaste ändring */}
-                <div className="px-5 py-3 border-t border-border">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!canUndo}
-                    onClick={handleUndo}
-                    className="w-full text-muted-foreground"
+                  {/* Sparade dagar */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => setSaveDaysOpen(true)}
                   >
-                    ↩ Ångra senaste ändring
-                  </Button>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground">Sparade dagar</p>
+                      <p className="text-xs text-muted-foreground">Reserv för VAB eller oplanerad ledighet</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right ml-3">
+                      <p className="text-xs text-foreground font-medium">
+                        {savedDaysCount > 0 ? `${savedDaysCount} dagar` : "Inga"}
+                      </p>
+                      <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Justera →</span>
+                    </div>
+                  </div>
+
+                  {/* Överförda dagar */}
+                  {parents.length >= 2 && (
+                    <div
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => setTransferDaysOpen(true)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-foreground">Överförda dagar</p>
+                        <p className="text-xs text-muted-foreground">Flytta dagar mellan föräldrar</p>
+                      </div>
+                      <div className="flex-shrink-0 text-right ml-3">
+                        <p className="text-xs text-foreground font-medium">
+                          {transfer && transfer.sicknessDays > 0
+                            ? `${transfer.sicknessDays} d ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
+                            : "Ingen"}
+                        </p>
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Justera →</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dubbeldagar */}
+                  {parents.length >= 2 && (() => {
+                    const overlaps = blocks.filter(b => b.isOverlap === true);
+                    let overlapDayCount = 0;
+                    if (overlaps.length > 0) {
+                      const seen = new Set<string>();
+                      for (const ob of overlaps) {
+                        const key = `${ob.startDate}_${ob.endDate}`;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        for (let d = ob.startDate; compareDates(d, ob.endDate) <= 0; d = addDaysUtil(d, 1)) {
+                          const wd = isoWeekdayIndex(d);
+                          if (wd < 5) overlapDayCount++;
+                        }
+                      }
+                    }
+
+                    return (
+                      <div
+                        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() => setDoubleDaysOpen(true)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-foreground">Dubbeldagar</p>
+                          <p className="text-xs text-muted-foreground">Båda tar ut ersättning samtidigt</p>
+                        </div>
+                        <div className="flex-shrink-0 text-right ml-3">
+                          <p className="text-xs text-foreground font-medium">
+                            {overlaps.length > 0 ? `${overlapDayCount} dagar` : "Inga"}
+                          </p>
+                          <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Lägg till →</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Ångra */}
+                  <div className="px-4 py-2">
+                    <Button variant="ghost" size="sm" disabled={!canUndo} onClick={handleUndo} className="w-full text-xs text-muted-foreground h-7">
+                      ↩ Ångra senaste ändring
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── ERSÄTTNING PER FÖRÄLDER ── */}
-            {(result.parentSummary ?? []).length > 0 && (() => {
-              const svMonths = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
-              const fmtPeriod = (start: string, end: string) => {
-                const [sy, sm] = start.split("-").map(Number);
-                const [ey, em] = end.split("-").map(Number);
-                const s = `${svMonths[sm - 1]}`;
-                const e = `${svMonths[em - 1]}`;
-                if (sy === ey) return `${s} – ${e} ${ey}`;
-                return `${s} ${sy} – ${e} ${ey}`;
-              };
-              const hasAnyAboveTak = result.parentSummary.some(s => s.isAboveSgiTak);
-              return (
-              <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
-                <div className="px-5 pt-4 pb-2">
-                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
-                </div>
-                {result.parentSummary.map(s => {
-                  const parentBlocks = blocks
-                    .filter(b => b.parentId === s.parentId && !b.isOverlap)
-                    .sort((a, b) => a.startDate.localeCompare(b.startDate));
-                  return (
-                    <div key={s.parentId} className="px-5 py-4 space-y-2">
-                      <p className="font-medium text-foreground">{s.name}</p>
-                      {parentBlocks.map(b => {
-                        const monthlyFull = computeBlockMonthlyBenefit(
-                          parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0,
-                          5
-                        );
-                        const monthly = monthlyFull * (b.daysPerWeek / 5);
-                        return (
-                          <div key={b.id} className="flex items-baseline justify-between text-sm">
-                            <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} dagar/v</span>
-                            <span className="font-medium text-foreground tabular-nums">≈ {Math.round(monthly).toLocaleString("sv-SE")} kr/mån</span>
-                          </div>
-                        );
-                      })}
-                      {/* Budget breakdown */}
-                      {(() => {
-                        const pr = result.parentsResult.find(p => p.parentId === s.parentId);
-                        if (!pr) return null;
-                        return (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                              Detaljerad budget
-                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-2 space-y-1 text-xs text-muted-foreground">
-                              <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
-                              <p>Kvar överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
-                              <p>Kvar reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
-                              <p>Kvar lägstanivå: {Math.round(pr.remaining.lowest)}</p>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        );
-                      })()}
+              {/* Right: Ersättning per förälder */}
+              {(result.parentSummary ?? []).length > 0 && (() => {
+                const svMonths = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+                const fmtPeriod = (start: string, end: string) => {
+                  const [sy, sm] = start.split("-").map(Number);
+                  const [ey, em] = end.split("-").map(Number);
+                  const s = `${svMonths[sm - 1]}`;
+                  const e = `${svMonths[em - 1]}`;
+                  if (sy === ey) return `${s} – ${e} ${ey}`;
+                  return `${s} ${sy} – ${e} ${ey}`;
+                };
+                const hasAnyAboveTak = result.parentSummary.some(s => s.isAboveSgiTak);
+                return (
+                  <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
+                    <div className="px-4 pt-3 pb-1.5">
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
                     </div>
-                  );
-                })}
-                <div className="px-5 py-3">
-                  <p className="text-xs text-muted-foreground">
-                    {hasAnyAboveTak
-                      ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån). Lön därutöver ersätts inte.`
-                      : "FK betalar 77,6% av din lön."}
-                  </p>
-                </div>
-              </section>
-              );
-            })()}
-
-
-            {/* Disclaimer */}
-            <p className="text-xs text-muted-foreground italic text-center">
-              Detta är en simulering – kontrollera alltid med Försäkringskassan innan ni ansöker.
-            </p>
-
-            {/* Action bar */}
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" size="sm" onClick={copyPlan}>Kopiera plan</Button>
-              <Button variant="outline" size="sm" onClick={sharePlan}>Dela med din partner</Button>
-              <Button variant="ghost" size="sm" onClick={handleClearPlan}>Rensa plan</Button>
+                    {result.parentSummary.map(s => {
+                      const parentBlocks = blocks
+                        .filter(b => b.parentId === s.parentId && !b.isOverlap)
+                        .sort((a, b) => a.startDate.localeCompare(b.startDate));
+                      return (
+                        <div key={s.parentId} className="px-4 py-3 space-y-1.5">
+                          <p className="font-medium text-sm text-foreground">{s.name}</p>
+                          {parentBlocks.map(b => {
+                            const monthlyFull = computeBlockMonthlyBenefit(
+                              parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0,
+                              5
+                            );
+                            const monthly = monthlyFull * (b.daysPerWeek / 5);
+                            return (
+                              <div key={b.id} className="flex items-baseline justify-between text-xs">
+                                <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
+                                <span className="font-medium text-foreground tabular-nums">≈ {Math.round(monthly).toLocaleString("sv-SE")} kr/mån</span>
+                              </div>
+                            );
+                          })}
+                          {(() => {
+                            const pr = result.parentsResult.find(p => p.parentId === s.parentId);
+                            if (!pr) return null;
+                            return (
+                              <Collapsible>
+                                <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                                  Budget
+                                  <ChevronDown className="h-3 w-3 shrink-0 transition-transform duration-200" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-1 space-y-0.5 text-xs text-muted-foreground">
+                                  <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} d</p>
+                                  <p>Kvar överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
+                                  <p>Kvar reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
+                                  <p>Kvar lägstanivå: {Math.round(pr.remaining.lowest)}</p>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                    <div className="px-4 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        {hasAnyAboveTak
+                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
+                          : "FK betalar 77,6% av din lön."}
+                      </p>
+                    </div>
+                  </section>
+                );
+              })()}
             </div>
           </>
         );
