@@ -579,28 +579,36 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-5 mt-4 space-y-4">
-              {/* Row 1: Title + KPIs */}
+            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-4 mt-4 space-y-3">
+              {/* Row 1: Title + KPIs + Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
                   <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
                 </div>
-                <div className="flex gap-4 text-sm">
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
-                    <p className="font-bold text-foreground">{formattedEnd}</p>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
+                      <p className="font-bold text-foreground">{formattedEnd}</p>
+                    </div>
+                    <div className="w-px bg-border/60" />
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
+                      <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
+                    </div>
                   </div>
-                  <div className="w-px bg-border/60" />
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
-                    <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
+                  <div className="w-px h-6 bg-border/60 hidden sm:block" />
+                  <div className="flex gap-1.5">
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
                   </div>
                 </div>
               </div>
 
               {/* Row 2: Parent pills + status/actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex gap-3 flex-wrap">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {result.parentsResult.map((pr) => {
                     const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
                     const totalBudget = 480;
@@ -608,7 +616,7 @@ const PlanBuilder = () => {
                     const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
                     const isP1 = pr.parentId === "p1";
                     return (
-                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${isP1 ? "border-blue-200 bg-white/80" : "border-emerald-200 bg-white/80"}`}>
+                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-blue-200 bg-white/80" : "border-emerald-200 bg-white/80"}`}>
                         <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground">{daysLeft} kvar</span>
@@ -620,9 +628,8 @@ const PlanBuilder = () => {
                   })}
                 </div>
 
-                {/* Status + action buttons inline */}
                 {unfulfilled > 0 ? (
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-destructive font-medium whitespace-nowrap">
                       ⚠ {(() => {
                         const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
@@ -635,16 +642,16 @@ const PlanBuilder = () => {
                       })()}
                     </span>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
-                      <Button size="sm" variant="outline" onClick={() => {
+                      <Button size="sm" className="h-7 text-xs" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                         setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                       }}>Justera manuellt</Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm text-emerald-700 font-medium">✓ Balanserad</span>
-                    <Button size="sm" variant="outline" onClick={() => {
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                       setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                     }}>Justera</Button>
                   </div>
