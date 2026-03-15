@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Scissors, Merge } from "lucide-react";
 import { addDays, todayISO, compareDates, diffDaysInclusive } from "@/utils/dateOnly";
 
 type Block = {
@@ -46,6 +47,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onSave: (updated: Block) => void;
   onDelete?: (id: string) => void;
+  onSplit?: (blockId: string, splitDate: string) => void;
+  onMerge?: (blockId: string, direction: "prev" | "next") => void;
 };
 
 const MAX_BLOCKS = 8;
@@ -54,7 +57,6 @@ function checkOverlap(block: Block, allBlocks: Block[]): string | null {
   for (const other of allBlocks) {
     if (other.id === block.id) continue;
     if (other.parentId !== block.parentId) continue;
-    // Double-day (isOverlap) blocks are intentional overlaps — skip them
     if (other.isOverlap) continue;
     if (compareDates(block.startDate, other.endDate) <= 0 && compareDates(block.endDate, other.startDate) >= 0) {
       return `Överlapp med period ${other.startDate} – ${other.endDate}`;
@@ -73,17 +75,38 @@ function endDateFromWeeks(start: string, weeks: number): string {
   return addDays(start, weeks * 7 - 1);
 }
 
-const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, onSave, onDelete }: Props) => {
+/** Find adjacent non-overlap blocks for the same parent */
+function findAdjacentBlocks(block: Block, allBlocks: Block[]): { prev: Block | null; next: Block | null } {
+  const siblings = allBlocks
+    .filter(b => b.parentId === block.parentId && !b.isOverlap && b.id !== block.id)
+    .sort((a, b) => compareDates(a.startDate, b.startDate));
+
+  let prev: Block | null = null;
+  let next: Block | null = null;
+
+  for (const s of siblings) {
+    if (addDays(s.endDate, 1) === block.startDate) prev = s;
+    if (addDays(block.endDate, 1) === s.startDate) next = s;
+  }
+
+  return { prev, next };
+}
+
+const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, onSave, onDelete, onSplit, onMerge }: Props) => {
   const [parentId, setParentId] = useState(parents[0]?.id ?? "p1");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
   const [lowestDaysPerWeek, setLowestDaysPerWeek] = useState(0);
-  const [weeksMode, setWeeksMode] = useState(true); // true = weeks input, false = exact date
+  const [weeksMode, setWeeksMode] = useState(true);
   const [weeks, setWeeks] = useState(4);
+  const [splitDate, setSplitDate] = useState("");
+  const [showSplit, setShowSplit] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setShowSplit(false);
+    setSplitDate("");
     if (mode === "edit" && block) {
       setParentId(block.parentId);
       setStartDate(block.startDate);
@@ -108,7 +131,6 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     }
   }, [open, mode, block, parents, allBlocks]);
 
-  // Recalculate defaults when parent changes in create mode
   const handleParentChange = (pid: string) => {
     setParentId(pid);
     if (mode === "create") {
@@ -171,6 +193,33 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
   const parentName = parents.find(p => p.id === parentId)?.name ?? "";
   const isCreate = mode === "create";
 
+  // Adjacent blocks for merge
+  const adjacent = useMemo(() => {
+    if (!block || isCreate || block.isOverlap) return { prev: null, next: null };
+    return findAdjacentBlocks(block, allBlocks);
+  }, [block, isCreate, allBlocks]);
+
+  // Split validation
+  const splitValid = useMemo(() => {
+    if (!splitDate || !startDate || !endDate) return false;
+    // Split date must be strictly between start and end (at least 1 day on each side)
+    return compareDates(splitDate, startDate) > 0 && compareDates(splitDate, endDate) < 0;
+  }, [splitDate, startDate, endDate]);
+
+  const handleSplit = () => {
+    if (block && onSplit && splitValid) {
+      onSplit(block.id, splitDate);
+      onOpenChange(false);
+    }
+  };
+
+  const handleMerge = (direction: "prev" | "next") => {
+    if (block && onMerge) {
+      onMerge(block.id, direction);
+      onOpenChange(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[400px] flex flex-col">
@@ -179,7 +228,6 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
-          {/* Debug line */}
           {!isCreate && (
             <p className="text-[10px] font-mono text-muted-foreground/50 truncate">
               {block
@@ -211,7 +259,6 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                 <Input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
               </div>
 
-              {/* Antal veckor — primary input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Antal veckor: {weeks}</Label>
@@ -226,17 +273,13 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                 {weeksMode ? (
                   <>
                     <Slider
-                      min={1}
-                      max={104}
-                      step={1}
+                      min={1} max={104} step={1}
                       value={[weeks]}
                       onValueChange={([v]) => handleWeeksChange(v)}
                     />
                     <div className="flex items-center gap-2">
                       <Input
-                        type="number"
-                        min={1}
-                        max={104}
+                        type="number" min={1} max={104}
                         value={weeks}
                         onChange={(e) => handleWeeksChange(Number(e.target.value) || 1)}
                         className="w-24"
@@ -278,6 +321,89 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                   disabled={daysPerWeek === 0}
                 />
               </div>
+
+              {/* Split block section */}
+              {!isCreate && block && !block.isOverlap && onSplit && (
+                <div className="border-t border-border pt-4 space-y-2">
+                  {!showSplit ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => setShowSplit(true)}
+                    >
+                      <Scissors className="h-4 w-4" />
+                      Dela block i två
+                    </Button>
+                  ) : (
+                    <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+                      <Label className="text-xs font-medium">Dela vid datum</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Blocket delas: {startDate} → (dagen före) och valt datum → {endDate}
+                      </p>
+                      <Input
+                        type="date"
+                        value={splitDate}
+                        min={addDays(startDate, 1)}
+                        max={endDate}
+                        onChange={(e) => setSplitDate(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={!splitValid}
+                          onClick={handleSplit}
+                          className="gap-1"
+                        >
+                          <Scissors className="h-3 w-3" />
+                          Dela
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setShowSplit(false); setSplitDate(""); }}
+                        >
+                          Avbryt
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Merge block section */}
+              {!isCreate && block && !block.isOverlap && onMerge && (adjacent.prev || adjacent.next) && (
+                <div className="border-t border-border pt-4 space-y-2">
+                  <Label className="text-xs font-medium">Slå ihop med angränsande period</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {adjacent.prev && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => handleMerge("prev")}
+                      >
+                        <Merge className="h-3 w-3" />
+                        ← {parents.find(p => p.id === adjacent.prev!.parentId)?.name}: {adjacent.prev.daysPerWeek}d/v
+                      </Button>
+                    )}
+                    {adjacent.next && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => handleMerge("next")}
+                      >
+                        <Merge className="h-3 w-3" />
+                        {parents.find(p => p.id === adjacent.next!.parentId)?.name}: {adjacent.next.daysPerWeek}d/v →
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Det sammanslagna blocket får det nuvarande blockets uttagstakt ({daysPerWeek} d/v).
+                  </p>
+                </div>
+              )}
 
               {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
               {validationError && <p className="text-xs text-destructive font-medium">{validationError}</p>}
