@@ -384,7 +384,11 @@ export function computeRescueProposal(
     proposedTransfer = { fromParentId: giver.id, toParentId: needy.id, sicknessDays: transferDays };
   }
 
-  const transferList: Transfer[] = proposedTransfer ? [proposedTransfer] : [];
+  // ── Build effective transfer list: ALWAYS preserve existingTransfer ──
+  // The proposed transfer is ADDITIONAL to any existing one.
+  // Combine into a single effective transfer for the engine.
+  const effectiveTransfer = buildEffectiveTransfer(existingTransfer, proposedTransfer);
+  const transferList: Transfer[] = effectiveTransfer ? [effectiveTransfer] : [];
   const transferConfigStr = JSON.stringify(transferList);
 
   // ══════════════════════════════════════════════
