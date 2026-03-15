@@ -646,6 +646,7 @@ const PlanBuilder = () => {
                 blocks={validBlocks}
                 parents={parents}
                 unfulfilledDaysTotal={unfulfilled}
+                todayDate={new Date().toISOString().slice(0, 10)}
                 onBlockClick={handleTimelineBlockClick}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
@@ -656,8 +657,11 @@ const PlanBuilder = () => {
                   }
                 }}
               />
-              <div className="flex justify-end pt-1">
-                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till block</Button>
+                {parents.length >= 2 && (
+                  <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>+ Dubbeldagar</Button>
+                )}
               </div>
             </section>
 
