@@ -31,7 +31,7 @@ type Constants = {
   SICKNESS_DAILY_MAX?: number;
 };
 
-type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
+type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number };
 
 type Props = {
   open: boolean;
@@ -44,7 +44,7 @@ type Props = {
 };
 
 function getTransfers(t: Transfer | null) {
-  return t && t.sicknessDays > 0 ? [t] : [];
+  return t && (t.sicknessDays > 0 || (t.lowestDays ?? 0) > 0) ? [t] : [];
 }
 
 function calcAvgMonthly(parentsResult: any[]): number {
@@ -55,7 +55,6 @@ function calcAvgMonthly(parentsResult: any[]): number {
 }
 
 const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transfer, onApply }: Props) => {
-  // Compute remaining per parent with current transfer
   const simResult = useMemo(() => {
     if (blocks.length === 0) return null;
     try {
@@ -66,53 +65,61 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
   }, [blocks, parents, constants, transfer]);
 
   const remainingByParent = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { total: number; lowest: number }> = {};
     if (simResult) {
       for (const pr of simResult.parentsResult) {
-        map[pr.parentId] = Math.round(
-          pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest
-        );
+        map[pr.parentId] = {
+          total: Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest),
+          lowest: Math.round(pr.remaining.lowest),
+        };
       }
     }
     return map;
   }, [simResult]);
 
   const transferableByParent = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { sickness: number; lowest: number }> = {};
     if (!simResult) return map;
-    // Simulate WITHOUT any transfer to get true transferable balances
     try {
       const noTransferResult = simulatePlan({ parents, blocks, transfers: [], constants });
       for (const pr of noTransferResult.parentsResult) {
-        map[pr.parentId] = Math.round(pr.remaining.sicknessTransferable);
+        map[pr.parentId] = {
+          sickness: Math.round(pr.remaining.sicknessTransferable),
+          lowest: Math.round(pr.remaining.lowest),
+        };
       }
     } catch {
       for (const pr of simResult.parentsResult) {
-        map[pr.parentId] = Math.round(pr.remaining.sicknessTransferable);
+        map[pr.parentId] = {
+          sickness: Math.round(pr.remaining.sicknessTransferable),
+          lowest: Math.round(pr.remaining.lowest),
+        };
       }
     }
     return map;
   }, [simResult, parents, blocks, constants]);
 
-  // Default direction: parent with more remaining days gives
   const defaultGiver = useMemo(() => {
     if (parents.length < 2) return parents[0]?.id ?? "";
-    const r0 = remainingByParent[parents[0].id] ?? 0;
-    const r1 = remainingByParent[parents[1].id] ?? 0;
+    const r0 = remainingByParent[parents[0].id]?.total ?? 0;
+    const r1 = remainingByParent[parents[1].id]?.total ?? 0;
     return r0 >= r1 ? parents[0].id : parents[1].id;
   }, [parents, remainingByParent]);
 
   const [giverId, setGiverId] = useState(defaultGiver);
   const [days, setDays] = useState(0);
+  const [lowestDays, setLowestDays] = useState(0);
 
   useEffect(() => {
     if (open) {
-      if (transfer && transfer.sicknessDays > 0) {
+      if (transfer && (transfer.sicknessDays > 0 || (transfer.lowestDays ?? 0) > 0)) {
         setGiverId(transfer.fromParentId);
         setDays(transfer.sicknessDays);
+        setLowestDays(transfer.lowestDays ?? 0);
       } else {
         setGiverId(defaultGiver);
         setDays(0);
+        setLowestDays(0);
       }
     }
   }, [open, transfer, defaultGiver]);
@@ -120,12 +127,12 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
   const receiverId = parents.find(p => p.id !== giverId)?.id ?? "";
   const giverName = parents.find(p => p.id === giverId)?.name ?? "?";
   const receiverName = parents.find(p => p.id === receiverId)?.name ?? "?";
-  const maxDays = transferableByParent[giverId] ?? 0;
+  const maxSicknessDays = transferableByParent[giverId]?.sickness ?? 0;
+  const maxLowestDays = transferableByParent[giverId]?.lowest ?? 0;
 
-  // Preview: simulate with the new transfer
   const preview = useMemo(() => {
-    if (days <= 0 || blocks.length === 0) return null;
-    const newTransfer: Transfer = { fromParentId: giverId, toParentId: receiverId, sicknessDays: days };
+    if ((days <= 0 && lowestDays <= 0) || blocks.length === 0) return null;
+    const newTransfer: Transfer = { fromParentId: giverId, toParentId: receiverId, sicknessDays: days, lowestDays };
     try {
       const withNew = simulatePlan({ parents, blocks, transfers: [newTransfer], constants });
       const without = simulatePlan({ parents, blocks, transfers: [], constants });
@@ -144,19 +151,20 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
     } catch {
       return null;
     }
-  }, [days, giverId, receiverId, blocks, parents, constants]);
+  }, [days, lowestDays, giverId, receiverId, blocks, parents, constants]);
 
   const isUnchanged =
     (transfer?.fromParentId === giverId &&
       transfer?.toParentId === receiverId &&
-      transfer?.sicknessDays === days) ||
-    (days === 0 && (!transfer || transfer.sicknessDays === 0));
+      transfer?.sicknessDays === days &&
+      (transfer?.lowestDays ?? 0) === lowestDays) ||
+    (days === 0 && lowestDays === 0 && (!transfer || (transfer.sicknessDays === 0 && (transfer.lowestDays ?? 0) === 0)));
 
   const handleApply = () => {
-    if (days <= 0) {
+    if (days <= 0 && lowestDays <= 0) {
       onApply(null);
     } else {
-      onApply({ fromParentId: giverId, toParentId: receiverId, sicknessDays: days });
+      onApply({ fromParentId: giverId, toParentId: receiverId, sicknessDays: days, lowestDays: lowestDays > 0 ? lowestDays : undefined });
     }
     onOpenChange(false);
   };
@@ -177,13 +185,15 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
             <p className="text-sm font-medium">Nuvarande kvoter</p>
             {parents.map(p => (
               <p key={p.id} className="text-sm text-muted-foreground">
-                {p.name}: {remainingByParent[p.id] ?? 0} dagar kvar
+                {p.name}: {remainingByParent[p.id]?.total ?? 0} dagar kvar (varav {remainingByParent[p.id]?.lowest ?? 0} lägstanivå)
               </p>
             ))}
-            {transfer && transfer.sicknessDays > 0 && (
+            {transfer && (transfer.sicknessDays > 0 || (transfer.lowestDays ?? 0) > 0) && (
               <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
-                Aktiv överföring: {transfer.sicknessDays} dagar från{" "}
-                {parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} till{" "}
+                Aktiv överföring: {transfer.sicknessDays > 0 ? `${transfer.sicknessDays} sjukpenningdagar` : ""}
+                {transfer.sicknessDays > 0 && (transfer.lowestDays ?? 0) > 0 ? " + " : ""}
+                {(transfer.lowestDays ?? 0) > 0 ? `${transfer.lowestDays} lägstanivådagar` : ""}
+                {" "}från {parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} till{" "}
                 {parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}
               </p>
             )}
@@ -192,7 +202,7 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
           {/* Direction */}
           <div className="space-y-2">
             <Label>Riktning</Label>
-            <RadioGroup value={giverId} onValueChange={(v) => { setGiverId(v); setDays(0); }}>
+            <RadioGroup value={giverId} onValueChange={(v) => { setGiverId(v); setDays(0); setLowestDays(0); }}>
               {parents.length >= 2 && (
                 <>
                   <div className="flex items-center space-x-2">
@@ -212,25 +222,42 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
             </RadioGroup>
           </div>
 
-          {/* Amount */}
+          {/* Sickness days amount */}
           <div className="space-y-2">
-            <Label htmlFor="transfer-days-input">Antal dagar</Label>
+            <Label htmlFor="transfer-days-input">Sjukpenningdagar</Label>
             <Input
               id="transfer-days-input"
               type="number"
               min={0}
-              max={maxDays}
+              max={maxSicknessDays}
               value={days || ""}
               onChange={(e) => {
-                const v = Math.max(0, Math.min(maxDays, Math.floor(Number(e.target.value) || 0)));
+                const v = Math.max(0, Math.min(maxSicknessDays, Math.floor(Number(e.target.value) || 0)));
                 setDays(v);
               }}
             />
-            <p className="text-xs text-muted-foreground">Max {maxDays} dagar</p>
+            <p className="text-xs text-muted-foreground">Max {maxSicknessDays} sjukpenningdagar</p>
+          </div>
+
+          {/* Lowest-level days amount */}
+          <div className="space-y-2">
+            <Label htmlFor="transfer-lowest-input">Lägstanivådagar</Label>
+            <Input
+              id="transfer-lowest-input"
+              type="number"
+              min={0}
+              max={maxLowestDays}
+              value={lowestDays || ""}
+              onChange={(e) => {
+                const v = Math.max(0, Math.min(maxLowestDays, Math.floor(Number(e.target.value) || 0)));
+                setLowestDays(v);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">Max {maxLowestDays} lägstanivådagar</p>
           </div>
 
           {/* Preview */}
-          {preview && days > 0 && (
+          {preview && (days > 0 || lowestDays > 0) && (
             <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-1">
               <p className="text-sm font-medium">Förhandsgranskning</p>
               <p className="text-sm text-muted-foreground">
