@@ -446,7 +446,7 @@ const PlanBuilder = () => {
   );
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+    <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
       {isSharedPlan && (
         <div className="border border-border rounded-lg p-3 bg-muted text-sm text-muted-foreground text-center">
           Du tittar på en delad plan
