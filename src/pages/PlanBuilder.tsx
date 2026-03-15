@@ -599,8 +599,8 @@ const PlanBuilder = () => {
               <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
                 {result.parentsResult.map((pr, i) => {
                   const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
-                  const totalBudget = pr.has240Days !== false ? 480 : 0;
-                  const used = totalBudget - daysLeft;
+                  const totalBudget = 480;
+                  const used = Math.round(pr.taken.sickness + pr.taken.lowest);
                   const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
                   const isP1 = pr.parentId === "p1";
                   return (
