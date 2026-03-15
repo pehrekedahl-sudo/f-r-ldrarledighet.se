@@ -6,7 +6,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-6 pt-24 pb-20 text-center space-y-6">
-        <h1 className="text-4xl md:text-5xl font-medium tracking-tight leading-tight" style={{ fontFamily: "'Fraunces', serif" }}>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
           Planera er föräldraledighet utan&nbsp;Excel-kaos
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
