@@ -757,9 +757,12 @@ const PlanBuilder = () => {
                       className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setTransferDaysOpen(true)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground">Överförda dagar</p>
-                        <p className="text-xs text-muted-foreground">Flytta dagar mellan föräldrar</p>
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <ArrowLeftRight className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm text-foreground">Överförda dagar</p>
+                          <p className="text-xs text-muted-foreground">Flytta dagar mellan föräldrar</p>
+                        </div>
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
