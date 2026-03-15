@@ -470,7 +470,8 @@ export function computeRescueProposal(
   );
 
   // Safety net — extend if initial estimate is insufficient
-  const MAX_EXTEND = 5;
+  const MAX_EXTEND = 20;
+  console.log('[RESCUE] D) Initial perParentWeeks =', { ...perParentWeeks }, ', capacity =', Object.fromEntries(parents.map(p => [p.id, parentCapacity(blocks, p.id)])));
   let extendIters = 0;
 
   while (unfulfilledAfterFull > 0 && extendIters < MAX_EXTEND) {
