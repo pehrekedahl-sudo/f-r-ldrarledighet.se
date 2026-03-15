@@ -95,8 +95,6 @@ const PlanBuilder = () => {
   const [months2, setMonths2] = useState(6);
   const [isSharedPlan, setIsSharedPlan] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "result">("result");
-  const [_showAdvanced, _setShowAdvanced] = useState(false);
-  const [_adjustOpen, _setAdjustOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [noSavedPlan, setNoSavedPlan] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -571,110 +569,75 @@ const PlanBuilder = () => {
           ? `${parents[0].name} & ${parents[1].name} – Planerad ledighet ${startYear}–${endYear}`
           : `${parents[0].name} – Planerad ledighet ${startYear}–${endYear}`;
 
+        const formattedEnd = latestEnd ? (() => {
+          try {
+            const d = new Date(latestEnd + "T12:00:00");
+            return d.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+          } catch { return latestEnd; }
+        })() : "—";
+
         return (
           <>
-            {/* ── PERSONALIZED HEADER ── */}
-            <p className="text-center text-sm font-medium text-muted-foreground tracking-wide pt-4">{planTitle}</p>
-
-            {/* ── HERO ── */}
-            <section className="text-center space-y-6 py-4">
-              <h1 className="text-3xl font-bold tracking-tight">Er plan i korthet</h1>
-              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
-                <div className="rounded-lg border border-border bg-card p-4 text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
-                  <p className="text-xl font-bold mt-1">{latestEnd ? (() => {
-                    try {
-                      const d = new Date(latestEnd + "T12:00:00");
-                      return d.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
-                    } catch { return latestEnd; }
-                  })() : "—"}</p>
+            {/* ── COMPACT BANNER ── */}
+            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-4 mt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Till {formattedEnd} · ~{Math.round(computedAvg).toLocaleString()} kr/mån
+                  </p>
                 </div>
-                <div className="rounded-lg border border-border bg-card p-4 text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Genomsnittlig ersättning</p>
-                  <p className="text-xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
-                </div>
-              </div>
-
-              {/* Per-parent days remaining */}
-              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
-                {result.parentsResult.map((pr, i) => {
-                  const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
-                  const totalBudget = 480;
-                  const used = Math.round(pr.taken.sickness + pr.taken.lowest);
-                  const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
-                  const isP1 = pr.parentId === "p1";
-                  return (
-                    <div key={pr.parentId} className={`rounded-lg border p-4 text-center ${isP1 ? "border-blue-200 bg-blue-50/50" : "border-emerald-200 bg-emerald-50/50"}`}>
-                      <p className={`text-xs font-medium uppercase tracking-wide ${isP1 ? "text-blue-600" : "text-emerald-600"}`}>{pr.name}</p>
-                      <p className="text-2xl font-bold mt-1">{daysLeft} <span className="text-sm font-normal text-muted-foreground">dagar kvar</span></p>
-                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                <div className="flex gap-3 flex-wrap">
+                  {result.parentsResult.map((pr) => {
+                    const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
+                    const totalBudget = 480;
+                    const used = Math.round(pr.taken.sickness + pr.taken.lowest);
+                    const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
+                    const isP1 = pr.parentId === "p1";
+                    return (
+                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${isP1 ? "border-blue-200 bg-white/80" : "border-emerald-200 bg-white/80"}`}>
+                        <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
+                        <span className="font-medium">{pr.name}</span>
+                        <span className="text-muted-foreground">{daysLeft} kvar</span>
+                        <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{Math.round(pr.taken.sickness + pr.taken.lowest)} av {totalBudget} använda</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {unfulfilled > 0 ? (
-                <div className="max-w-md mx-auto space-y-3">
-                  <p className="text-sm text-destructive font-medium">
-                    ⚠ {(() => {
-                      const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
-                      const hasTransfer = householdTransferable > 0;
-                      const needsWeeks = unfulfilled > Math.floor(householdTransferable);
-                      if (hasTransfer && needsWeeks) return "Planen kräver omfördelning av dagar och justering av uttagstakt för att gå ihop.";
-                      if (hasTransfer) return "Planen kräver omfördelning av dagar mellan er för att gå ihop.";
-                      if (needsWeeks) return "Planen kräver att ni minskar uttagstakten för att gå ihop.";
-                      return "Planen behöver justeras.";
-                    })()}
-                  </p>
-                  <div className="flex gap-3 justify-center">
-                    <Button size="lg" onClick={() => setFitPlanOpen(true)}>
-                      Auto-justera
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      onClick={() => {
-                        setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                      }}
-                    >
-                      Justera manuellt
-                    </Button>
-                  </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    ✓ Planen ser balanserad ut. Ni kan justera detaljer eller testa alternativa upplägg.
-                  </p>
-                  <Button
-                    size="lg"
-                    onClick={() => {
-                      setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                    }}
-                  >
-                    Justera planen
-                  </Button>
-                </>
-              )}
+              </div>
             </section>
-            {/* ── INFO PANEL ── */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                Så fungerar beräkningen
-                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-3 pb-1">
-                <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
-                  <li>Vi utgår från era inkomster och gällande ersättningstak.</li>
-                  <li>Uttag beräknas per vecka (vardagar först).</li>
-                  <li>Reserverade dagar används före överförbara.</li>
-                  <li>Resultatet är en simulering och kan skilja något från Försäkringskassans slutliga beslut.</li>
-                </ul>
-              </CollapsibleContent>
-            </Collapsible>
+
+            {/* ── STATUS BAR ── */}
+            {unfulfilled > 0 ? (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+                <p className="text-sm text-destructive font-medium">
+                  ⚠ {(() => {
+                    const householdTransferable = result.parentsResult.reduce((s, pr) => s + pr.remaining.sicknessTransferable, 0);
+                    const hasTransfer = householdTransferable > 0;
+                    const needsWeeks = unfulfilled > Math.floor(householdTransferable);
+                    if (hasTransfer && needsWeeks) return "Planen kräver omfördelning och justering av uttagstakt.";
+                    if (hasTransfer) return "Planen kräver omfördelning av dagar.";
+                    if (needsWeeks) return "Ni behöver minska uttagstakten.";
+                    return "Planen behöver justeras.";
+                  })()}
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}>Justera manuellt</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-2.5">
+                <p className="text-sm text-emerald-700">✓ Planen ser balanserad ut</p>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
+                }}>Justera</Button>
+              </div>
+            )}
 
             {/* ── TIMELINE ── */}
             <section className="space-y-3">
@@ -683,6 +646,7 @@ const PlanBuilder = () => {
                 blocks={validBlocks}
                 parents={parents}
                 unfulfilledDaysTotal={unfulfilled}
+                todayDate={new Date().toISOString().slice(0, 10)}
                 onBlockClick={handleTimelineBlockClick}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
@@ -693,8 +657,11 @@ const PlanBuilder = () => {
                   }
                 }}
               />
-              <div className="flex justify-end pt-1">
-                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till period</Button>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till block</Button>
+                {parents.length >= 2 && (
+                  <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>+ Dubbeldagar</Button>
+                )}
               </div>
             </section>
 
@@ -757,7 +724,7 @@ const PlanBuilder = () => {
                     onClick={() => setTransferDaysOpen(true)}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">Dagöverföring</p>
+                      <p className="font-medium text-foreground">Överförda dagar</p>
                       <p className="text-sm text-muted-foreground">Flytta dagar permanent från en förälders kvot till den andres</p>
                     </div>
                     <div className="flex-shrink-0 text-right ml-4">
