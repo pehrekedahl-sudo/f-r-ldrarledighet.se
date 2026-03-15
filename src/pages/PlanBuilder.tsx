@@ -678,9 +678,15 @@ const PlanBuilder = () => {
                 }}
               />
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="outline" size="sm" onClick={handleAddPeriod}>+ Lägg till block</Button>
+                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200/60" onClick={handleAddPeriod}>
+                  <CalendarPlus className="w-3.5 h-3.5" />
+                  Lägg till block
+                </Button>
                 {parents.length >= 2 && (
-                  <Button variant="outline" size="sm" onClick={() => setDoubleDaysOpen(true)}>+ Dubbeldagar</Button>
+                  <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 border border-purple-200/60" onClick={() => setDoubleDaysOpen(true)}>
+                    <Users className="w-3.5 h-3.5" />
+                    Dubbeldagar
+                  </Button>
                 )}
               </div>
             </section>
