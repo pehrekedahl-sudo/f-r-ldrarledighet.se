@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 import { Button } from "@/components/ui/button";
@@ -621,7 +621,7 @@ const PlanBuilder = () => {
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground">{daysLeft} kvar</span>
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );
@@ -705,9 +705,12 @@ const PlanBuilder = () => {
                       className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setHandoverOpen(true)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground">Växlingsdatum</p>
-                        <p className="text-xs text-muted-foreground">När föräldrarnas ledigheter avlöser varandra</p>
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <CalendarSync className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm text-foreground">Växlingsdatum</p>
+                          <p className="text-xs text-muted-foreground">När ledigheter avlöser varandra</p>
+                        </div>
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
@@ -733,9 +736,12 @@ const PlanBuilder = () => {
                     className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                     onClick={() => setSaveDaysOpen(true)}
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground">Sparade dagar</p>
-                      <p className="text-xs text-muted-foreground">Reserv för VAB eller oplanerad ledighet</p>
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <PiggyBank className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm text-foreground">Sparade dagar</p>
+                        <p className="text-xs text-muted-foreground">Reserv för VAB eller oplanerad ledighet</p>
+                      </div>
                     </div>
                     <div className="flex-shrink-0 text-right ml-3">
                       <p className="text-xs text-foreground font-medium">
@@ -751,9 +757,12 @@ const PlanBuilder = () => {
                       className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setTransferDaysOpen(true)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground">Överförda dagar</p>
-                        <p className="text-xs text-muted-foreground">Flytta dagar mellan föräldrar</p>
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <ArrowLeftRight className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm text-foreground">Överförda dagar</p>
+                          <p className="text-xs text-muted-foreground">Flytta dagar mellan föräldrar</p>
+                        </div>
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
@@ -788,9 +797,12 @@ const PlanBuilder = () => {
                         className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() => setDoubleDaysOpen(true)}
                       >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-foreground">Dubbeldagar</p>
-                          <p className="text-xs text-muted-foreground">Båda tar ut ersättning samtidigt</p>
+                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                          <UserPlus className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm text-foreground">Dubbeldagar</p>
+                            <p className="text-xs text-muted-foreground">Båda tar ut ersättning samtidigt</p>
+                          </div>
                         </div>
                         <div className="flex-shrink-0 text-right ml-3">
                           <p className="text-xs text-foreground font-medium">
@@ -833,7 +845,7 @@ const PlanBuilder = () => {
                         .filter(b => b.parentId === s.parentId && !b.isOverlap)
                         .sort((a, b) => a.startDate.localeCompare(b.startDate));
                       return (
-                        <div key={s.parentId} className="px-4 py-3 space-y-1.5">
+                        <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-blue-400" : "border-l-emerald-400"}`}>
                           <p className="font-medium text-sm text-foreground">{s.name}</p>
                           {parentBlocks.map(b => {
                             const monthlyFull = computeBlockMonthlyBenefit(
