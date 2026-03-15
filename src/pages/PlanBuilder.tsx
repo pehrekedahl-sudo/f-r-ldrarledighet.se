@@ -845,7 +845,7 @@ const PlanBuilder = () => {
                         .filter(b => b.parentId === s.parentId && !b.isOverlap)
                         .sort((a, b) => a.startDate.localeCompare(b.startDate));
                       return (
-                        <div key={s.parentId} className="px-4 py-3 space-y-1.5">
+                        <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-blue-400" : "border-l-emerald-400"}`}>
                           <p className="font-medium text-sm text-foreground">{s.name}</p>
                           {parentBlocks.map(b => {
                             const monthlyFull = computeBlockMonthlyBenefit(
