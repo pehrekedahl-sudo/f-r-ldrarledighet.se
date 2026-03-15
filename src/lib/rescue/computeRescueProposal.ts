@@ -606,7 +606,7 @@ export function computeRescueProposal(
    }
 
   // ══════════════════════════════════════════════
-  // E3) Shrink pass — remove excess reduction weeks
+  // E4) Shrink pass — remove excess reduction weeks
   //     to find the MINIMUM adjustment that solves the shortage
   // ══════════════════════════════════════════════
   if (unfulfilledAfterFull <= 0) {
