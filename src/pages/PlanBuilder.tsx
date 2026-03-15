@@ -292,7 +292,15 @@ const PlanBuilder = () => {
   const result = useMemo(() => {
     if (planInput.blocks.length === 0) return null;
     try {
-      return simulatePlan(planInput);
+      const r = simulatePlan(planInput);
+      console.group('[PLAN] Simulation result');
+      console.log('[PLAN] unfulfilledDaysTotal =', r.unfulfilledDaysTotal);
+      for (const pr of r.parentsResult) {
+        const totalTaken = pr.taken.sickness + pr.taken.lowest;
+        console.log(`[PLAN] ${pr.parentId}: taken.sickness=${pr.taken.sickness}, taken.lowest=${pr.taken.lowest}, TOTAL_TAKEN=${totalTaken}, remaining.transferable=${pr.remaining.sicknessTransferable}, remaining.reserved=${pr.remaining.sicknessReserved}, remaining.lowest=${pr.remaining.lowest}`);
+      }
+      console.groupEnd();
+      return r;
     } catch {
       return null;
     }
