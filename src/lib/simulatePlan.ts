@@ -286,6 +286,9 @@ export function simulatePlan(plan: PlanInput): SimResult {
     (a, b) => compareDates(a.startDate, b.startDate),
   );
 
+  // Track consumed dates per parent to avoid double-counting (e.g. DD overlap blocks)
+  const consumedDates = new Map<string, Set<string>>();
+
   for (const b of sortedBlocks) {
     const p = state.get(b.parentId);
     if (!p) continue;
@@ -296,6 +299,12 @@ export function simulatePlan(plan: PlanInput): SimResult {
     const hasManualLowest = b.lowestDaysPerWeek !== undefined;
 
     for (const day of allocated) {
+      // Deduplicate: skip if this date was already consumed by this parent
+      const parentConsumed = consumedDates.get(b.parentId) ?? new Set();
+      if (parentConsumed.has(day.date)) continue;
+      parentConsumed.add(day.date);
+      consumedDates.set(b.parentId, parentConsumed);
+
       const mk = monthKey(day.date);
       const bucket = p.monthly.get(mk) ?? { sicknessDays: 0, lowestDays: 0, gross: 0 };
 
