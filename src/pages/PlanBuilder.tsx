@@ -579,19 +579,41 @@ const PlanBuilder = () => {
             {/* ── HERO ── */}
             <section className="text-center space-y-6 py-4">
               <h1 className="text-3xl font-bold tracking-tight">Er plan i korthet</h1>
-              <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto">
-                <div>
+              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+                <div className="rounded-lg border border-border bg-card p-4 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Planen räcker till</p>
-                  <p className="text-2xl font-bold mt-1">{latestEnd ?? "—"}</p>
+                  <p className="text-xl font-bold mt-1">{latestEnd ? (() => {
+                    try {
+                      const d = new Date(latestEnd + "T12:00:00");
+                      return d.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+                    } catch { return latestEnd; }
+                  })() : "—"}</p>
                 </div>
-                <div>
+                <div className="rounded-lg border border-border bg-card p-4 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Genomsnittlig ersättning</p>
-                  <p className="text-2xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
+                  <p className="text-xl font-bold mt-1">{Math.round(computedAvg).toLocaleString()} kr/mån</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Dagar kvar totalt</p>
-                  <p className="text-2xl font-bold mt-1">{r2(totalAll)}</p>
-                </div>
+              </div>
+
+              {/* Per-parent days remaining */}
+              <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+                {result.parentsResult.map((pr, i) => {
+                  const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
+                  const totalBudget = pr.has240Days !== false ? 480 : 0;
+                  const used = totalBudget - daysLeft;
+                  const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
+                  const isP1 = pr.parentId === "p1";
+                  return (
+                    <div key={pr.parentId} className={`rounded-lg border p-4 text-center ${isP1 ? "border-blue-200 bg-blue-50/50" : "border-emerald-200 bg-emerald-50/50"}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wide ${isP1 ? "text-blue-600" : "text-emerald-600"}`}>{pr.name}</p>
+                      <p className="text-2xl font-bold mt-1">{daysLeft} <span className="text-sm font-normal text-muted-foreground">dagar kvar</span></p>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">{Math.round(pr.taken.sickness + pr.taken.lowest)} av {totalBudget} använda</p>
+                    </div>
+                  );
+                })}
               </div>
 
               {unfulfilled > 0 ? (
