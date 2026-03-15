@@ -171,6 +171,21 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
                 </ul>
               </div>
             </div>
+          ) : proposal && !proposal.success ? (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kan inte lösas automatiskt</p>
+              <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5 space-y-2">
+                <p className="text-sm text-destructive font-semibold">
+                  Planen kan inte gå ihop med nuvarande dagar.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Kvar att lösa: {proposal.meta.unfulfilledAfterFull} dagar.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Prova att minska antal dubbeldagar, korta ner en period, eller justera överföringen manuellt.
+                </p>
+              </div>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground italic">
               Kunde inte hitta en justering. Planen kanske redan går ihop.
