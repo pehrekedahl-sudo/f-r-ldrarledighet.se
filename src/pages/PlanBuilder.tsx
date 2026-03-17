@@ -335,6 +335,62 @@ const PlanBuilder = () => {
     toast({ description: "Blocken har slagits ihop." });
   };
 
+  const handleBlockResize = (blockId: string, newStart: string, newEnd: string) => {
+    setHasManualEdits(true);
+    pushHistory();
+    const target = blocks.find(b => b.id === blockId);
+    if (!target || target.isOverlap) return;
+    if (compareDates(newEnd, newStart) < 0) return;
+
+    // Find DD blocks for the same parent that overlap with [newStart, newEnd]
+    const ddBlocks = blocks
+      .filter(b => b.isOverlap && b.parentId === target.parentId)
+      .filter(b => compareDates(b.startDate, newEnd) <= 0 && compareDates(b.endDate, newStart) >= 0)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    // Split the resized block around DD blocks
+    let segments: { start: string; end: string }[] = [{ start: newStart, end: newEnd }];
+    for (const dd of ddBlocks) {
+      const newSegs: { start: string; end: string }[] = [];
+      for (const seg of segments) {
+        if (compareDates(dd.endDate, seg.start) < 0 || compareDates(dd.startDate, seg.end) > 0) {
+          newSegs.push(seg);
+          continue;
+        }
+        if (compareDates(seg.start, dd.startDate) < 0) {
+          newSegs.push({ start: seg.start, end: addDaysUtil(dd.startDate, -1) });
+        }
+        if (compareDates(seg.end, dd.endDate) > 0) {
+          newSegs.push({ start: addDaysUtil(dd.endDate, 1), end: seg.end });
+        }
+      }
+      segments = newSegs;
+    }
+
+    // Build new blocks from segments
+    const newBlockSegments: Block[] = segments
+      .filter(seg => compareDates(seg.end, seg.start) >= 0)
+      .map((seg, i) => ({
+        ...target,
+        id: i === 0 ? target.id : `${target.id}-resize-${i}`,
+        startDate: seg.start,
+        endDate: seg.end,
+        source: "user" as const,
+      }));
+
+    if (newBlockSegments.length === 0) return;
+
+    // Replace the original block with the new segments
+    const otherBlocks = blocks.filter(b => b.id !== blockId);
+    const newBlocks = [...otherBlocks, ...newBlockSegments];
+    const normalized = normalizeBlocks(newBlocks);
+    assertUniqueBlockIds(normalized, "blockResize");
+    setBlocks(normalized);
+    const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+  };
+
   const blockErrors = useMemo(
     () => new Map(blocks.map((b) => [b.id, validateBlock(b)])),
     [blocks]
@@ -730,6 +786,7 @@ const PlanBuilder = () => {
                 unfulfilledDaysTotal={unfulfilled}
                 todayDate={new Date().toISOString().slice(0, 10)}
                 onBlockClick={handleTimelineBlockClick}
+                onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
                     const updated = blocks.filter(b => b.id !== blockId);
