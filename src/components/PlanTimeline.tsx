@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { addDays, compareDates, toEpochMs, getYear, getMonthIndex, startOfNextMonth, isoWeekdayIndex } from "@/utils/dateOnly";
+import { useTimelineDrag } from "@/hooks/useTimelineDrag";
 
 type Block = {
   id: string;
@@ -24,6 +25,7 @@ type Props = {
   todayDate?: string;
   onBlockClick?: (blockId: string) => void;
   onDeleteOverlap?: (blockId: string) => void;
+  onBlockResize?: (blockId: string, newStart: string, newEnd: string) => void;
 };
 
 type MonthBoundary = {
@@ -123,7 +125,7 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
 
 const LABEL_WIDTH = 140;
 
-const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBlockClick, onDeleteOverlap }: Props) => {
+const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBlockClick, onDeleteOverlap, onBlockResize }: Props) => {
   const [hoveredOverlap, setHoveredOverlap] = useState<string | null>(null);
 
   const regularBlocks = blocks.filter((b) => !b.isOverlap);
@@ -148,6 +150,22 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
       monthBoundaries: getMonthBoundaries(minStartDate, maxEndDate, minStart, maxEnd - minStart || 1),
     };
   }, [allValidBlocks]);
+
+  const { timelineRef, dragState, dragPreviewDate, handlePointerDown, isDragging } = useTimelineDrag({
+    timelineStartMs,
+    totalMs,
+    onBlockResize: onBlockResize
+      ? (blockId, newStart, newEnd) => {
+          // The hook passes "" for the edge that wasn't dragged
+          const block = allValidBlocks.find((b) => (b._originalId ?? b.id) === blockId || b.id === blockId);
+          if (!block) return;
+          const finalStart = newStart || block.startDate;
+          const finalEnd = newEnd || block.endDate;
+          if (compareDates(finalEnd, finalStart) < 0) return; // invalid
+          onBlockResize(blockId, finalStart, finalEnd);
+        }
+      : undefined,
+  });
 
   const unfulfilledDate = useMemo(() => {
     if (unfulfilledDaysTotal <= 0) return null;
@@ -246,8 +264,13 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
   const hasOverlapRow = validOverlaps.length > 0;
   const totalRowHeight = parentRows.length * rowHeight + (hasOverlapRow ? overlapRowHeight : 0);
 
+  // Compute drag preview position
+  const dragPreviewPct = dragState && dragPreviewDate
+    ? ((toEpochMs(dragPreviewDate) - timelineStartMs) / totalMs) * 100
+    : null;
+
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm w-full overflow-hidden">
+    <div className={`rounded-xl border border-border bg-white shadow-sm w-full overflow-hidden ${isDragging ? "select-none" : ""}`}>
       <div className="flex w-full">
         {/* Fixed label column */}
         <div className="flex-shrink-0 bg-muted/20" style={{ width: LABEL_WIDTH }}>
@@ -271,7 +294,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
         </div>
 
         {/* Timeline area */}
-        <div className="flex-1 min-w-0 relative">
+        <div className="flex-1 min-w-0 relative" ref={timelineRef}>
           {/* Month/year header */}
           <div className="relative h-8 border-b border-border/60">
             {monthBoundaries.map((mb) => (
@@ -315,28 +338,71 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
               </div>
             )}
 
+            {/* Drag preview line */}
+            {dragPreviewPct !== null && (
+              <div className="absolute top-0 z-30 pointer-events-none" style={{ left: `${dragPreviewPct}%`, height: totalRowHeight }}>
+                <div className="w-0.5 h-full bg-primary/60" />
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-primary bg-primary/10 border border-primary/30 rounded px-1.5 py-0.5 whitespace-nowrap shadow-sm">
+                  {dragPreviewDate}
+                </div>
+              </div>
+            )}
+
             {parentRows.map((row) => (
               <div key={row.id} className="relative" style={{ height: rowHeight }}>
                 {row.blocks.map((b) => {
-                  const bStartMs = toEpochMs(b.startDate);
-                  const bEndMs = toEpochMs(b.endDate);
+                  const blockId = b._originalId ?? b.id;
+                  const isBeingDragged = dragState?.blockId === blockId;
+                  
+                  // If dragging this block, adjust the preview position
+                  let bStartMs = toEpochMs(b.startDate);
+                  let bEndMs = toEpochMs(b.endDate);
+                  if (isBeingDragged && dragPreviewDate) {
+                    const previewMs = toEpochMs(dragPreviewDate);
+                    if (dragState.edge === "start") bStartMs = previewMs;
+                    if (dragState.edge === "end") bEndMs = previewMs;
+                    // Don't let start > end visually
+                    if (bStartMs > bEndMs) {
+                      if (dragState.edge === "start") bStartMs = bEndMs;
+                      else bEndMs = bStartMs;
+                    }
+                  }
+                  
                   const left = ((bStartMs - timelineStartMs) / totalMs) * 100;
                   const width = Math.max(((bEndMs - bStartMs) / totalMs) * 100, 1.5);
                   const workDays = countWorkingDays(b.startDate, b.endDate);
                   const tooltipText = `${b.startDate} → ${b.endDate}\n${b.daysPerWeek} d/v · ${workDays} arbetsdagar`;
+                  const canResize = onBlockResize && !b.isOverlap;
+                  
                   return (
                     <div
                       key={b.id}
                       data-block-id={b.id}
                       data-parent-id={b.parentId}
-                      title={tooltipText}
-                      className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""}`}
+                      title={isDragging ? undefined : tooltipText}
+                      className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick && !isDragging ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""} ${isBeingDragged ? "ring-2 ring-primary/50 opacity-80" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
-                        onBlockClick?.(b._originalId ?? b.id);
+                        if (!isDragging) onBlockClick?.(blockId);
                       }}
                     >
+                      {/* Left grip handle */}
+                      {canResize && (
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          onPointerDown={(e) => handlePointerDown(e, blockId, "start", b.startDate)}
+                        />
+                      )}
+                      
                       <span className="truncate px-1.5">{b.daysPerWeek}d/v</span>
+                      
+                      {/* Right grip handle */}
+                      {canResize && (
+                        <div
+                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          onPointerDown={(e) => handlePointerDown(e, blockId, "end", b.endDate)}
+                        />
+                      )}
                     </div>
                   );
                 })}
