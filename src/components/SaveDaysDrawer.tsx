@@ -73,7 +73,7 @@ type Proposal = {
 
 // ── helpers ──
 
-function getTransfers(transfer: Props["transfer"]) {
+export function getTransfers(transfer: Props["transfer"]) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
 }
 
