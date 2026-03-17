@@ -679,7 +679,7 @@ const PlanBuilder = () => {
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground">{daysLeft} kvar</span>
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );
