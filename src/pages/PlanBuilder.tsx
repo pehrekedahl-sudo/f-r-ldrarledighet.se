@@ -786,6 +786,7 @@ const PlanBuilder = () => {
                 unfulfilledDaysTotal={unfulfilled}
                 todayDate={new Date().toISOString().slice(0, 10)}
                 onBlockClick={handleTimelineBlockClick}
+                onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
                     const updated = blocks.filter(b => b.id !== blockId);
