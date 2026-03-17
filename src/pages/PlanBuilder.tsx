@@ -107,6 +107,7 @@ const PlanBuilder = () => {
   const [doubleDaysOpen, setDoubleDaysOpen] = useState(false);
   const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
+  const [fkGuideOpen, setFkGuideOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
