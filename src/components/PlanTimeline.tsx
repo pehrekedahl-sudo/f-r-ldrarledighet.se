@@ -367,7 +367,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       <span className="truncate px-1">DD {days}d</span>
                       {onDeleteOverlap && (
                         <button
-                          className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-purple-200 hover:bg-destructive hover:text-destructive-foreground text-purple-600 flex items-center justify-center text-[9px] transition-opacity ${isHovered ? "opacity-100" : "opacity-0"}`}
+                          className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/30 hover:bg-destructive hover:text-destructive-foreground text-white flex items-center justify-center text-[9px] transition-opacity ${isHovered ? "opacity-100" : "opacity-0"}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteOverlap(b.id);
