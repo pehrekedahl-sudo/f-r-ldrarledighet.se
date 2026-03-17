@@ -736,7 +736,7 @@ const PlanBuilder = () => {
                 }}
               />
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200/60" onClick={handleAddPeriod}>
+                <Button variant="ghost" size="sm" className="text-[#2d7a6f] hover:text-[#1f6059] hover:bg-[#edf7f5] border border-[#4A9B8E]/30" onClick={handleAddPeriod}>
                   <CalendarPlus className="w-3.5 h-3.5" />
                   Lägg till block
                 </Button>
