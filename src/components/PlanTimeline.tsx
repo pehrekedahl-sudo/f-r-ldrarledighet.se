@@ -256,8 +256,8 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
             const isP1 = row.id === "p1";
             return (
               <div key={row.id} className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
-                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
-                <span className={`text-xs font-semibold truncate ${isP1 ? "text-blue-700" : "text-emerald-700"}`}>{row.name}</span>
+                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-[#4A9B8E]" : "bg-[#5BAD9F]"}`} />
+                <span className={`text-xs font-semibold truncate ${isP1 ? "text-[#4A9B8E]" : "text-[#5BAD9F]"}`}>{row.name}</span>
               </div>
             );
           })}
