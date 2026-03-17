@@ -83,13 +83,9 @@ function shouldShowLabel(b: MonthBoundary): boolean {
 
 function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
-    if (daysPerWeek <= 4) return "bg-blue-100 border-blue-200/80 text-blue-800";
-    if (daysPerWeek === 5) return "bg-blue-300 border-blue-400 text-blue-900";
-    return "bg-blue-500 border-blue-600 text-white";
+    return "bg-[#4A9B8E] border-[#3d8a7d] text-white hover:bg-[#3d8a7d]";
   }
-  if (daysPerWeek <= 4) return "bg-emerald-100 border-emerald-200/80 text-emerald-800";
-  if (daysPerWeek === 5) return "bg-emerald-300 border-emerald-400 text-emerald-900";
-  return "bg-emerald-500 border-emerald-600 text-white";
+  return "bg-[#5BAD9F] border-[#4e9c8e] text-white hover:bg-[#4e9c8e]";
 }
 
 function countWorkingDays(startDate: string, endDate: string): number {
