@@ -659,6 +659,7 @@ const PlanBuilder = () => {
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
                   <div className="flex gap-1.5">
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setFkGuideOpen(true)}>FK-guide</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
