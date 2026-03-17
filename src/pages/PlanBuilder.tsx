@@ -674,8 +674,8 @@ const PlanBuilder = () => {
                     const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
                     const isP1 = pr.parentId === "p1";
                     return (
-                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-blue-200 bg-white/80" : "border-emerald-200 bg-white/80"}`}>
-                        <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
+                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-[#4A9B8E]/30 bg-white/80" : "border-[#E8735A]/30 bg-white/80"}`}>
+                        <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} />
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground">{daysLeft} kvar</span>
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
