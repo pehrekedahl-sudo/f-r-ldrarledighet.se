@@ -708,7 +708,7 @@ const PlanBuilder = () => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-emerald-700 font-medium">✓ Balanserad</span>
+                    <span className="text-sm text-[#b85240] font-medium">✓ Balanserad</span>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                       setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                     }}>Justera</Button>
