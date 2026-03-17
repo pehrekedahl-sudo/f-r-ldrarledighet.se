@@ -73,7 +73,7 @@ type Proposal = {
 
 // ── helpers ──
 
-function getTransfers(transfer: Props["transfer"]) {
+export function getTransfers(transfer: Props["transfer"]) {
   return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
 }
 
@@ -84,7 +84,7 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
-function calcRemaining(parentsResult: any[]) {
+export function calcRemaining(parentsResult: any[]) {
   let sickness = 0;
   let lowest = 0;
   for (const pr of parentsResult) {
@@ -134,7 +134,7 @@ function countNonOverlapBlocksForParent(working: Block[], parentId: string): num
   return working.filter(b => !b.isOverlap && b.parentId === parentId).length;
 }
 
-function adjustToTarget(opts: {
+export function adjustToTarget(opts: {
   blocks: Block[];
   parents: Parent[];
   constants: Constants;

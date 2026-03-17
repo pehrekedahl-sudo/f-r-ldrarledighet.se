@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { type Block } from "@/lib/adjustmentPolicy";
 import { addDays } from "@/utils/dateOnly";
 import { generateBlockId } from "@/lib/blockIdUtils";
@@ -22,11 +23,13 @@ type Parent = {
   has240Days: boolean;
 };
 
+export type CompensationMode = "reduce-dpw" | "use-saved";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parents: Parent[];
-  onApply: (newBlocks: Block[]) => void;
+  onApply: (newBlocks: Block[], compensationMode: CompensationMode) => void;
 };
 
 function weekdaysToCalendarDays(weekdays: number): number {
@@ -39,12 +42,14 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
   const [numDays, setNumDays] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
+  const [compensationMode, setCompensationMode] = useState<CompensationMode>("reduce-dpw");
 
   useEffect(() => {
     if (open) {
       setNumDays(10);
       setDaysPerWeek(5);
       setStartDate("");
+      setCompensationMode("reduce-dpw");
     }
   }, [open]);
 
@@ -70,7 +75,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
       source: "system" as const,
     }));
 
-    onApply(newBlocks);
+    onApply(newBlocks, compensationMode);
     onOpenChange(false);
   };
 
@@ -125,6 +130,40 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-3">
+            <Label>Hur ska dubbeldagarna finansieras?</Label>
+            <RadioGroup
+              value={compensationMode}
+              onValueChange={(v) => setCompensationMode(v as CompensationMode)}
+              className="space-y-2"
+            >
+              <label
+                htmlFor="mode-reduce-dpw"
+                className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <RadioGroupItem value="reduce-dpw" id="mode-reduce-dpw" className="mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Minska uttagstakten</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sänker dagar/vecka på övriga block för att behålla sparade dagar.
+                  </p>
+                </div>
+              </label>
+              <label
+                htmlFor="mode-use-saved"
+                className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <RadioGroupItem value="use-saved" id="mode-use-saved" className="mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Ta av sparade dagar</p>
+                  <p className="text-xs text-muted-foreground">
+                    Dubbeldagarna minskar dina sparade dagar.
+                  </p>
+                </div>
+              </label>
+            </RadioGroup>
           </div>
 
           {numDays > 0 && endDate && (

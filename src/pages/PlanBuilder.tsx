@@ -18,7 +18,8 @@ import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
 import FitPlanDrawer from "@/components/FitPlanDrawer";
 import HandoverDrawer from "@/components/HandoverDrawer";
-import DoubleDaysDrawer from "@/components/DoubleDaysDrawer";
+import DoubleDaysDrawer, { type CompensationMode } from "@/components/DoubleDaysDrawer";
+import { adjustToTarget, calcRemaining, getTransfers } from "@/components/SaveDaysDrawer";
 import TransferDaysDrawer from "@/components/TransferDaysDrawer";
 import FKGuideDrawer from "@/components/FKGuideDrawer";
 
@@ -1033,13 +1034,41 @@ const PlanBuilder = () => {
         open={doubleDaysOpen}
         onOpenChange={setDoubleDaysOpen}
         parents={parents}
-        onApply={(newBlocks) => {
+        onApply={(newBlocks, compensationMode: CompensationMode) => {
           pushHistory();
-          const updated = canonicalizeBlocks([...blocks, ...newBlocks]);
-          assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
-          setBlocks(updated);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
-          savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
+          const transfers = getTransfers(transfer);
+
+          if (compensationMode === "reduce-dpw") {
+            // Calculate current saved days before adding DD
+            const simBefore = simulatePlan({ parents, blocks, transfers, constants: CONSTANTS });
+            const savedBefore = calcRemaining(simBefore.parentsResult).currentTotal;
+
+            // Add DD blocks
+            const withDD = canonicalizeBlocks([...blocks, ...newBlocks]);
+            assertUniqueBlockIds(withDD, "DoubleDaysDrawer-apply");
+
+            // Reduce DPW to restore saved days to pre-DD level
+            const adjusted = adjustToTarget({
+              blocks: withDD,
+              parents,
+              constants: CONSTANTS,
+              transfer,
+              source: "both",
+              targetTotal: savedBefore,
+              originalTotal: calcRemaining(
+                simulatePlan({ parents, blocks: withDD, transfers, constants: CONSTANTS }).parentsResult
+              ).currentTotal,
+            });
+
+            const finalBlocks = adjusted ? adjusted.blocks : withDD;
+            setBlocks(finalBlocks);
+            savePlanInput({ parents, blocks: finalBlocks, transfers, constants: CONSTANTS, savedDaysCount });
+          } else {
+            const updated = canonicalizeBlocks([...blocks, ...newBlocks]);
+            assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
+            setBlocks(updated);
+            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
+          }
         }}
       />
       <TransferDaysDrawer
