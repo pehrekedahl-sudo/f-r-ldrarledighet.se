@@ -20,6 +20,7 @@ import FitPlanDrawer from "@/components/FitPlanDrawer";
 import HandoverDrawer from "@/components/HandoverDrawer";
 import DoubleDaysDrawer from "@/components/DoubleDaysDrawer";
 import TransferDaysDrawer from "@/components/TransferDaysDrawer";
+import FKGuideDrawer from "@/components/FKGuideDrawer";
 
 import {
   Select,
