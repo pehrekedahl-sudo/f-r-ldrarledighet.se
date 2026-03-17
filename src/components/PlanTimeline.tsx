@@ -85,7 +85,7 @@ function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
     return "bg-[#4A9B8E] border-[#3d8a7d] text-white hover:bg-[#3d8a7d]";
   }
-  return "bg-[#5BAD9F] border-[#4e9c8e] text-white hover:bg-[#4e9c8e]";
+  return "bg-[#E8735A] border-[#d4614b] text-white hover:bg-[#d4614b]";
 }
 
 function countWorkingDays(startDate: string, endDate: string): number {
@@ -256,8 +256,8 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
             const isP1 = row.id === "p1";
             return (
               <div key={row.id} className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
-                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-[#4A9B8E]" : "bg-[#5BAD9F]"}`} />
-                <span className={`text-xs font-semibold truncate ${isP1 ? "text-[#4A9B8E]" : "text-[#5BAD9F]"}`}>{row.name}</span>
+                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} />
+                <span className={`text-xs font-semibold truncate ${isP1 ? "text-[#4A9B8E]" : "text-[#E8735A]"}`}>{row.name}</span>
               </div>
             );
           })}
