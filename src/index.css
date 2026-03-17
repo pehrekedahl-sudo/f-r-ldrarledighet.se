@@ -109,3 +109,8 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

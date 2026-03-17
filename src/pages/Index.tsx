@@ -58,7 +58,7 @@ const Index = () => {
         id="hur-det-funkar"
         className="max-w-3xl mx-auto px-6 pb-24 space-y-10"
       >
-        <h2 className="text-2xl font-bold text-center">Så funkar det</h2>
+        <h2 className="text-2xl font-normal text-center" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>Så funkar det</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           {[
             { step: "1", text: "Svara på några frågor" },
