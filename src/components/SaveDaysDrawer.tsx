@@ -84,7 +84,7 @@ function calcAvgMonthly(parentsResult: any[]): number {
   return months > 0 ? total / months : 0;
 }
 
-function calcRemaining(parentsResult: any[]) {
+export function calcRemaining(parentsResult: any[]) {
   let sickness = 0;
   let lowest = 0;
   for (const pr of parentsResult) {
