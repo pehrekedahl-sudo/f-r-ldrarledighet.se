@@ -637,7 +637,7 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-4 mt-4 space-y-3">
+            <section className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-5 py-4 mt-4 space-y-3">
               {/* Row 1: Title + KPIs + Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
@@ -674,12 +674,12 @@ const PlanBuilder = () => {
                     const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
                     const isP1 = pr.parentId === "p1";
                     return (
-                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-blue-200 bg-white/80" : "border-emerald-200 bg-white/80"}`}>
-                        <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
+                      <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-[#4A9B8E]/30 bg-white/80" : "border-[#E8735A]/30 bg-white/80"}`}>
+                        <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} />
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground">{daysLeft} kvar</span>
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );
@@ -708,7 +708,7 @@ const PlanBuilder = () => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-emerald-700 font-medium">✓ Balanserad</span>
+                    <span className="text-sm text-[#b85240] font-medium">✓ Balanserad</span>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                       setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
                     }}>Justera</Button>
@@ -736,7 +736,7 @@ const PlanBuilder = () => {
                 }}
               />
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200/60" onClick={handleAddPeriod}>
+                <Button variant="ghost" size="sm" className="text-[#2d7a6f] hover:text-[#1f6059] hover:bg-[#edf7f5] border border-[#4A9B8E]/30" onClick={handleAddPeriod}>
                   <CalendarPlus className="w-3.5 h-3.5" />
                   Lägg till block
                 </Button>
@@ -903,7 +903,7 @@ const PlanBuilder = () => {
                         .filter(b => b.parentId === s.parentId && !b.isOverlap)
                         .sort((a, b) => a.startDate.localeCompare(b.startDate));
                       return (
-                        <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-blue-400" : "border-l-emerald-400"}`}>
+                        <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-[#4A9B8E]" : "border-l-[#E8735A]"}`}>
                           <p className="font-medium text-sm text-foreground">{s.name}</p>
                           {parentBlocks.map(b => {
                             const monthlyFull = computeBlockMonthlyBenefit(

@@ -263,8 +263,8 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
           })}
           {hasOverlapRow && (
             <div className="flex items-center gap-2 px-3" style={{ height: overlapRowHeight }}>
-              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
-              <span className="text-xs font-semibold text-[#E8735A] truncate">Dubbeldagar</span>
+             <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#2D7A6F]" />
+              <span className="text-xs font-semibold text-[#2D7A6F] truncate">Dubbeldagar</span>
             </div>
           )}
           {unfulfilledPct !== null && <div className="h-6" />}
@@ -359,7 +359,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       key={b.id}
                       data-block-id={b.id}
                       data-overlap="true"
-                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-[#E8735A] bg-[#E8735A] text-white text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
+                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-[#235f56] bg-[#2D7A6F] text-white text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 40 }}
                       onMouseEnter={() => setHoveredOverlap(b.id)}
                       onMouseLeave={() => setHoveredOverlap(null)}
