@@ -83,13 +83,9 @@ function shouldShowLabel(b: MonthBoundary): boolean {
 
 function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
-    if (daysPerWeek <= 4) return "bg-blue-100 border-blue-200/80 text-blue-800";
-    if (daysPerWeek === 5) return "bg-blue-300 border-blue-400 text-blue-900";
-    return "bg-blue-500 border-blue-600 text-white";
+    return "bg-[#4A9B8E] border-[#3d8a7d] text-white hover:bg-[#3d8a7d]";
   }
-  if (daysPerWeek <= 4) return "bg-emerald-100 border-emerald-200/80 text-emerald-800";
-  if (daysPerWeek === 5) return "bg-emerald-300 border-emerald-400 text-emerald-900";
-  return "bg-emerald-500 border-emerald-600 text-white";
+  return "bg-[#5BAD9F] border-[#4e9c8e] text-white hover:bg-[#4e9c8e]";
 }
 
 function countWorkingDays(startDate: string, endDate: string): number {
@@ -260,15 +256,15 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
             const isP1 = row.id === "p1";
             return (
               <div key={row.id} className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
-                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-blue-400" : "bg-emerald-400"}`} />
-                <span className={`text-xs font-semibold truncate ${isP1 ? "text-blue-700" : "text-emerald-700"}`}>{row.name}</span>
+                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-[#4A9B8E]" : "bg-[#5BAD9F]"}`} />
+                <span className={`text-xs font-semibold truncate ${isP1 ? "text-[#4A9B8E]" : "text-[#5BAD9F]"}`}>{row.name}</span>
               </div>
             );
           })}
           {hasOverlapRow && (
             <div className="flex items-center gap-2 px-3" style={{ height: overlapRowHeight }}>
-              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
-              <span className="text-xs font-semibold text-purple-700 truncate">Dubbeldagar</span>
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
+              <span className="text-xs font-semibold text-[#E8735A] truncate">Dubbeldagar</span>
             </div>
           )}
           {unfulfilledPct !== null && <div className="h-6" />}
@@ -363,7 +359,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       key={b.id}
                       data-block-id={b.id}
                       data-overlap="true"
-                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-purple-300 bg-purple-100 text-purple-700 text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
+                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-[#E8735A] bg-[#E8735A] text-white text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 40 }}
                       onMouseEnter={() => setHoveredOverlap(b.id)}
                       onMouseLeave={() => setHoveredOverlap(null)}
@@ -371,7 +367,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       <span className="truncate px-1">DD {days}d</span>
                       {onDeleteOverlap && (
                         <button
-                          className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-purple-200 hover:bg-destructive hover:text-destructive-foreground text-purple-600 flex items-center justify-center text-[9px] transition-opacity ${isHovered ? "opacity-100" : "opacity-0"}`}
+                          className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/30 hover:bg-destructive hover:text-destructive-foreground text-white flex items-center justify-center text-[9px] transition-opacity ${isHovered ? "opacity-100" : "opacity-0"}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteOverlap(b.id);
