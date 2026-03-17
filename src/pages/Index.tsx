@@ -44,7 +44,7 @@ const Index = () => {
           ].map((item) => (
             <div
               key={item.title}
-              className="border border-border rounded-xl p-6 bg-card space-y-2"
+              className="border-l-2 border-primary pl-6 py-2 space-y-1"
             >
               <h3 className="font-semibold text-lg">{item.title}</h3>
               <p className="text-sm text-muted-foreground">{item.text}</p>
