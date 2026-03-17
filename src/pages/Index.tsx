@@ -46,7 +46,7 @@ const Index = () => {
               key={item.title}
               className="border-l-2 border-primary pl-6 py-2 space-y-1"
             >
-              <h3 className="font-semibold text-lg">{item.title}</h3>
+              <h3 className="font-medium text-lg">{item.title}</h3>
               <p className="text-sm text-muted-foreground">{item.text}</p>
             </div>
           ))}
