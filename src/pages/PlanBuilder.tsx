@@ -637,7 +637,7 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section className="rounded-xl border border-border bg-gradient-to-r from-blue-50/60 to-emerald-50/60 px-5 py-4 mt-4 space-y-3">
+            <section className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-5 py-4 mt-4 space-y-3">
               {/* Row 1: Title + KPIs + Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
