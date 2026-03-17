@@ -263,8 +263,8 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
           })}
           {hasOverlapRow && (
             <div className="flex items-center gap-2 px-3" style={{ height: overlapRowHeight }}>
-              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
-              <span className="text-xs font-semibold text-purple-700 truncate">Dubbeldagar</span>
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
+              <span className="text-xs font-semibold text-[#E8735A] truncate">Dubbeldagar</span>
             </div>
           )}
           {unfulfilledPct !== null && <div className="h-6" />}
