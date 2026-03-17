@@ -134,7 +134,7 @@ function countNonOverlapBlocksForParent(working: Block[], parentId: string): num
   return working.filter(b => !b.isOverlap && b.parentId === parentId).length;
 }
 
-function adjustToTarget(opts: {
+export function adjustToTarget(opts: {
   blocks: Block[];
   parents: Parent[];
   constants: Constants;
