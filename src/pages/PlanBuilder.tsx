@@ -18,7 +18,8 @@ import BlockEditDrawer from "@/components/BlockEditDrawer";
 import SaveDaysDrawer from "@/components/SaveDaysDrawer";
 import FitPlanDrawer from "@/components/FitPlanDrawer";
 import HandoverDrawer from "@/components/HandoverDrawer";
-import DoubleDaysDrawer from "@/components/DoubleDaysDrawer";
+import DoubleDaysDrawer, { type CompensationMode } from "@/components/DoubleDaysDrawer";
+import { adjustToTarget, calcRemaining, getTransfers } from "@/components/SaveDaysDrawer";
 import TransferDaysDrawer from "@/components/TransferDaysDrawer";
 import FKGuideDrawer from "@/components/FKGuideDrawer";
 
