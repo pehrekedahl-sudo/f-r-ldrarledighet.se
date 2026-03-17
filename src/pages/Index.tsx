@@ -6,7 +6,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-6 pt-24 pb-20 text-center space-y-6">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
+        <h1 className="text-4xl md:text-5xl font-normal leading-tight" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
           Planera er föräldraledighet utan&nbsp;Excel-kaos
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
@@ -44,9 +44,9 @@ const Index = () => {
           ].map((item) => (
             <div
               key={item.title}
-              className="border border-border rounded-xl p-6 bg-card space-y-2"
+              className="border-l-2 border-primary pl-6 py-2 space-y-1"
             >
-              <h3 className="font-semibold text-lg">{item.title}</h3>
+              <h3 className="font-medium text-lg">{item.title}</h3>
               <p className="text-sm text-muted-foreground">{item.text}</p>
             </div>
           ))}
@@ -58,7 +58,7 @@ const Index = () => {
         id="hur-det-funkar"
         className="max-w-3xl mx-auto px-6 pb-24 space-y-10"
       >
-        <h2 className="text-2xl font-bold text-center">Så funkar det</h2>
+        <h2 className="text-2xl font-normal text-center" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>Så funkar det</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           {[
             { step: "1", text: "Svara på några frågor" },
