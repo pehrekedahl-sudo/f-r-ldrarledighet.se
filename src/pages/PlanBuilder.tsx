@@ -1058,6 +1058,12 @@ const PlanBuilder = () => {
           savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
+      <FKGuideDrawer
+        open={fkGuideOpen}
+        onOpenChange={setFkGuideOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
+      />
     </div>
   );
 };
