@@ -85,7 +85,7 @@ function getIntensityClass(parentId: string, daysPerWeek: number): string {
   if (parentId === "p1") {
     return "bg-[#4A9B8E] border-[#3d8a7d] text-white hover:bg-[#3d8a7d]";
   }
-  return "bg-[#5BAD9F] border-[#4e9c8e] text-white hover:bg-[#4e9c8e]";
+  return "bg-[#E8735A] border-[#d4614b] text-white hover:bg-[#d4614b]";
 }
 
 function countWorkingDays(startDate: string, endDate: string): number {
