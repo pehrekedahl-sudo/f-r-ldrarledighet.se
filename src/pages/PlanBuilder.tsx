@@ -20,6 +20,7 @@ import FitPlanDrawer from "@/components/FitPlanDrawer";
 import HandoverDrawer from "@/components/HandoverDrawer";
 import DoubleDaysDrawer from "@/components/DoubleDaysDrawer";
 import TransferDaysDrawer from "@/components/TransferDaysDrawer";
+import FKGuideDrawer from "@/components/FKGuideDrawer";
 
 import {
   Select,
@@ -106,6 +107,7 @@ const PlanBuilder = () => {
   const [doubleDaysOpen, setDoubleDaysOpen] = useState(false);
   const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
+  const [fkGuideOpen, setFkGuideOpen] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -657,6 +659,7 @@ const PlanBuilder = () => {
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
                   <div className="flex gap-1.5">
+                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setFkGuideOpen(true)}>FK-guide</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
@@ -1054,6 +1057,12 @@ const PlanBuilder = () => {
           const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
           savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
+      />
+      <FKGuideDrawer
+        open={fkGuideOpen}
+        onOpenChange={setFkGuideOpen}
+        blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
+        parents={parents}
       />
     </div>
   );
