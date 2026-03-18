@@ -438,7 +438,7 @@ const PlanBuilder = () => {
       )
     );
     try {
-      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const transfers = transferToArray(transfer);
       const maxResult = simulatePlan({ parents, blocks: [], transfers, constants: CONSTANTS });
       const maxDays = Math.round(
         maxResult.parentsResult.reduce(
