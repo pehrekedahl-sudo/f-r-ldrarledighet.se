@@ -1119,6 +1119,13 @@ const PlanBuilder = () => {
             assertUniqueBlockIds(withDD, "DoubleDaysDrawer-apply");
 
             // Reduce DPW to restore saved days to pre-DD level
+            const simAfterDD = simulatePlan({ parents, blocks: withDD, transfers, constants: CONSTANTS });
+            const remainingAfterDD = calcRemaining(simAfterDD.parentsResult).currentTotal;
+            const unfulfilledAfterDD = simAfterDD.unfulfilledDaysTotal ?? 0;
+            // Account for unfulfilled days as negative remaining so the adjustment
+            // engine knows it must free up budget to cover them
+            const effectiveOriginal = remainingAfterDD - unfulfilledAfterDD;
+
             const adjusted = adjustToTarget({
               blocks: withDD,
               parents,
@@ -1126,9 +1133,7 @@ const PlanBuilder = () => {
               transfer,
               source: "both",
               targetTotal: savedBefore,
-              originalTotal: calcRemaining(
-                simulatePlan({ parents, blocks: withDD, transfers, constants: CONSTANTS }).parentsResult
-              ).currentTotal,
+              originalTotal: effectiveOriginal,
             });
 
             const finalBlocks = adjusted ? adjusted.blocks : withDD;
