@@ -123,7 +123,7 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
       return { ...b };
     });
 
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transfer && (transfer.sicknessDays > 0 || (transfer.lowestDays ?? 0) > 0) ? [transfer] : [];
     const currentResult = simulatePlan({ parents, blocks, transfers, constants });
     const proposalSim = simulatePlan({ parents, blocks: newBlocks.sort((a, b) => compareDates(a.startDate, b.startDate)), transfers, constants });
 
