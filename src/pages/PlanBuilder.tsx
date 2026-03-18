@@ -409,7 +409,7 @@ const PlanBuilder = () => {
     const valid = blocks
       .filter((b) => !blockErrors.get(b.id))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     return { parents, blocks: valid, transfers, constants: CONSTANTS };
   }, [blocks, blockErrors, transfer, parents]);
 
