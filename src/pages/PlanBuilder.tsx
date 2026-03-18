@@ -194,7 +194,7 @@ const PlanBuilder = () => {
     setSavedDaysCount(prev.savedDaysCount);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
   };
 
