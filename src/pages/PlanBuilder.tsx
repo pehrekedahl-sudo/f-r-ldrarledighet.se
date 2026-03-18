@@ -800,7 +800,7 @@ const PlanBuilder = () => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
                     const updated = blocks.filter(b => b.id !== blockId);
                     setBlocks(updated);
-                    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+                    const transfers = transferToArray(transfer);
                     savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
