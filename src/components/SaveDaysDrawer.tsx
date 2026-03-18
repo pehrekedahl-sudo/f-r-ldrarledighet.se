@@ -47,7 +47,7 @@ type Props = {
   blocks: Block[];
   parents: Parent[];
   constants: Constants;
-  transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
+  transfer: { fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number } | null;
   onApply: (newBlocks: Block[]) => void;
   hasManualEdits?: boolean;
 };
@@ -74,7 +74,7 @@ type Proposal = {
 // ── helpers ──
 
 export function getTransfers(transfer: Props["transfer"]) {
-  return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+  return transfer && (transfer.sicknessDays > 0 || (transfer.lowestDays ?? 0) > 0) ? [transfer] : [];
 }
 
 function calcAvgMonthly(parentsResult: any[]): number {

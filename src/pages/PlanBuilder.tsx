@@ -56,6 +56,15 @@ type Block = {
   source?: "system" | "user";
 };
 
+/** Check if a transfer has any active days (sickness or lowest) */
+function hasActiveTransfer(t: { sicknessDays: number; lowestDays?: number } | null | undefined): boolean {
+  return !!t && (t.sicknessDays > 0 || (t.lowestDays ?? 0) > 0);
+}
+
+function transferToArray(t: { sicknessDays: number; lowestDays?: number; fromParentId: string; toParentId: string } | null | undefined) {
+  return hasActiveTransfer(t) ? [t!] : [];
+}
+
 let nextId = 2;
 
 const makeBlock = (id?: string): Block => ({
@@ -185,7 +194,7 @@ const PlanBuilder = () => {
     setSavedDaysCount(prev.savedDaysCount);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
   };
 
@@ -245,7 +254,7 @@ const PlanBuilder = () => {
       assertUniqueBlockIds(newBlocks, "drawerSave-create");
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const transfers = transferToArray(transfer);
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
@@ -263,7 +272,7 @@ const PlanBuilder = () => {
       assertUniqueBlockIds(merged, "drawerSave-edit");
       setBlocks(merged);
       const valid = merged.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const transfers = transferToArray(transfer);
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     }
   };
@@ -273,7 +282,7 @@ const PlanBuilder = () => {
     removeBlock(id);
     const remaining = blocks.filter(b => b.id !== id);
     const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
@@ -297,7 +306,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(normalized, "splitBlock");
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     toast({ description: "Blocket har delats i två." });
   };
@@ -330,7 +339,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(normalized, "mergeBlock");
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     toast({ description: "Blocken har slagits ihop." });
   };
@@ -387,7 +396,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(normalized, "blockResize");
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
@@ -400,7 +409,7 @@ const PlanBuilder = () => {
     const valid = blocks
       .filter((b) => !blockErrors.get(b.id))
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     return { parents, blocks: valid, transfers, constants: CONSTANTS };
   }, [blocks, blockErrors, transfer, parents]);
 
@@ -429,7 +438,7 @@ const PlanBuilder = () => {
       )
     );
     try {
-      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const transfers = transferToArray(transfer);
       const maxResult = simulatePlan({ parents, blocks: [], transfers, constants: CONSTANTS });
       const maxDays = Math.round(
         maxResult.parentsResult.reduce(
@@ -791,7 +800,7 @@ const PlanBuilder = () => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
                     const updated = blocks.filter(b => b.id !== blockId);
                     setBlocks(updated);
-                    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+                    const transfers = transferToArray(transfer);
                     savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
@@ -885,8 +894,13 @@ const PlanBuilder = () => {
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
-                          {transfer && transfer.sicknessDays > 0
-                            ? `${transfer.sicknessDays} d ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
+                          {hasActiveTransfer(transfer)
+                            ? (() => {
+                                const parts: string[] = [];
+                                if (transfer!.sicknessDays > 0) parts.push(`${transfer!.sicknessDays} sjukp.`);
+                                if ((transfer!.lowestDays ?? 0) > 0) parts.push(`${transfer!.lowestDays} lägsta`);
+                                return `${parts.join(" + ")} ${parents.find(p => p.id === transfer!.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer!.toParentId)?.name ?? "?"}`;
+                              })()
                             : "Ingen"}
                         </p>
                         <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Justera →</span>
@@ -1048,7 +1062,7 @@ const PlanBuilder = () => {
           setBlocks(merged);
           setOriginalBlocks(merged);
           setHasManualEdits(false);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const transfers = transferToArray(transfer);
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
@@ -1067,7 +1081,7 @@ const PlanBuilder = () => {
           setBlocks(normalized);
           setOriginalBlocks(normalized);
           setTransfer(newTransfer);
-          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          const transfers = transferToArray(newTransfer);
           savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
@@ -1083,7 +1097,7 @@ const PlanBuilder = () => {
           const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const transfers = transferToArray(transfer);
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
@@ -1139,7 +1153,7 @@ const PlanBuilder = () => {
           setTransfer(newTransfer);
           setTransferAmount(newTransfer?.sicknessDays ?? 0);
           setTransferError(null);
-          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          const transfers = transferToArray(newTransfer);
           const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
           savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
