@@ -1081,7 +1081,7 @@ const PlanBuilder = () => {
           setBlocks(normalized);
           setOriginalBlocks(normalized);
           setTransfer(newTransfer);
-          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          const transfers = transferToArray(newTransfer);
           savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
