@@ -38,7 +38,7 @@ type Constants = {
   SICKNESS_DAILY_MAX?: number;
 };
 
-type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number };
+type Transfer = { fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number };
 
 type Props = {
   open: boolean;
