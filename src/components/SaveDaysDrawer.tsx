@@ -153,10 +153,12 @@ export function adjustToTarget(opts: {
   let bestBlocks = working.map(b => ({ ...b }));
   let bestDiff = Infinity;
 
-  // Check if already at target
+  // Check if already at target (also considering unfulfilled days as negative remaining)
   const initSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const initRemaining = calcRemaining(initSim.parentsResult).currentTotal;
-  if (initRemaining === targetTotal) {
+  const initUnfulfilled = initSim.unfulfilledDaysTotal ?? 0;
+  const initEffective = initRemaining - initUnfulfilled;
+  if (initEffective === targetTotal && initUnfulfilled === 0) {
     const final = canonicalizeBlocks(working);
     return { blocks: final, summary: null };
   }
@@ -167,13 +169,16 @@ export function adjustToTarget(opts: {
   for (let iter = 0; iter < 60; iter++) {
     const sim = simulatePlan({ parents, blocks: working, transfers, constants });
     const remaining = calcRemaining(sim.parentsResult).currentTotal;
-    const diff = Math.abs(remaining - targetTotal);
+    const unfulfilled = sim.unfulfilledDaysTotal ?? 0;
+    // Treat unfulfilled days as negative remaining — forces adjustment to free up budget
+    const effective = remaining - unfulfilled;
+    const diff = Math.abs(effective - targetTotal);
 
     if (diff < bestDiff) {
       bestDiff = diff;
       bestBlocks = working.map(b => ({ ...b }));
     }
-    if (remaining === targetTotal) break;
+    if (effective === targetTotal && unfulfilled === 0) break;
 
     // Determine which parent to adjust this iteration
     let iterAllowedIds: string[];
@@ -298,7 +303,9 @@ export function adjustToTarget(opts: {
   // Also check last working state
   const lastSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const lastRemaining = calcRemaining(lastSim.parentsResult).currentTotal;
-  if (Math.abs(lastRemaining - targetTotal) < bestDiff) {
+  const lastUnfulfilled = lastSim.unfulfilledDaysTotal ?? 0;
+  const lastEffective = lastRemaining - lastUnfulfilled;
+  if (Math.abs(lastEffective - targetTotal) < bestDiff) {
     bestBlocks = working.map(b => ({ ...b }));
   }
 
