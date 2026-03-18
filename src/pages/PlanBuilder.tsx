@@ -306,7 +306,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(normalized, "splitBlock");
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+    const transfers = transferToArray(transfer);
     savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     toast({ description: "Blocket har delats i två." });
   };
