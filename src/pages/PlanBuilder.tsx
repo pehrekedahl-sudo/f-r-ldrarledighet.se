@@ -56,6 +56,15 @@ type Block = {
   source?: "system" | "user";
 };
 
+/** Check if a transfer has any active days (sickness or lowest) */
+function hasActiveTransfer(t: { sicknessDays: number; lowestDays?: number } | null | undefined): boolean {
+  return !!t && (t.sicknessDays > 0 || (t.lowestDays ?? 0) > 0);
+}
+
+function transferToArray(t: { sicknessDays: number; lowestDays?: number; fromParentId: string; toParentId: string } | null | undefined) {
+  return hasActiveTransfer(t) ? [t!] : [];
+}
+
 let nextId = 2;
 
 const makeBlock = (id?: string): Block => ({

@@ -74,7 +74,7 @@ type Proposal = {
 // ── helpers ──
 
 export function getTransfers(transfer: Props["transfer"]) {
-  return transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+  return transfer && (transfer.sicknessDays > 0 || (transfer.lowestDays ?? 0) > 0) ? [transfer] : [];
 }
 
 function calcAvgMonthly(parentsResult: any[]): number {
