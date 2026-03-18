@@ -254,7 +254,7 @@ const PlanBuilder = () => {
       assertUniqueBlockIds(newBlocks, "drawerSave-create");
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-      const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+      const transfers = transferToArray(transfer);
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
