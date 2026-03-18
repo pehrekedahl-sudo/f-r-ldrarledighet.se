@@ -1062,7 +1062,7 @@ const PlanBuilder = () => {
           setBlocks(merged);
           setOriginalBlocks(merged);
           setHasManualEdits(false);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const transfers = transferToArray(transfer);
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
