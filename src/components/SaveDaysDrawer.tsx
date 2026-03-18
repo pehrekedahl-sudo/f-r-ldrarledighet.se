@@ -47,7 +47,7 @@ type Props = {
   blocks: Block[];
   parents: Parent[];
   constants: Constants;
-  transfer: { fromParentId: string; toParentId: string; sicknessDays: number } | null;
+  transfer: { fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number } | null;
   onApply: (newBlocks: Block[]) => void;
   hasManualEdits?: boolean;
 };
