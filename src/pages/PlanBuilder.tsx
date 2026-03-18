@@ -894,8 +894,13 @@ const PlanBuilder = () => {
                       </div>
                       <div className="flex-shrink-0 text-right ml-3">
                         <p className="text-xs text-foreground font-medium">
-                          {transfer && transfer.sicknessDays > 0
-                            ? `${transfer.sicknessDays} d ${parents.find(p => p.id === transfer.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer.toParentId)?.name ?? "?"}`
+                          {hasActiveTransfer(transfer)
+                            ? (() => {
+                                const parts: string[] = [];
+                                if (transfer!.sicknessDays > 0) parts.push(`${transfer!.sicknessDays} sjukp.`);
+                                if ((transfer!.lowestDays ?? 0) > 0) parts.push(`${transfer!.lowestDays} lägsta`);
+                                return `${parts.join(" + ")} ${parents.find(p => p.id === transfer!.fromParentId)?.name ?? "?"} → ${parents.find(p => p.id === transfer!.toParentId)?.name ?? "?"}`;
+                              })()
                             : "Ingen"}
                         </p>
                         <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 cursor-pointer">Justera →</span>
