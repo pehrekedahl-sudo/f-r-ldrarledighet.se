@@ -1153,7 +1153,7 @@ const PlanBuilder = () => {
           setTransfer(newTransfer);
           setTransferAmount(newTransfer?.sicknessDays ?? 0);
           setTransferError(null);
-          const transfers = newTransfer && newTransfer.sicknessDays > 0 ? [newTransfer] : [];
+          const transfers = transferToArray(newTransfer);
           const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
           savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
