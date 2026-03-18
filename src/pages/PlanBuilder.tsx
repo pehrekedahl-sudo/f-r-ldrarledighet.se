@@ -1097,7 +1097,7 @@ const PlanBuilder = () => {
           const merged = canonicalizeBlocks(newBlocks);
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
-          const transfers = transfer && transfer.sicknessDays > 0 ? [transfer] : [];
+          const transfers = transferToArray(transfer);
           savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
