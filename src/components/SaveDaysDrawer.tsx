@@ -303,7 +303,9 @@ export function adjustToTarget(opts: {
   // Also check last working state
   const lastSim = simulatePlan({ parents, blocks: working, transfers, constants });
   const lastRemaining = calcRemaining(lastSim.parentsResult).currentTotal;
-  if (Math.abs(lastRemaining - targetTotal) < bestDiff) {
+  const lastUnfulfilled = lastSim.unfulfilledDaysTotal ?? 0;
+  const lastEffective = lastRemaining - lastUnfulfilled;
+  if (Math.abs(lastEffective - targetTotal) < bestDiff) {
     bestBlocks = working.map(b => ({ ...b }));
   }
 
