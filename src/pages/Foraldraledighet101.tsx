@@ -68,7 +68,7 @@ const Foraldraledighet101 = () => (
     {/* Hero */}
     <header className="flex flex-col gap-2">
       <p className="text-xs font-medium tracking-widest uppercase" style={{ color: "#4A9B8E" }}>
-        Föräldraledighet 101
+        Föräldradagar 101
       </p>
       <h1 className="text-2xl font-medium">Allt du behöver veta – utan krånglet</h1>
       <p className="text-muted-foreground">
