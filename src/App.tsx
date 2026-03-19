@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import TestEngine from "./pages/TestEngine";
 import PlanBuilder from "./pages/PlanBuilder";
 import Wizard from "./pages/Wizard";
+import Foraldraledighet101 from "./pages/Foraldraledighet101";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/wizard" element={<Wizard />} />
+          <Route path="/foraldraledighet-101" element={<Foraldraledighet101 />} />
           <Route path="/test-engine" element={<TestEngine />} />
           <Route path="/plan-builder" element={<PlanBuilder />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

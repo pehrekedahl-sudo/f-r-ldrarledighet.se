@@ -13,6 +13,12 @@ const DevNav = () => {
         Gå till Wizard
       </Link>
       <Link
+        to="/foraldraledighet-101"
+        className={`hover:text-foreground transition-colors ${pathname === "/foraldraledighet-101" ? "text-foreground font-medium" : ""}`}
+      >
+        Föräldraledighet 101
+      </Link>
+      <Link
         to="/plan-builder"
         className={`hover:text-foreground transition-colors ${pathname === "/plan-builder" ? "text-foreground font-medium" : ""}`}
       >
