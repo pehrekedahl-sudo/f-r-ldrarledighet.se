@@ -1,12 +1,34 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CalendarCheck, Coins, Share2 } from "lucide-react";
+
+const features = [
+  {
+    icon: CalendarCheck,
+    title: "Simulera uttag",
+    text: "Testa olika upplägg och se hur dagarna fördelas.",
+  },
+  {
+    icon: Coins,
+    title: "Se ekonomisk effekt",
+    text: "Få en tydlig bild av månadsersättning.",
+  },
+  {
+    icon: Share2,
+    title: "Dela med din partner",
+    text: "Skicka planen och justera tillsammans.",
+  },
+];
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-[#edf7f5]/40 via-background to-[#fdf0ec]/40">
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-6 pt-24 pb-20 text-center space-y-6">
-        <h1 className="text-4xl md:text-5xl font-normal leading-tight" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
+        <h1
+          className="text-4xl md:text-5xl font-normal leading-tight"
+          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+        >
           Planera er föräldraledighet utan&nbsp;Excel-kaos
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
@@ -28,24 +50,12 @@ const Index = () => {
       {/* Value props */}
       <section className="max-w-4xl mx-auto px-6 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "Simulera uttag",
-              text: "Testa olika upplägg och se hur dagarna fördelas.",
-            },
-            {
-              title: "Se ekonomisk effekt",
-              text: "Få en tydlig bild av månadsersättning.",
-            },
-            {
-              title: "Dela med din partner",
-              text: "Skicka planen och justera tillsammans.",
-            },
-          ].map((item) => (
+          {features.map((item) => (
             <div
               key={item.title}
-              className="border-l-2 border-primary pl-6 py-2 space-y-1"
+              className="border-l-2 border-primary pl-6 py-2 space-y-2"
             >
+              <item.icon className="w-5 h-5 text-primary" />
               <h3 className="font-medium text-lg">{item.title}</h3>
               <p className="text-sm text-muted-foreground">{item.text}</p>
             </div>
@@ -56,9 +66,14 @@ const Index = () => {
       {/* How it works */}
       <section
         id="hur-det-funkar"
-        className="max-w-3xl mx-auto px-6 pb-24 space-y-10"
+        className="max-w-3xl mx-auto px-6 pb-16 space-y-10"
       >
-        <h2 className="text-2xl font-normal text-center" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>Så funkar det</h2>
+        <h2
+          className="text-2xl font-normal text-center"
+          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+        >
+          Så funkar det
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           {[
             { step: "1", text: "Svara på några frågor" },
@@ -74,6 +89,13 @@ const Index = () => {
           ))}
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-6 text-center">
+        <p className="text-xs text-muted-foreground">
+          Simulering — kontrollera alltid mot Försäkringskassan
+        </p>
+      </footer>
     </div>
   );
 };

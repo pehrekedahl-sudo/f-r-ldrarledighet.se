@@ -740,20 +740,20 @@ const PlanBuilder = () => {
                 <div className="min-w-0">
                   <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <div className="flex gap-4 text-sm">
-                    <div className="text-center">
+                    <div className="text-left sm:text-center">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
                       <p className="font-bold text-foreground">{formattedEnd}</p>
                     </div>
                     <div className="w-px bg-border/60" />
-                    <div className="text-center">
+                    <div className="text-left sm:text-center">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
                       <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
                     </div>
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>

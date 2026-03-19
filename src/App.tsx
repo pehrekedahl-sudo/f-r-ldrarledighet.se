@@ -12,13 +12,15 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const isDev = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev");
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <DevNav />
+        {isDev && <DevNav />}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/wizard" element={<Wizard />} />
