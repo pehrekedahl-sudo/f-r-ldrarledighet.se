@@ -80,7 +80,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
     onOpenChange(false);
   };
 
-  const canApply = numDays > 0 && numDays <= 30 && startDate && endDate && parents.length >= 2;
+  const canApply = numDays > 0 && numDays <= maxDoubleDays && startDate && endDate && parents.length >= 2;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
