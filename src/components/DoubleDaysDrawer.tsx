@@ -103,7 +103,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
               max={30}
               value={numDays}
               onChange={(e) =>
-                setNumDays(Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 1))))
+                setNumDays(Math.max(1, Math.min(maxDoubleDays, Math.floor(Number(e.target.value) || 1))))
               }
             />
             <p className="text-xs text-muted-foreground">Max 30 dagar under barnets första levnadsår.</p>
