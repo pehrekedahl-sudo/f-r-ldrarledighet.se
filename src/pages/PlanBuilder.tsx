@@ -875,8 +875,7 @@ const PlanBuilder = () => {
                             if (p1Blocks.length === 0) return "Inte inställt";
                             const p1End = p1Blocks.reduce((max, b) => b.endDate > max ? b.endDate : max, p1Blocks[0].endDate);
                             try {
-                              const d = new Date(p1End + "T12:00:00");
-                              return `${parents[0].name} → ${d.toLocaleDateString("sv-SE", { day: "numeric", month: "short" })}`;
+                              return `${parents[0].name} → ${toLocalDate(p1End).toLocaleDateString("sv-SE", { day: "numeric", month: "short" })}`;
                             } catch {
                               return "Inte inställt";
                             }
