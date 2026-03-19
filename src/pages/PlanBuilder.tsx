@@ -1060,8 +1060,8 @@ const PlanBuilder = () => {
                     <div className="px-4 py-2 space-y-2">
                       <p className="text-xs text-muted-foreground">
                         {hasAnyAboveTak
-                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
-                          : "FK betalar 77,6% av din lön."}
+                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån). Belopp visas efter ~30% skatt.`
+                          : "FK betalar 77,6% av din lön. Belopp visas efter ~30% skatt."}
                       </p>
                       <div className="flex items-center gap-2">
                         <Checkbox
