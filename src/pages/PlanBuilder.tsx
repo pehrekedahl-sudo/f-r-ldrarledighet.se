@@ -707,9 +707,7 @@ const PlanBuilder = () => {
             const parent = parents.find(p => p.id === b.parentId);
             if (!parent) continue;
             // Approximate duration in months
-            const startMs = new Date(b.startDate + "T12:00:00").getTime();
-            const endMs = new Date(b.endDate + "T12:00:00").getTime();
-            const dayCount = Math.round((endMs - startMs) / 86400000) + 1;
+            const dayCount = diffDaysInclusive(b.startDate, b.endDate);
             const durationMonths = dayCount / 30.44;
             const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
             totalBenefitMonths += monthlyForBlock * durationMonths;
