@@ -4,6 +4,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import type { WizardResult } from "@/components/OnboardingWizard";
 import { savePlanInput } from "@/lib/persistence";
 import { addDays, addMonths, compareDates } from "@/utils/dateOnly";
+import { generateBlockId } from "@/lib/blockIdUtils";
 
 const DEFAULT_PARENTS = [
   { id: "p1", name: "Anna", monthlyIncomeFixed: 45000, has240Days: true },
@@ -27,8 +28,6 @@ type Block = {
   lowestDaysPerWeek?: number;
   source?: "system" | "user";
 };
-
-let nextId = 1;
 
 const Wizard = () => {
   const navigate = useNavigate();
@@ -59,7 +58,7 @@ const Wizard = () => {
       const preDpw = wr.daysPerWeek1;
       if (preDpw > 0) {
         generatedBlocks.push({
-          id: `b${nextId++}`,
+          id: generateBlockId("wiz"),
           parentId: "p1",
           startDate: preBirthStart,
           endDate: addDays(due, -1),
@@ -75,8 +74,8 @@ const Wizard = () => {
 
     const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
     [
-      maybeBlock({ id: `b${nextId++}`, parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1), source: "system" }),
-      maybeBlock({ id: `b${nextId++}`, parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2), source: "system" }),
+      maybeBlock({ id: generateBlockId("wiz"), parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1), source: "system" }),
+      maybeBlock({ id: generateBlockId("wiz"), parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2), source: "system" }),
     ].forEach(b => b && generatedBlocks.push(b));
 
     if (generatedBlocks.length === 0) return;

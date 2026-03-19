@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
+import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
@@ -97,10 +97,10 @@ const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [originalBlocks, setOriginalBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number } | null>(null);
-  const [_savedDaysCountLegacy, setSavedDaysCount] = useState(0);
+  // savedDaysCount is derived via useMemo — no separate state needed
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
-  const [history, setHistory] = useState<{ blocks: Block[]; savedDaysCount: number }[]>([]);
+  const [history, setHistory] = useState<{ blocks: Block[]; transfer: typeof transfer }[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [months1, setMonths1] = useState(6);
@@ -133,11 +133,7 @@ const PlanBuilder = () => {
       } else {
         setTransfer(null);
       }
-      if (typeof saved.savedDaysCount === "number") {
-        setSavedDaysCount(saved.savedDaysCount);
-      } else {
-        setSavedDaysCount(0);
-      }
+      // savedDaysCount is derived — no need to restore
       setViewMode("result");
       setLoaded(true);
       setNoSavedPlan(false);
@@ -158,7 +154,10 @@ const PlanBuilder = () => {
         if (decoded.dueDate) setDueDate(decoded.dueDate);
         if (decoded.months1 !== undefined) setMonths1(decoded.months1);
         if (decoded.months2 !== undefined) setMonths2(decoded.months2);
-        if (decoded.parents) setParents(decoded.parents);
+        if (decoded.parents) {
+          setParents(decoded.parents);
+          if (decoded.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
+        }
         setIsSharedPlan(true);
         setViewMode("result");
         setLoaded(true);
@@ -186,7 +185,7 @@ const PlanBuilder = () => {
   };
 
   const pushHistory = () => {
-    setHistory(prev => [...prev.slice(-19), { blocks, savedDaysCount }]);
+    setHistory(prev => [...prev.slice(-19), { blocks, transfer }]);
     setCanUndo(true);
   };
 
@@ -194,11 +193,11 @@ const PlanBuilder = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setBlocks(prev.blocks);
-    setSavedDaysCount(prev.savedDaysCount);
+    setTransfer(prev.transfer);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
-    const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
+    const transfers = transferToArray(prev.transfer);
+    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS });
   };
 
   const sharePlan = useCallback(() => {
@@ -648,7 +647,7 @@ const PlanBuilder = () => {
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
-                setSavedDaysCount(0);
+                // savedDaysCount is derived — no reset needed
                 setTransferAmount(0);
                 setTransferError(null);
                 setHistory([]);
@@ -707,9 +706,7 @@ const PlanBuilder = () => {
             const parent = parents.find(p => p.id === b.parentId);
             if (!parent) continue;
             // Approximate duration in months
-            const startMs = new Date(b.startDate + "T12:00:00").getTime();
-            const endMs = new Date(b.endDate + "T12:00:00").getTime();
-            const dayCount = Math.round((endMs - startMs) / 86400000) + 1;
+            const dayCount = diffDaysInclusive(b.startDate, b.endDate);
             const durationMonths = dayCount / 30.44;
             const monthlyForBlock = computeBlockMonthlyBenefit(parent.monthlyIncomeFixed, b.daysPerWeek);
             totalBenefitMonths += monthlyForBlock * durationMonths;
@@ -729,8 +726,7 @@ const PlanBuilder = () => {
 
         const formattedEnd = latestEnd ? (() => {
           try {
-            const d = new Date(latestEnd + "T12:00:00");
-            return d.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+            return toLocalDate(latestEnd).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
           } catch { return latestEnd; }
         })() : "—";
 
@@ -824,7 +820,7 @@ const PlanBuilder = () => {
                 blocks={validBlocks}
                 parents={parents}
                 unfulfilledDaysTotal={unfulfilled}
-                todayDate={new Date().toISOString().slice(0, 10)}
+                todayDate={todayISO()}
                 onBlockClick={handleTimelineBlockClick}
                 onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
@@ -878,8 +874,7 @@ const PlanBuilder = () => {
                             if (p1Blocks.length === 0) return "Inte inställt";
                             const p1End = p1Blocks.reduce((max, b) => b.endDate > max ? b.endDate : max, p1Blocks[0].endDate);
                             try {
-                              const d = new Date(p1End + "T12:00:00");
-                              return `${parents[0].name} → ${d.toLocaleDateString("sv-SE", { day: "numeric", month: "short" })}`;
+                              return `${parents[0].name} → ${toLocalDate(p1End).toLocaleDateString("sv-SE", { day: "numeric", month: "short" })}`;
                             } catch {
                               return "Inte inställt";
                             }
@@ -1017,7 +1012,7 @@ const PlanBuilder = () => {
                               5
                             );
                             const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                            const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * (b.daysPerWeek / 5);
+                            const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * Math.min(1, b.daysPerWeek / 5);
                             const totalMonthly = fkMonthly + topUp;
                             return (
                               <div key={b.id} className="text-xs">
