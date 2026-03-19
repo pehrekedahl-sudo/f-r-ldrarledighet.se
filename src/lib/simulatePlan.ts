@@ -394,8 +394,8 @@ export function simulatePlan(plan: PlanInput): SimResult {
   for (const parent of parents) {
     const parentBlocks = blocks.filter(b => b.parentId === parent.id);
     const annualIncome = parent.monthlyIncomeFixed * 12;
-    const sgiCapped = Math.min(annualIncome, 573000); // FK.sgiTakArslon
-    const isAboveSgiTak = annualIncome > 573000;
+    const sgiCapped = Math.min(annualIncome, constants.SGI_CAP_ANNUAL);
+    const isAboveSgiTak = annualIncome > constants.SGI_CAP_ANNUAL;
 
     let totalDays = 0;
     let weightedBenefit = 0;

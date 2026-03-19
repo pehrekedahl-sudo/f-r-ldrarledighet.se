@@ -3,15 +3,15 @@
  * Based on 2025 values.
  */
 export const FK = {
-  prisbasbelopp: 57300,
-  sgiTakArslon: 573000,        // 10 × prisbasbelopp
-  ersattningsniva: 0.776,      // 77.6%
+  prisbasbelopp: 58800,         // 2025
+  sgiTakArslon: 588000,         // 10 × prisbasbelopp (2025)
+  ersattningsniva: 0.776,       // 77.6%
   workingDaysPerWeek: 5,
 };
 
 /** Keep old name as alias for backwards compat in tests etc. */
 export const FK_CONSTANTS = {
-  prisbasbelopp: FK.prisbasbelopp,
+  prisbasbelopp: FK.prisbasbelopp,  // 58 800 (2025)
   sgiTakMultiplier: 10,
   sgiTakPerYear: FK.sgiTakArslon,
   sgiTakPerMonth: Math.round(FK.sgiTakArslon / 12),

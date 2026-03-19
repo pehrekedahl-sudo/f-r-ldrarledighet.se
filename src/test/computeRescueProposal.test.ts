@@ -8,7 +8,7 @@ import {
 } from "../lib/rescue/computeRescueProposal";
 
 const CONSTANTS: Constants = {
-  SGI_CAP_ANNUAL: 600000,
+  SGI_CAP_ANNUAL: 588000,
   LOWEST_LEVEL_DAILY_AMOUNT: 180,
   BASIC_LEVEL_DAILY_AMOUNT: 250,
   SICKNESS_RATE: 0.8,
