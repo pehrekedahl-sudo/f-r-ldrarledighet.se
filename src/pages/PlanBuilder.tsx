@@ -745,7 +745,6 @@ const PlanBuilder = () => {
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
                   <div className="flex gap-1.5">
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setFkGuideOpen(true)}>FK-guide</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
@@ -1054,6 +1053,25 @@ const PlanBuilder = () => {
           <p className="text-muted-foreground">Laddar simulering…</p>
         </div>
       )}
+      {/* FK Registration Section */}
+      {result && result.parentsResult.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setFkGuideOpen(true)}
+          >
+            Visa steg-för-steg guide
+          </Button>
+        </section>
+      )}
+
       <BlockEditDrawer
         mode={drawerMode}
         block={drawerMode === "edit" ? (blocks.find(b => b.id === editingBlockId) ?? null) : null}
