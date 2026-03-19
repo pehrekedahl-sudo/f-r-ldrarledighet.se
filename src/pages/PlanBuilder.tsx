@@ -189,7 +189,7 @@ const PlanBuilder = () => {
   };
 
   const pushHistory = () => {
-    setHistory(prev => [...prev.slice(-19), { blocks, savedDaysCount }]);
+    setHistory(prev => [...prev.slice(-19), { blocks, transfer }]);
     setCanUndo(true);
   };
 
