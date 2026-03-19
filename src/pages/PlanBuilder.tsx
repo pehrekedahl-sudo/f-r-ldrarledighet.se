@@ -1017,7 +1017,7 @@ const PlanBuilder = () => {
                               5
                             );
                             const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                            const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * (b.daysPerWeek / 5);
+                            const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * Math.min(1, b.daysPerWeek / 5);
                             const totalMonthly = fkMonthly + topUp;
                             return (
                               <div key={b.id} className="text-xs">
