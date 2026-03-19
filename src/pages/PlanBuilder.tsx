@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 import { Button } from "@/components/ui/button";
@@ -118,11 +119,13 @@ const PlanBuilder = () => {
   const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
+      if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
       if (saved.transfers?.length > 0) {
@@ -1007,27 +1010,7 @@ const PlanBuilder = () => {
                         .sort((a, b) => a.startDate.localeCompare(b.startDate));
                       return (
                         <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-[#4A9B8E]" : "border-l-[#E8735A]"}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-sm text-foreground">{s.name}</p>
-                            <div className="flex items-center gap-1.5">
-                              <label className="text-[10px] text-muted-foreground whitespace-nowrap">Top-up</label>
-                              <Input
-                                type="number"
-                                min={0}
-                                placeholder="0"
-                                className="h-7 w-24 text-xs tabular-nums"
-                                value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                  const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
-                                  setParents(updated);
-                                  const transfers = transferToArray(transfer);
-                                  savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
-                                }}
-                              />
-                              <span className="text-[10px] text-muted-foreground">kr/mån</span>
-                            </div>
-                          </div>
+                          <p className="font-medium text-sm text-foreground">{s.name}</p>
                           {parentBlocks.map(b => {
                             const monthlyFull = computeBlockMonthlyBenefit(
                               parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0,
@@ -1071,12 +1054,54 @@ const PlanBuilder = () => {
                         </div>
                       );
                     })}
-                    <div className="px-4 py-2">
+                    <div className="px-4 py-2 space-y-2">
                       <p className="text-xs text-muted-foreground">
                         {hasAnyAboveTak
                           ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
                           : "FK betalar 77,6% av din lön."}
                       </p>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="topup-toggle"
+                          checked={showTopUp}
+                          onCheckedChange={(checked) => {
+                            setShowTopUp(!!checked);
+                            if (!checked) {
+                              const updated = parents.map(p => ({ ...p, topUpMonthly: 0 }));
+                              setParents(updated);
+                              const transfers = transferToArray(transfer);
+                              savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                            }
+                          }}
+                        />
+                        <label htmlFor="topup-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                          Har top-up från arbetsgivare
+                        </label>
+                      </div>
+                      {showTopUp && (
+                        <div className="space-y-1.5 pt-1">
+                          {result.parentSummary.map(s => (
+                            <div key={s.parentId} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-16 shrink-0">{s.name}</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder="0"
+                                className="h-7 w-28 text-xs tabular-nums"
+                                value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                  const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
+                                  setParents(updated);
+                                  const transfers = transferToArray(transfer);
+                                  savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                }}
+                              />
+                              <span className="text-[10px] text-muted-foreground">kr/mån</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </section>
                 );
