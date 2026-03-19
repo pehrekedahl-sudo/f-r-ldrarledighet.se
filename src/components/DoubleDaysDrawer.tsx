@@ -100,7 +100,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
               id="double-days-input"
               type="number"
               min={1}
-              max={30}
+              max={maxDoubleDays}
               value={numDays}
               onChange={(e) =>
                 setNumDays(Math.max(1, Math.min(maxDoubleDays, Math.floor(Number(e.target.value) || 1))))
