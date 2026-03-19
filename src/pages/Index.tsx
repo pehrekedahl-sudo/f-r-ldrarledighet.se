@@ -1,93 +1,177 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { CalendarCheck, Coins, Share2 } from "lucide-react";
+import { Lock, Calendar, Users } from "lucide-react";
 
-const features = [
+const stats = [
   {
-    icon: CalendarCheck,
-    title: "Simulera uttag",
-    text: "Testa olika upplägg och se hur dagarna fördelas.",
+    icon: Users,
+    number: "480",
+    unit: "dagar",
+    text: "att dela på",
   },
   {
-    icon: Coins,
-    title: "Se ekonomisk effekt",
-    text: "Få en tydlig bild av månadsersättning.",
+    icon: Lock,
+    number: "90",
+    unit: "dagar",
+    text: "låsta per förälder",
   },
   {
-    icon: Share2,
-    title: "Dela med din partner",
-    text: "Skicka planen och justera tillsammans.",
+    icon: Calendar,
+    number: "12",
+    unit: "år",
+    text: "att använda dem",
   },
 ];
 
+const timelineMonths = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
+
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#edf7f5]/40 via-background to-[#fdf0ec]/40">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(172,30%,96%)]/60 via-background to-[hsl(14,60%,96%)]/60">
       {/* Hero */}
-      <section className="max-w-3xl mx-auto px-6 pt-24 pb-20 text-center space-y-6">
+      <section className="max-w-2xl mx-auto px-6 pt-20 pb-14 text-center space-y-5">
         <h1
-          className="text-4xl md:text-5xl font-normal leading-tight"
+          className="text-4xl md:text-5xl font-normal leading-tight text-foreground"
           style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
         >
-          Planera er föräldraledighet utan&nbsp;Excel-kaos
+          Planera er föräldraledighet utan&nbsp;Excel‑kaos
         </h1>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+        <p className="text-lg text-muted-foreground max-w-md mx-auto">
           Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1">
           <Button size="lg" asChild>
             <Link to="/wizard">Skapa vår plan</Link>
           </Button>
-          <a
-            href="#hur-det-funkar"
+          <Link
+            to="/foraldraledighet-101"
             className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
           >
-            Så funkar föräldradagar
-          </a>
+            Läs snabbguiden →
+          </Link>
         </div>
       </section>
 
-      {/* Value props */}
-      <section className="max-w-4xl mx-auto px-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((item) => (
+      {/* Snapshot cards */}
+      <section className="max-w-3xl mx-auto px-6 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {stats.map((s) => (
             <div
-              key={item.title}
-              className="border-l-2 border-primary pl-6 py-2 space-y-2"
+              key={s.number}
+              className="rounded-xl border border-border bg-card p-6 text-center space-y-3"
             >
-              <item.icon className="w-5 h-5 text-primary" />
-              <h3 className="font-medium text-lg">{item.title}</h3>
-              <p className="text-sm text-muted-foreground">{item.text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section
-        id="hur-det-funkar"
-        className="max-w-3xl mx-auto px-6 pb-16 space-y-10"
-      >
-        <h2
-          className="text-2xl font-normal text-center"
-          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
-        >
-          Så funkar det
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          {[
-            { step: "1", text: "Svara på några frågor" },
-            { step: "2", text: "Se hur planen påverkar ekonomin" },
-            { step: "3", text: "Justera tills det känns rätt" },
-          ].map((s) => (
-            <div key={s.step} className="space-y-3">
-              <div className="mx-auto w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg font-bold">
-                {s.step}
+              <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <s.icon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <span
+                  className="text-3xl font-normal text-foreground"
+                  style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+                >
+                  {s.number}
+                </span>
+                <span className="text-sm text-muted-foreground ml-1">{s.unit}</span>
               </div>
               <p className="text-sm text-muted-foreground">{s.text}</p>
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Timeline mockup */}
+      <section className="max-w-3xl mx-auto px-6 pb-16">
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            Så kan en plan se ut
+          </p>
+          {/* Month labels */}
+          <div className="flex gap-0">
+            {timelineMonths.map((m) => (
+              <div key={m} className="flex-1 text-center text-[10px] text-muted-foreground">
+                {m}
+              </div>
+            ))}
+          </div>
+          {/* Parent 1 bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-8 shrink-0">F1</span>
+            <div className="flex-1 h-7 rounded-md bg-muted relative overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 rounded-md"
+                style={{
+                  width: "58%",
+                  background: "hsl(172, 37%, 44%)",
+                }}
+              />
+              <div
+                className="absolute inset-y-0 rounded-md opacity-50"
+                style={{
+                  left: "58%",
+                  width: "17%",
+                  background: "hsl(172, 37%, 44%)",
+                }}
+              />
+            </div>
+          </div>
+          {/* Parent 2 bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-8 shrink-0">F2</span>
+            <div className="flex-1 h-7 rounded-md bg-muted relative overflow-hidden">
+              <div
+                className="absolute inset-y-0 rounded-md"
+                style={{
+                  left: "25%",
+                  width: "42%",
+                  background: "hsl(14, 60%, 60%)",
+                }}
+              />
+              <div
+                className="absolute inset-y-0 rounded-md opacity-50"
+                style={{
+                  left: "67%",
+                  width: "25%",
+                  background: "hsl(14, 60%, 60%)",
+                }}
+              />
+            </div>
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-4 pt-1">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm" style={{ background: "hsl(172, 37%, 44%)" }} />
+              <span className="text-[10px] text-muted-foreground">Förälder 1</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm" style={{ background: "hsl(14, 60%, 60%)" }} />
+              <span className="text-[10px] text-muted-foreground">Förälder 2</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-muted border border-border" />
+              <span className="text-[10px] text-muted-foreground">Ledig utan ersättning</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-2xl mx-auto px-6 pb-20 text-center space-y-4">
+        <h2
+          className="text-2xl font-normal text-foreground"
+          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+        >
+          Redo att planera?
+        </h2>
+        <Button size="lg" asChild>
+          <Link to="/wizard">Skapa vår plan</Link>
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          <Link
+            to="/foraldraledighet-101"
+            className="hover:text-foreground underline underline-offset-4 transition-colors"
+          >
+            Ny på föräldradagar? Läs vår guide →
+          </Link>
+        </p>
       </section>
 
       {/* Footer */}
