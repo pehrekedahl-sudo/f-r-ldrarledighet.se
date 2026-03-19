@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
+import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
