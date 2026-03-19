@@ -28,7 +28,6 @@ const timelineRules = [
 ];
 
 const mistakes = [
-  "Ansöker för sent – FK kräver ansökan minst 2 månader i förväg för att garantera utbetalning i tid",
   "Glömmer dubbeldagarna – kräver aktiv ansökan och att båda tar ut i exakt samma omfattning samma dag",
   "Missar 4-årsregeln – har ni fler än 96 dagar kvar på barnets 4-årsdag försvinner överskottet permanent",
   "SGI-fällan – tar ut för få dagar per vecka efter 1-årsdagen utan att jobba tillräckligt, och får en sänkt SGI som slår mot sjukpenning och framtida föräldraledigheter",
