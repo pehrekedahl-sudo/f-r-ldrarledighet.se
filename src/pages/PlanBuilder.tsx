@@ -1002,7 +1002,7 @@ const PlanBuilder = () => {
                 return (
                   <section className="rounded-lg border border-border bg-muted/30 divide-y divide-border">
                     <div className="px-4 pt-3 pb-1.5">
-                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder</p>
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ersättning per förälder <span className="normal-case font-normal text-xs">(före skatt)</span></p>
                     </div>
                     {result.parentSummary.map(s => {
                       const parentBlocks = blocks
