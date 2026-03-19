@@ -816,7 +816,7 @@ const PlanBuilder = () => {
 
             {/* ── TIMELINE ── */}
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Tidslinje</h2>
+              <h2 className="text-lg font-medium tracking-tight">Tidslinje</h2>
               <PlanTimeline
                 blocks={validBlocks}
                 parents={parents}
