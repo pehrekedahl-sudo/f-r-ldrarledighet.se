@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { addDays, startOfISOWeek, compareDates } from "@/utils/dateOnly";
+import { startOfISOWeek, fromEpochMs } from "@/utils/dateOnly";
 
 type DragState = {
   blockId: string;
