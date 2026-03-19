@@ -821,7 +821,7 @@ const PlanBuilder = () => {
                 blocks={validBlocks}
                 parents={parents}
                 unfulfilledDaysTotal={unfulfilled}
-                todayDate={new Date().toISOString().slice(0, 10)}
+                todayDate={todayISO()}
                 onBlockClick={handleTimelineBlockClick}
                 onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
