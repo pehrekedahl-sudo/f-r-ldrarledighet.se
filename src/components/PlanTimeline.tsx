@@ -157,11 +157,25 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
     onBlockResize: onBlockResize
       ? (blockId, newStart, newEnd) => {
           // The hook passes "" for the edge that wasn't dragged
-          const block = allValidBlocks.find((b) => (b._originalId ?? b.id) === blockId || b.id === blockId);
+          // Find the correct segment when a block is visually split into multiple pieces
+          const matchingSegments = allValidBlocks.filter((b) => (b._originalId ?? b.id) === blockId || b.id === blockId);
+          let block: Block | undefined;
+          if (matchingSegments.length > 1) {
+            // Pick the segment closest to the dragged edge
+            if (newEnd) {
+              // Dragging end → pick segment with latest endDate
+              block = matchingSegments.reduce((best, b) => compareDates(b.endDate, best.endDate) > 0 ? b : best);
+            } else {
+              // Dragging start → pick segment with earliest startDate
+              block = matchingSegments.reduce((best, b) => compareDates(b.startDate, best.startDate) < 0 ? b : best);
+            }
+          } else {
+            block = matchingSegments[0];
+          }
           if (!block) return;
           const finalStart = newStart || block.startDate;
           const finalEnd = newEnd || block.endDate;
-          if (compareDates(finalEnd, finalStart) < 0) return; // invalid
+          if (compareDates(finalEnd, finalStart) < 0) return;
           onBlockResize(blockId, finalStart, finalEnd);
         }
       : undefined,
