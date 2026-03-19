@@ -58,7 +58,7 @@ const Wizard = () => {
       const preDpw = wr.daysPerWeek1;
       if (preDpw > 0) {
         generatedBlocks.push({
-          id: `b${nextId++}`,
+          id: generateBlockId("wiz"),
           parentId: "p1",
           startDate: preBirthStart,
           endDate: addDays(due, -1),
