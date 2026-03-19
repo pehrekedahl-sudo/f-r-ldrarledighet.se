@@ -197,11 +197,11 @@ const PlanBuilder = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setBlocks(prev.blocks);
-    setSavedDaysCount(prev.savedDaysCount);
+    setTransfer(prev.transfer);
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
-    const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS, savedDaysCount: prev.savedDaysCount });
+    const transfers = transferToArray(prev.transfer);
+    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS });
   };
 
   const sharePlan = useCallback(() => {
