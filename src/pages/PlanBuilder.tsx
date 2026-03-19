@@ -1156,6 +1156,7 @@ const PlanBuilder = () => {
         open={doubleDaysOpen}
         onOpenChange={setDoubleDaysOpen}
         parents={parents}
+        maxDoubleDays={dueDate >= "2024-07-01" ? 60 : 30}
         onApply={(newBlocks, compensationMode: CompensationMode) => {
           pushHistory();
           const transfers = getTransfers(transfer);

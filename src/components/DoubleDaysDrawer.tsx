@@ -29,6 +29,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parents: Parent[];
+  maxDoubleDays?: number;
   onApply: (newBlocks: Block[], compensationMode: CompensationMode) => void;
 };
 
@@ -38,7 +39,7 @@ function weekdaysToCalendarDays(weekdays: number): number {
   return fullWeeks * 7 + remainder;
 }
 
-const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
+const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onApply }: Props) => {
   const [numDays, setNumDays] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
@@ -79,7 +80,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
     onOpenChange(false);
   };
 
-  const canApply = numDays > 0 && numDays <= 30 && startDate && endDate && parents.length >= 2;
+  const canApply = numDays > 0 && numDays <= maxDoubleDays && startDate && endDate && parents.length >= 2;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -99,13 +100,13 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
               id="double-days-input"
               type="number"
               min={1}
-              max={30}
+              max={maxDoubleDays}
               value={numDays}
               onChange={(e) =>
-                setNumDays(Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 1))))
+                setNumDays(Math.max(1, Math.min(maxDoubleDays, Math.floor(Number(e.target.value) || 1))))
               }
             />
-            <p className="text-xs text-muted-foreground">Max 30 dagar under barnets första levnadsår.</p>
+            <p className="text-xs text-muted-foreground">Max {maxDoubleDays} dagar under barnets första levnadsår.</p>
           </div>
 
           <div className="space-y-2">
