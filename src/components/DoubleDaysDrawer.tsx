@@ -29,6 +29,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parents: Parent[];
+  maxDoubleDays?: number;
   onApply: (newBlocks: Block[], compensationMode: CompensationMode) => void;
 };
 
