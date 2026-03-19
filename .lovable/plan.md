@@ -1,41 +1,37 @@
 
 
-## Polera verktyget — designpaket
+## Korrigera dubbeldagar-gräns baserat på barnets födelsedatum
 
-Appen fungerar bra men har några saker som gör att den inte känns "färdig": DevNav syns i produktion, landningssidan saknar visuell identitet, wizarden och plan-buildern har inkonsekvent typografi, och det saknas små detaljer som loading states och micro-interactions.
+### Budgetanalys — redan korrekt ✓
 
-### 1. Ta bort DevNav från produktion
-Dölj `<DevNav />` helt — den ska inte synas för användare. Antingen ta bort den eller villkora den bakom en `?dev=true` query-parameter.
+Nuvarande kod i `simulatePlan.ts` rad 255:
+```
+{ sicknessTransferable: 105, sicknessReserved: 90, lowest: 45 }
+```
+Per förälder: 105 + 90 + 45 = 240. Totalt: 480. Med 90 reserverade per förälder (180 totalt) och 210 fria SGI-dagar totalt (105 per förälder). **Detta stämmer redan med FK:s regler. Ingen ändring behövs.**
 
-### 2. Uppgradera landningssidan (Index.tsx)
-- Lägg till en subtil bakgrundsaccent (jade-to-terracotta gradient liknande bannern i plan-buildern)
-- Använd `DM Serif Display` konsekvent på rubriker (redan på plats men `font-bold` borde vara `font-normal` för att matcha typografi-systemet)
-- Lägg till en enkel footer med "Simulering — kontrollera alltid mot Försäkringskassan"
-- Ge feature-korten ikoner (CalendarCheck, Coins, Share2) för visuell tyngd
+### Enda korrigeringen: Dubbeldagar 30 vs 60
 
-### 3. Konsekvent typografi i PlanBuilder
-- Byt hero-rubriken (`text-2xl font-bold`) i redigeringsläge till `DM Serif Display` med `font-normal`, som resten av appen
-- Byt sektionsrubriker (`text-lg font-semibold`) till en enhetlig stil med `font-medium` och `tracking-tight`
+Idag är max dubbeldagar hårdkodat till 30. Regeln är:
+- Barn födda **före 1 juli 2024** → max 30
+- Barn födda **efter 1 juli 2024** → max 60
 
-### 4. Tom-tillstånd och loading
-- Lägg till en skeleton/shimmer-effekt i laddningsvyn istället för bara "Laddar plan…"
-- Ge FK-guiden en tom-ikon (ClipboardList) i den nya sektionen längst ner
+`dueDate` finns redan i wizard-datan och sparas i planen.
 
-### 5. Micro-interactions och finish
-- Lägg till `transition-all duration-200` på alla interaktiva kort i "Justera planen"-panelen (redan `hover:bg-accent/50` men saknar smooth transition)
-- Ge "Se resultat"-knappen i redigeringsläget en gradient som matchar branding (jade)
-- Avrunda FK-sektionen längst ner med en ikon och svagare border (`border-dashed`)
+### Ändringar
 
-### 6. Mobilanpassning
-- Bannern i plan-buildern: stacka KPI:er vertikalt under `sm` breakpoint istf att wrappa konstigt
-- Footer-knappar i drawers: se till att de inte svämmar över på smala skärmar
+**1. `DoubleDaysDrawer.tsx`** — Acceptera `maxDoubleDays` som prop
+
+Byt ut hårdkodade `30` på tre ställen (max-validering, input max-attribut, hjälptext) mot propvärdet.
+
+**2. `PlanBuilder.tsx`** — Beräkna och skicka `maxDoubleDays`
+
+Läs `dueDate` från wizard-datan. Om `dueDate >= "2024-07-01"` → 60, annars 30. Skicka som prop till `DoubleDaysDrawer`.
 
 ### Filer som ändras
 
-| Fil | Åtgärd |
-|-----|--------|
-| `src/App.tsx` | Villkora DevNav bakom `?dev` |
-| `src/pages/Index.tsx` | Ikoner, gradient-bakgrund, footer, typografi |
-| `src/pages/PlanBuilder.tsx` | Typografi, loading skeleton, FK-sektion ikon, knapp-gradient, mobilfix |
-| `src/index.css` | Ev. ny utility-klass för branded gradient |
+| Fil | Ändring |
+|-----|---------|
+| `src/components/DoubleDaysDrawer.tsx` | Nytt prop `maxDoubleDays`, ersätt hårdkodade 30 |
+| `src/pages/PlanBuilder.tsx` | Beräkna `maxDoubleDays` från `dueDate`, skicka till drawer |
 
