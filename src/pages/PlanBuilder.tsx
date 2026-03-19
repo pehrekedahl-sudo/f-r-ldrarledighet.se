@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList } from "lucide-react";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 import { Button } from "@/components/ui/button";
@@ -507,8 +507,17 @@ const PlanBuilder = () => {
   // Show loading until plan is loaded
   if (!loaded) {
     return (
-      <div className="max-w-lg mx-auto px-6 py-24 text-center space-y-4">
-        <p className="text-lg text-muted-foreground">Laddar plan…</p>
+      <div className="max-w-lg mx-auto px-6 py-24 space-y-6">
+        <div className="space-y-3">
+          <div className="h-6 w-2/3 mx-auto rounded-md bg-muted animate-pulse" />
+          <div className="h-4 w-1/2 mx-auto rounded-md bg-muted animate-pulse" />
+        </div>
+        <div className="h-24 rounded-xl bg-muted animate-pulse" />
+        <div className="h-40 rounded-lg bg-muted animate-pulse" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-28 rounded-lg bg-muted animate-pulse" />
+          <div className="h-28 rounded-lg bg-muted animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -603,7 +612,7 @@ const PlanBuilder = () => {
         <>
           {/* Hero */}
           <div className="space-y-3 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
+            <h1 className="text-2xl font-normal tracking-tight" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>Planera er föräldraledighet på 5 minuter</h1>
             <p className="text-muted-foreground">Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.</p>
           </div>
 
@@ -666,7 +675,7 @@ const PlanBuilder = () => {
 
           {renderBlockEditor()}
 
-          <Button className="w-full" size="lg" disabled={!result} onClick={() => { setViewMode("result"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+          <Button className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground" size="lg" disabled={!result} onClick={() => { setViewMode("result"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
             Se resultat
           </Button>
         </>
@@ -731,20 +740,20 @@ const PlanBuilder = () => {
                 <div className="min-w-0">
                   <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <div className="flex gap-4 text-sm">
-                    <div className="text-center">
+                    <div className="text-left sm:text-center">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
                       <p className="font-bold text-foreground">{formattedEnd}</p>
                     </div>
                     <div className="w-px bg-border/60" />
-                    <div className="text-center">
+                    <div className="text-left sm:text-center">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
                       <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
                     </div>
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
@@ -807,7 +816,7 @@ const PlanBuilder = () => {
 
             {/* ── TIMELINE ── */}
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Tidslinje</h2>
+              <h2 className="text-lg font-medium tracking-tight">Tidslinje</h2>
               <PlanTimeline
                 blocks={validBlocks}
                 parents={parents}
@@ -849,7 +858,7 @@ const PlanBuilder = () => {
                   {/* Växlingsdatum */}
                   {parents.length >= 2 && (
                     <div
-                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-all duration-200"
                       onClick={() => setHandoverOpen(true)}
                     >
                       <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -880,7 +889,7 @@ const PlanBuilder = () => {
 
                   {/* Sparade dagar */}
                   <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-all duration-200"
                     onClick={() => setSaveDaysOpen(true)}
                   >
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -901,7 +910,7 @@ const PlanBuilder = () => {
                   {/* Överförda dagar */}
                   {parents.length >= 2 && (
                     <div
-                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-all duration-200"
                       onClick={() => setTransferDaysOpen(true)}
                     >
                       <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -946,7 +955,7 @@ const PlanBuilder = () => {
 
                     return (
                       <div
-                        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-all duration-200"
                         onClick={() => setDoubleDaysOpen(true)}
                       >
                         <div className="flex items-start gap-2.5 flex-1 min-w-0">
@@ -1055,8 +1064,11 @@ const PlanBuilder = () => {
       )}
       {/* FK Registration Section */}
       {result && result.parentsResult.length > 0 && (
-        <section className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+        <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center space-y-3">
           <div className="space-y-1">
+            <div className="flex justify-center mb-2">
+              <ClipboardList className="w-6 h-6 text-muted-foreground" />
+            </div>
             <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
@@ -1067,6 +1079,7 @@ const PlanBuilder = () => {
             className="gap-2"
             onClick={() => setFkGuideOpen(true)}
           >
+            <ClipboardList className="w-4 h-4" />
             Visa steg-för-steg guide
           </Button>
         </section>
