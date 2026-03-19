@@ -11,7 +11,7 @@ export const FK = {
 
 /** Keep old name as alias for backwards compat in tests etc. */
 export const FK_CONSTANTS = {
-  prisbasbelopp: FK.prisbasbelopp,
+  prisbasbelopp: FK.prisbasbelopp,  // 58 800 (2025)
   sgiTakMultiplier: 10,
   sgiTakPerYear: FK.sgiTakArslon,
   sgiTakPerMonth: Math.round(FK.sgiTakArslon / 12),

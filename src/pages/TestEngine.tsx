@@ -15,7 +15,7 @@ function buildPlan(testCase: number): Plan {
       { id: "p2", name: "Erik", monthlyIncomeFixed: 38000, monthlyIncomeVariableAvg: 0, has240Days: true },
     ],
     constants: {
-      SGI_CAP_ANNUAL: 592000,
+      SGI_CAP_ANNUAL: 588000,
       LOWEST_LEVEL_DAILY_AMOUNT: 180,
       BASIC_LEVEL_DAILY_AMOUNT: 250,
       SICKNESS_RATE: 0.8,
