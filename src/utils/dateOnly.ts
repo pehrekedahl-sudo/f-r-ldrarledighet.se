@@ -157,6 +157,11 @@ export function toEpochMs(dateStr: string): number {
   return toUTC(dateStr).getTime();
 }
 
+/** Convert epoch milliseconds to "YYYY-MM-DD" string. Inverse of toEpochMs. */
+export function fromEpochMs(ms: number): string {
+  return fmt(new Date(ms));
+}
+
 /** Calendar year of a date string. */
 export function getYear(dateStr: string): number {
   return toUTC(dateStr).getUTCFullYear();
