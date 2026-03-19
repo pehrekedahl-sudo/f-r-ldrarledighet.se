@@ -727,8 +727,7 @@ const PlanBuilder = () => {
 
         const formattedEnd = latestEnd ? (() => {
           try {
-            const d = new Date(latestEnd + "T12:00:00");
-            return d.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+            return toLocalDate(latestEnd).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
           } catch { return latestEnd; }
         })() : "—";
 
