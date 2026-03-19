@@ -889,7 +889,7 @@ const PlanBuilder = () => {
 
                   {/* Sparade dagar */}
                   <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-all duration-200"
                     onClick={() => setSaveDaysOpen(true)}
                   >
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
