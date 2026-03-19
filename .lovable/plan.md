@@ -1,37 +1,35 @@
 
 
-## Korrigera dubbeldagar-gräns baserat på barnets födelsedatum
+## Lägg till publik navigeringsbar
 
-### Budgetanalys — redan korrekt ✓
+Skapa en ny komponent `TopNav` som visas på alla sidor (utom wizard-flödet) med tre länkar:
 
-Nuvarande kod i `simulatePlan.ts` rad 255:
-```
-{ sicknessTransferable: 105, sicknessReserved: 90, lowest: 45 }
-```
-Per förälder: 105 + 90 + 45 = 240. Totalt: 480. Med 90 reserverade per förälder (180 totalt) och 210 fria SGI-dagar totalt (105 per förälder). **Detta stämmer redan med FK:s regler. Ingen ändring behövs.**
-
-### Enda korrigeringen: Dubbeldagar 30 vs 60
-
-Idag är max dubbeldagar hårdkodat till 30. Regeln är:
-- Barn födda **före 1 juli 2024** → max 30
-- Barn födda **efter 1 juli 2024** → max 60
-
-`dueDate` finns redan i wizard-datan och sparas i planen.
+| Label | Route |
+|-------|-------|
+| Start | `/` |
+| Föräldradagar 101 | `/foraldraledighet-101` |
+| Min Plan | `/plan-builder` |
 
 ### Ändringar
 
-**1. `DoubleDaysDrawer.tsx`** — Acceptera `maxDoubleDays` som prop
+**1. Ny fil `src/components/TopNav.tsx`**
 
-Byt ut hårdkodade `30` på tre ställen (max-validering, input max-attribut, hjälptext) mot propvärdet.
+Horisontell navbar i toppen med:
+- Vänster: logotyp/namn "föräldraledighet.se" som länk till `/`
+- Höger: tre NavLinks med aktiv-markering (underline eller font-medium)
+- Stil: `sticky top-0 z-50 bg-white/80 backdrop-blur border-b`, max-width centrerad
+- Jade-accent på aktiv länk (`text-[#4A9B8E]`)
 
-**2. `PlanBuilder.tsx`** — Beräkna och skicka `maxDoubleDays`
+**2. `src/App.tsx`**
 
-Läs `dueDate` från wizard-datan. Om `dueDate >= "2024-07-01"` → 60, annars 30. Skicka som prop till `DoubleDaysDrawer`.
+Rendera `<TopNav />` ovanför `<Routes>` på alla sidor utom `/wizard` (wizard är ett fullskärmsflöde). Villkora med en enkel check på `useLocation().pathname !== "/wizard"`.
 
-### Filer som ändras
+Behöver wrappa i en inner-komponent (`AppContent`) eftersom `useLocation` kräver att vara inuti `<BrowserRouter>`.
+
+### Filer
 
 | Fil | Ändring |
 |-----|---------|
-| `src/components/DoubleDaysDrawer.tsx` | Nytt prop `maxDoubleDays`, ersätt hårdkodade 30 |
-| `src/pages/PlanBuilder.tsx` | Beräkna `maxDoubleDays` från `dueDate`, skicka till drawer |
+| `src/components/TopNav.tsx` | Ny — navbar-komponent |
+| `src/App.tsx` | Importera TopNav, rendera villkorligt |
 
