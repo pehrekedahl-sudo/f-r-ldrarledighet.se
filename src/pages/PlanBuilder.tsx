@@ -158,7 +158,10 @@ const PlanBuilder = () => {
         if (decoded.dueDate) setDueDate(decoded.dueDate);
         if (decoded.months1 !== undefined) setMonths1(decoded.months1);
         if (decoded.months2 !== undefined) setMonths2(decoded.months2);
-        if (decoded.parents) setParents(decoded.parents);
+        if (decoded.parents) {
+          setParents(decoded.parents);
+          if (decoded.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
+        }
         setIsSharedPlan(true);
         setViewMode("result");
         setLoaded(true);
