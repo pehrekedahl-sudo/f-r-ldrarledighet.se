@@ -507,8 +507,17 @@ const PlanBuilder = () => {
   // Show loading until plan is loaded
   if (!loaded) {
     return (
-      <div className="max-w-lg mx-auto px-6 py-24 text-center space-y-4">
-        <p className="text-lg text-muted-foreground">Laddar plan…</p>
+      <div className="max-w-lg mx-auto px-6 py-24 space-y-6">
+        <div className="space-y-3">
+          <div className="h-6 w-2/3 mx-auto rounded-md bg-muted animate-pulse" />
+          <div className="h-4 w-1/2 mx-auto rounded-md bg-muted animate-pulse" />
+        </div>
+        <div className="h-24 rounded-xl bg-muted animate-pulse" />
+        <div className="h-40 rounded-lg bg-muted animate-pulse" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-28 rounded-lg bg-muted animate-pulse" />
+          <div className="h-28 rounded-lg bg-muted animate-pulse" />
+        </div>
       </div>
     );
   }
