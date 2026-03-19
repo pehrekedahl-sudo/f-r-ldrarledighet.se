@@ -319,7 +319,7 @@ const Foraldraledighet101 = () => (
       <p className="text-xs uppercase tracking-widest font-medium" style={{ color: "#E8735A" }}>Verktyget</p>
       <h2 className="text-xl font-medium">Planera er föräldraledighet dag för dag</h2>
       <p className="text-sm text-muted-foreground">
-        föräldraledighet.se hjälper er att omsätta allt det här i en konkret plan. Ni ser direkt hur era val påverkar inkomst,
+        föräldrarledig.se hjälper er att omsätta allt det här i en konkret plan. Ni ser direkt hur era val påverkar inkomst,
         dagssaldo och hur länge ledigheten räcker.
       </p>
       <div className="grid grid-cols-2 gap-2">
