@@ -3,9 +3,9 @@
  * Based on 2025 values.
  */
 export const FK = {
-  prisbasbelopp: 57300,
-  sgiTakArslon: 573000,        // 10 × prisbasbelopp
-  ersattningsniva: 0.776,      // 77.6%
+  prisbasbelopp: 58800,         // 2025
+  sgiTakArslon: 588000,         // 10 × prisbasbelopp (2025)
+  ersattningsniva: 0.776,       // 77.6%
   workingDaysPerWeek: 5,
 };
 
