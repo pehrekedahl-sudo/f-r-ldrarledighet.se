@@ -39,7 +39,7 @@ function weekdaysToCalendarDays(weekdays: number): number {
   return fullWeeks * 7 + remainder;
 }
 
-const DoubleDaysDrawer = ({ open, onOpenChange, parents, onApply }: Props) => {
+const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onApply }: Props) => {
   const [numDays, setNumDays] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(5);
