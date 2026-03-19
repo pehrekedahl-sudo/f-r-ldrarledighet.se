@@ -1,37 +1,85 @@
 
 
-## Lägg till valfri arbetsgivar-top-up i "Ersättning per förälder"
+## Analys: 5 scenarion avslöjar inkonsekvenser i beräkningslogiken
 
-### Koncept
+Jag har granskat hela flödet — wizard, simuleringsmotor, UI-visning — och kört igenom 5 mentala testscenarier. Resultatet: **det finns tre allvarliga inkonsekvenser** i hur verktyget räknar.
 
-Per förälder läggs ett valfritt inputfält "Top-up från arbetsgivare (kr/mån före skatt)" i ersättningssektionen. Värdet adderas till FK-ersättningen per block-rad så att användaren ser total bruttoinkomst per månad. Värdet sparas i parent-objektet och persisteras med övrig plandata.
+---
 
-### Ändringar
+### Scenario 1: Förälder med 45 000 kr/mån, 5 d/v
+- **Simuleringsmotorn** (calcDailyRates): Använder `SGI_CAP_ANNUAL = 592 000` (från PlanBuilder CONSTANTS) → cap = 592 000
+- **UI-visningen** (computeBlockMonthlyBenefit): Använder `FK.sgiTakArslon = 573 000` (från fkConstants.ts) → cap = 573 000
+- **parentSummary** (inne i simulatePlan): Hardkodar `573 000`
 
-**1. `src/pages/PlanBuilder.tsx`**
+**Resultat**: Alla tre ger samma svar här, eftersom 45 000 × 12 = 540 000, som är under båda taken. **Ingen synlig bugg i detta scenario.**
 
-- Utöka parent-state med `topUpMonthly?: number` (default 0).
-- I "Ersättning per förälder"-sektionen (rad ~1009), under förälderns namn, lägg till ett litet inputfält:
-  - Label: "Arbetsgivar-top-up" (text-xs)
-  - Input: type number, placeholder "0", suffix "kr/mån", compact stil (h-7, w-32)
-  - Uppdaterar `parents` state on change
-- I varje block-rad (rad ~1018-1021), addera top-up till det visade beloppet:
-  - `totalMonthly = fkMonthly + (topUp * daysPerWeek / 5)` — skalas proportionellt mot uttagstakt precis som FK-ersättningen
-  - Visa som: `≈ XX XXX kr/mån` (totalt) med en liten detalj-text under typ `(FK XX XXX + top-up XX XXX)`
-- Persistera top-up i `savePlanInput` / `loadPlanInput`.
+### Scenario 2: Förälder med 50 000 kr/mån, 5 d/v
+- Årsinkomst = 600 000 → **över båda taken**
+- Simuleringsmotorn capar vid 592 000, beräknar dagersättning = (592 000 × 0.8 × 0.97) / 365 = **1 258 kr/dag**
+- UI-visningen capar vid 573 000, beräknar dagersättning = (573 000 / 365) × 0.776 = **1 218 kr/dag**
+- **Differens: ~40 kr/dag → ~870 kr/mån**
 
-**2. `src/lib/persistence.ts`** — Säkerställ att `topUpMonthly` på parent-objekt serialiseras/deserialiseras.
+**BUG: Bannerns "Snitt/mån" (computedAvg) och "Ersättning per förälder"-sektionen visar lägre belopp än vad simuleringsmotorn faktiskt räknar med internt.**
 
-### Beteende
+### Scenario 3: Förälder med 48 000 kr/mån (576 000/år — mellan de två taken)
+- Simuleringsmotorn: capar INTE (576 000 < 592 000) → full ersättning baserad på 576 000
+- UI-visningen: capar vid 573 000 → ersättning baserad på 573 000
+- parentSummary: säger `isAboveSgiTak = true` (576 000 > 573 000)
+- **BUG: UI visar "du är över taket" men räknar med ett annat tak än motorn.**
 
-- Top-up skalas linjärt med uttagstakt: 5 d/v → 100%, 3 d/v → 60%, etc.
-- Rent UI — ingen ändring av simuleringsmotorn. Top-up adderas bara i visningen.
-- Inputfältet är valfritt — tomt/0 innebär ingen top-up visas.
+### Scenario 4: Test-filen använder ett tredje tak
+- `simulatePlan.test.ts` definierar `SGI_CAP_ANNUAL: 600 000` — ett tredje unikt värde
+- **Inte en appbugg, men testerna verifierar inte samma verklighet som appen.**
 
-### Filer
+### Scenario 5: Wizard vs PlanBuilder constants
+- Wizard.tsx: `SGI_CAP_ANNUAL: 592 000` ✓ (matchar PlanBuilder)
+- Men `computeBlockMonthlyBenefit` körs med FK.sgiTakArslon = 573 000 oavsett
+- **Samma bugg som scenario 2-3 — taket som skickas in via CONSTANTS ignoreras av UI-beräkningen.**
+
+---
+
+### Rotorsak
+
+Det finns **två parallella "sanningar" om SGI-taket**:
+
+| Plats | Tak | Källa |
+|-------|-----|-------|
+| `fkConstants.ts` → `FK.sgiTakArslon` | 573 000 | Prisbasbelopp × 10 (2024) |
+| `PlanBuilder.tsx` / `Wizard.tsx` → `CONSTANTS.SGI_CAP_ANNUAL` | 592 000 | Oklart — kanske 2025-prognos? |
+| `simulatePlan.ts` → parentSummary | 573 000 | Hardkodat |
+| `simulatePlan.test.ts` | 600 000 | Testspecifikt |
+
+`computeBlockMonthlyBenefit()` och `computeParentBenefit()` i fkConstants.ts använder alltid 573 000 — de tar inte emot taket som parameter. Men simuleringsmotorns `calcDailyRates()` använder det inskickade `constants.SGI_CAP_ANNUAL` (592 000).
+
+---
+
+### Plan: Åtgärda alla inkonsekvenser
+
+**1. Bestäm ETT korrekt SGI-tak**
+- 2025 års prisbasbelopp är 58 800 kr → SGI-tak = 588 000 kr
+- Uppdatera `FK.prisbasbelopp` och `FK.sgiTakArslon` i `fkConstants.ts` till korrekta 2025-värden
+
+**2. Gör `computeBlockMonthlyBenefit` och `computeParentBenefit` parametriska**
+- Ta emot SGI-tak som parameter istället för att hardkoda `FK.sgiTakArslon`
+- Alternativt: låt alla ställen läsa från `FK.sgiTakArslon` (enklare)
+
+**3. Ta bort `SGI_CAP_ANNUAL` från CONSTANTS i PlanBuilder och Wizard**
+- Låt simuleringsmotorn alltid läsa `FK.sgiTakArslon`
+- Eller: säkerställ att CONSTANTS.SGI_CAP_ANNUAL = FK.sgiTakArslon
+
+**4. Fixa hardkodade 573 000 i `simulatePlan.ts` parentSummary**
+- Rad 397-398: Ersätt med `constants.SGI_CAP_ANNUAL` eller `FK.sgiTakArslon`
+
+**5. Uppdatera testet**
+- `simulatePlan.test.ts`: Ändra `SGI_CAP_ANNUAL` till det korrekta värdet
+
+### Filer som ändras
 
 | Fil | Ändring |
 |-----|---------|
-| `src/pages/PlanBuilder.tsx` | Lägg till top-up input + summera i block-rader |
-| `src/lib/persistence.ts` | Inkludera topUpMonthly i serialisering |
+| `src/lib/fkConstants.ts` | Uppdatera prisbasbelopp till 2025-värde, gör funktioner parametriska eller konsistenta |
+| `src/pages/PlanBuilder.tsx` | Synka CONSTANTS.SGI_CAP_ANNUAL med FK.sgiTakArslon |
+| `src/pages/Wizard.tsx` | Samma synkning |
+| `src/lib/simulatePlan.ts` | Ta bort hardkodade 573 000, använd constants-parametern |
+| `src/test/simulatePlan.test.ts` | Använd korrekt tak-värde |
 
