@@ -1018,16 +1018,19 @@ const PlanBuilder = () => {
                             );
                             const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
                             const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * (b.daysPerWeek / 5);
-                            const totalMonthly = fkMonthly + topUp;
+                            const taxRate = 0.30;
+                            const fkNet = fkMonthly * (1 - taxRate);
+                            const topUpNet = topUp * (1 - taxRate);
+                            const totalNet = fkNet + topUpNet;
                             return (
                               <div key={b.id} className="text-xs">
                                 <div className="flex items-baseline justify-between">
                                   <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
-                                  <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalMonthly).toLocaleString("sv-SE")} kr/mån</span>
+                                  <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalNet).toLocaleString("sv-SE")} kr/mån netto</span>
                                 </div>
-                                {topUp > 0 && (
+                                {topUpNet > 0 && (
                                   <p className="text-[10px] text-muted-foreground text-right tabular-nums">
-                                    FK {Math.round(fkMonthly).toLocaleString("sv-SE")} + top-up {Math.round(topUp).toLocaleString("sv-SE")}
+                                    FK {Math.round(fkNet).toLocaleString("sv-SE")} + top-up {Math.round(topUpNet).toLocaleString("sv-SE")}
                                   </p>
                                 )}
                               </div>
