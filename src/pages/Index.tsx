@@ -171,7 +171,7 @@ const Index = () => {
             to="/foraldraledighet-101"
             className="hover:text-foreground underline underline-offset-4 transition-colors"
           >
-            Ny på föräldradagar? Läs vår guide →
+            Vill du förstå systemet först? →
           </Link>
         </p>
       </section>
