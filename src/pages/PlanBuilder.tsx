@@ -1007,17 +1007,46 @@ const PlanBuilder = () => {
                         .sort((a, b) => a.startDate.localeCompare(b.startDate));
                       return (
                         <div key={s.parentId} className={`px-4 py-3 space-y-1.5 border-l-[3px] ${s.parentId === "p1" ? "border-l-[#4A9B8E]" : "border-l-[#E8735A]"}`}>
-                          <p className="font-medium text-sm text-foreground">{s.name}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-sm text-foreground">{s.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <label className="text-[10px] text-muted-foreground whitespace-nowrap">Top-up</label>
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder="0"
+                                className="h-7 w-24 text-xs tabular-nums"
+                                value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                  const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
+                                  setParents(updated);
+                                  const transfers = transferToArray(transfer);
+                                  savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                }}
+                              />
+                              <span className="text-[10px] text-muted-foreground">kr/mån</span>
+                            </div>
+                          </div>
                           {parentBlocks.map(b => {
                             const monthlyFull = computeBlockMonthlyBenefit(
                               parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0,
                               5
                             );
-                            const monthly = monthlyFull * (b.daysPerWeek / 5);
+                            const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
+                            const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * (b.daysPerWeek / 5);
+                            const totalMonthly = fkMonthly + topUp;
                             return (
-                              <div key={b.id} className="flex items-baseline justify-between text-xs">
-                                <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
-                                <span className="font-medium text-foreground tabular-nums">≈ {Math.round(monthly).toLocaleString("sv-SE")} kr/mån</span>
+                              <div key={b.id} className="text-xs">
+                                <div className="flex items-baseline justify-between">
+                                  <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
+                                  <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalMonthly).toLocaleString("sv-SE")} kr/mån</span>
+                                </div>
+                                {topUp > 0 && (
+                                  <p className="text-[10px] text-muted-foreground text-right tabular-nums">
+                                    FK {Math.round(fkMonthly).toLocaleString("sv-SE")} + top-up {Math.round(topUp).toLocaleString("sv-SE")}
+                                  </p>
+                                )}
                               </div>
                             );
                           })}
