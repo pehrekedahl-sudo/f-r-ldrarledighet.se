@@ -11,7 +11,6 @@ const summaryPoints = [
   "Du får ut ~80\u00a0% av din lön för de flesta dagarna – men bara om du haft stabil inkomst i minst 240 dagar.",
   "90 dagar per förälder är låsta och kan inte ges bort. Resten kan ni flytta fritt mellan er.",
   "Den viktigaste avvägningen: hur många dagar tar du nu – och hur många sparar du till senare?",
-  "Glöm inte att ansöka hos FK minst 2 månader innan du vill börja ta ut dagar.",
 ];
 
 const stats = [
@@ -29,7 +28,6 @@ const timelineRules = [
 ];
 
 const mistakes = [
-  "Ansöker för sent – FK kräver ansökan minst 2 månader i förväg för att garantera utbetalning i tid",
   "Glömmer dubbeldagarna – kräver aktiv ansökan och att båda tar ut i exakt samma omfattning samma dag",
   "Missar 4-årsregeln – har ni fler än 96 dagar kvar på barnets 4-årsdag försvinner överskottet permanent",
   "SGI-fällan – tar ut för få dagar per vecka efter 1-årsdagen utan att jobba tillräckligt, och får en sänkt SGI som slår mot sjukpenning och framtida föräldraledigheter",
