@@ -612,7 +612,7 @@ const PlanBuilder = () => {
         <>
           {/* Hero */}
           <div className="space-y-3 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Planera er föräldraledighet på 5 minuter</h1>
+            <h1 className="text-2xl font-normal tracking-tight" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>Planera er föräldraledighet på 5 minuter</h1>
             <p className="text-muted-foreground">Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.</p>
           </div>
 
