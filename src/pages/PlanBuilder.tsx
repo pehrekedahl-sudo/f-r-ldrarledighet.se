@@ -133,11 +133,7 @@ const PlanBuilder = () => {
       } else {
         setTransfer(null);
       }
-      if (typeof saved.savedDaysCount === "number") {
-        setSavedDaysCount(saved.savedDaysCount);
-      } else {
-        setSavedDaysCount(0);
-      }
+      // savedDaysCount is derived — no need to restore
       setViewMode("result");
       setLoaded(true);
       setNoSavedPlan(false);
