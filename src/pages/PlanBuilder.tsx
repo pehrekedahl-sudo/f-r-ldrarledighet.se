@@ -125,6 +125,7 @@ const PlanBuilder = () => {
     const saved = loadPlanInput() as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
+      if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
       if (saved.transfers?.length > 0) {
