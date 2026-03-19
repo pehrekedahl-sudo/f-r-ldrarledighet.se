@@ -1018,19 +1018,16 @@ const PlanBuilder = () => {
                             );
                             const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
                             const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * (b.daysPerWeek / 5);
-                            const taxRate = 0.30;
-                            const fkNet = fkMonthly * (1 - taxRate);
-                            const topUpNet = topUp * (1 - taxRate);
-                            const totalNet = fkNet + topUpNet;
+                            const totalMonthly = fkMonthly + topUp;
                             return (
                               <div key={b.id} className="text-xs">
                                 <div className="flex items-baseline justify-between">
                                   <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
-                                  <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalNet).toLocaleString("sv-SE")} kr/mån netto</span>
+                                  <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalMonthly).toLocaleString("sv-SE")} kr/mån</span>
                                 </div>
-                                {topUpNet > 0 && (
+                                {topUp > 0 && (
                                   <p className="text-[10px] text-muted-foreground text-right tabular-nums">
-                                    FK {Math.round(fkNet).toLocaleString("sv-SE")} + top-up {Math.round(topUpNet).toLocaleString("sv-SE")}
+                                    FK {Math.round(fkMonthly).toLocaleString("sv-SE")} + top-up {Math.round(topUp).toLocaleString("sv-SE")}
                                   </p>
                                 )}
                               </div>
@@ -1060,8 +1057,8 @@ const PlanBuilder = () => {
                     <div className="px-4 py-2 space-y-2">
                       <p className="text-xs text-muted-foreground">
                         {hasAnyAboveTak
-                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån). Belopp visas efter ~30% skatt.`
-                          : "FK betalar 77,6% av din lön. Belopp visas efter ~30% skatt."}
+                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
+                          : "FK betalar 77,6% av din lön."}
                       </p>
                       <div className="flex items-center gap-2">
                         <Checkbox
