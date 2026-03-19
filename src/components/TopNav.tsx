@@ -12,7 +12,7 @@ const TopNav = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
       <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between">
         <Link to="/" className="text-sm font-semibold tracking-tight text-foreground">
-          föräldraledighet.se
+          föräldrarledig.se
         </Link>
         <nav className="flex items-center gap-5">
           {links.map((l) => (
