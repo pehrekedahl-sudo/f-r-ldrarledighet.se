@@ -4,6 +4,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import type { WizardResult } from "@/components/OnboardingWizard";
 import { savePlanInput } from "@/lib/persistence";
 import { addDays, addMonths, compareDates } from "@/utils/dateOnly";
+import { generateBlockId } from "@/lib/blockIdUtils";
 
 const DEFAULT_PARENTS = [
   { id: "p1", name: "Anna", monthlyIncomeFixed: 45000, has240Days: true },
