@@ -32,8 +32,8 @@ import {
 } from "@/components/ui/select";
 
 const DEFAULT_PARENTS = [
-  { id: "p1", name: "Anna", monthlyIncomeFixed: 45000, has240Days: true },
-  { id: "p2", name: "Erik", monthlyIncomeFixed: 38000, has240Days: true },
+  { id: "p1", name: "Anna", monthlyIncomeFixed: 45000, has240Days: true, topUpMonthly: 0 },
+  { id: "p2", name: "Erik", monthlyIncomeFixed: 38000, has240Days: true, topUpMonthly: 0 },
 ];
 
 const CONSTANTS = {
