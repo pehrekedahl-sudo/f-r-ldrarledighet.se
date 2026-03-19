@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import TestEngine from "./pages/TestEngine";
 import PlanBuilder from "./pages/PlanBuilder";
 import Wizard from "./pages/Wizard";
+import Foraldraledighet101 from "./pages/Foraldraledighet101";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
