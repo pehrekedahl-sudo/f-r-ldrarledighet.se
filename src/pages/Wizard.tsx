@@ -29,8 +29,6 @@ type Block = {
   source?: "system" | "user";
 };
 
-let nextId = 1;
-
 const Wizard = () => {
   const navigate = useNavigate();
 

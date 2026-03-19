@@ -647,7 +647,7 @@ const PlanBuilder = () => {
                 setBlocks([b1, b2]);
                 setOriginalBlocks([b1, b2]);
                 setTransfer(null);
-                setSavedDaysCount(0);
+                // savedDaysCount is derived — no reset needed
                 setTransferAmount(0);
                 setTransferError(null);
                 setHistory([]);

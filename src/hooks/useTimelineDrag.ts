@@ -22,7 +22,6 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
   const pctToDate = useCallback(
     (pct: number): string => {
       const ms = timelineStartMs + (pct / 100) * totalMs;
-      // Convert ms to date string
       const d = new Date(ms);
       const yyyy = d.getUTCFullYear();
       const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
