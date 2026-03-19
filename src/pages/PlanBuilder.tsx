@@ -97,7 +97,7 @@ const PlanBuilder = () => {
   const [blocks, setBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [originalBlocks, setOriginalBlocks] = useState<Block[]>([makeBlock("b1")]);
   const [transfer, setTransfer] = useState<{ fromParentId: string; toParentId: string; sicknessDays: number; lowestDays?: number } | null>(null);
-  const [_savedDaysCountLegacy, setSavedDaysCount] = useState(0);
+  // savedDaysCount is derived via useMemo — no separate state needed
   const [transferAmount, setTransferAmount] = useState(0);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [history, setHistory] = useState<{ blocks: Block[]; savedDaysCount: number }[]>([]);
