@@ -1053,6 +1053,25 @@ const PlanBuilder = () => {
           <p className="text-muted-foreground">Laddar simulering…</p>
         </div>
       )}
+      {/* FK Registration Section */}
+      {result && result.parentsResult.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setFkGuideOpen(true)}
+          >
+            Visa steg-för-steg guide
+          </Button>
+        </section>
+      )}
+
       <BlockEditDrawer
         mode={drawerMode}
         block={drawerMode === "edit" ? (blocks.find(b => b.id === editingBlockId) ?? null) : null}
