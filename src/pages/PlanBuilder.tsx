@@ -391,7 +391,27 @@ const PlanBuilder = () => {
 
     // Replace the original block with the new segments
     const otherBlocks = blocks.filter(b => b.id !== blockId);
-    const newBlocks = [...otherBlocks, ...newBlockSegments];
+
+    // Truncate or remove sibling blocks (same parent, non-overlap) that overlap with the new range
+    const truncatedOther = otherBlocks.flatMap(b => {
+      // Only truncate regular blocks for the same parent
+      if (b.parentId !== target.parentId || b.isOverlap) return [b];
+      // Completely outside → keep as-is
+      if (compareDates(b.endDate, newStart) < 0 || compareDates(b.startDate, newEnd) > 0) return [b];
+      // Completely inside → remove
+      if (compareDates(b.startDate, newStart) >= 0 && compareDates(b.endDate, newEnd) <= 0) return [];
+      // Partial overlap — truncate
+      const result: Block[] = [];
+      if (compareDates(b.startDate, newStart) < 0) {
+        result.push({ ...b, id: b.id, endDate: addDaysUtil(newStart, -1) });
+      }
+      if (compareDates(b.endDate, newEnd) > 0) {
+        result.push({ ...b, id: result.length > 0 ? `${b.id}-trunc` : b.id, startDate: addDaysUtil(newEnd, 1) });
+      }
+      return result.filter(r => compareDates(r.endDate, r.startDate) >= 0);
+    });
+
+    const newBlocks = [...truncatedOther, ...newBlockSegments];
     const normalized = normalizeBlocks(newBlocks);
     assertUniqueBlockIds(normalized, "blockResize");
     setBlocks(normalized);
