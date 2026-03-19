@@ -11,7 +11,6 @@ const summaryPoints = [
   "Du får ut ~80\u00a0% av din lön för de flesta dagarna – men bara om du haft stabil inkomst i minst 240 dagar.",
   "90 dagar per förälder är låsta och kan inte ges bort. Resten kan ni flytta fritt mellan er.",
   "Den viktigaste avvägningen: hur många dagar tar du nu – och hur många sparar du till senare?",
-  "Glöm inte att ansöka hos FK minst 2 månader innan du vill börja ta ut dagar.",
 ];
 
 const stats = [
