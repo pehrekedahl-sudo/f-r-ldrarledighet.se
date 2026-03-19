@@ -36,8 +36,10 @@ const Index = () => {
         >
           Planera er föräldraledighet utan&nbsp;Excel‑kaos
         </h1>
-        <p className="text-lg text-muted-foreground max-w-md mx-auto">
-          Se hur länge dagarna räcker och hur mycket ni får ut – innan ni ansöker.
+        <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
+          480 dagar. Två föräldrar. SGI-tak, lägstanivådagar, reserverade dagar, 
+          fyraårsregel och en ansökan som helst ska in två månader innan. 
+          Ingen normal människa håller koll på allt det där — så vi byggde ett verktyg som gör det åt er.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1">
           <Button size="lg" asChild>
@@ -47,7 +49,7 @@ const Index = () => {
             to="/foraldraledighet-101"
             className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
           >
-            Läs snabbguiden →
+            Hur funkar föräldradagar egentligen? →
           </Link>
         </div>
       </section>
