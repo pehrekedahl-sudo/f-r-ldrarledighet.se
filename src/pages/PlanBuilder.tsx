@@ -1474,6 +1474,31 @@ const PlanBuilder = () => {
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
       />
+
+      {/* Overlap Dialog */}
+      <AlertDialog open={overlapDialog.open} onOpenChange={(open) => { if (!open) handleOverlapCancel(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Överlapp – vad vill du göra?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const targetName = parents.find(p => p.id === overlapDialog.targetBlock?.parentId)?.name ?? "?";
+                const otherName = parents.find(p => p.id === overlapDialog.otherBlock?.parentId)?.name ?? "?";
+                return `${targetName}s och ${otherName}s ledighet överlappar ${overlapDialog.overlapDays} dagar. Båda föräldrar kan ta ut ersättning samtidigt – det kallas dubbeldagar.`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleOverlapCreateDD} className="bg-[#4A9B8E] hover:bg-[#3d8578] text-white">
+              Skapa dubbeldagar för överlappet
+            </Button>
+            <Button variant="outline" onClick={handleOverlapTruncate}>
+              Korta ner {parents.find(p => p.id === overlapDialog.otherBlock?.parentId)?.name ?? "andra förälderns"} block istället
+            </Button>
+            <AlertDialogCancel onClick={handleOverlapCancel}>Avbryt</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
