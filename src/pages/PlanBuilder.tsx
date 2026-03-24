@@ -12,6 +12,13 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
@@ -228,14 +235,32 @@ const PlanBuilder = () => {
     savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS });
   };
 
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
   const sharePlan = useCallback(() => {
     const payload = { blocks, transfer, dueDate, months1, months2, parents };
     const encoded = btoa(JSON.stringify(payload));
     setSearchParams({ plan: encoded }, { replace: true });
     const url = `${window.location.origin}${window.location.pathname}?plan=${encoded}`;
-    navigator.clipboard.writeText(url);
-    toast({ description: "Länk kopierad" });
-  }, [blocks, transfer, dueDate, months1, months2, parents, setSearchParams, toast]);
+    setShareUrl(url);
+    setCopied(false);
+    setShareDialogOpen(true);
+  }, [blocks, transfer, dueDate, months1, months2, parents, setSearchParams]);
+
+  const copyShareUrl = useCallback(() => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast({ description: "Länk kopierad!" });
+    setTimeout(() => setCopied(false), 2000);
+  }, [shareUrl, toast]);
+
+  const emailShareUrl = useCallback(() => {
+    const subject = encodeURIComponent("Min föräldraledighetsplan");
+    const body = encodeURIComponent(`Kolla in vår plan:\n${shareUrl}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
+  }, [shareUrl]);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const addDoubleDays = () => {
@@ -881,7 +906,7 @@ const PlanBuilder = () => {
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
                   <div className="flex gap-1.5 flex-wrap">
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
+                    <Button variant="outline" size="sm" className="text-xs h-7 px-3 gap-1.5" onClick={sharePlan}><Share2 className="h-3.5 w-3.5" />Dela plan</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
                   </div>
                 </div>
