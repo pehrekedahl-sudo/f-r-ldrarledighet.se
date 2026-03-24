@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -310,6 +311,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
                   <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
                 </div>
+                <details className="text-sm text-muted-foreground mt-1">
+                  <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
+                  <p className="mt-2 pl-1 leading-relaxed">Du behöver ha haft en sjukpenninggrundande inkomst (SGI) i minst 240 dagar i rad för att få ersättning på sjukpenningnivå (~80 % av lönen). Annars får du lägstanivå (180 kr/dag).</p>
+                  <a href="https://www.forsakringskassan.se" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på FK:s webbplats →</a>
+                </details>
               </div>
               <div className="space-y-2">
                 <Label className="text-base">Månadsinkomst {parent2Name || "Förälder 2"} (kr)</Label>
@@ -318,6 +324,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
                   <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
                 </div>
+                <details className="text-sm text-muted-foreground mt-1">
+                  <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
+                  <p className="mt-2 pl-1 leading-relaxed">Du behöver ha haft en sjukpenninggrundande inkomst (SGI) i minst 240 dagar i rad för att få ersättning på sjukpenningnivå (~80 % av lönen). Annars får du lägstanivå (180 kr/dag).</p>
+                  <a href="https://www.forsakringskassan.se" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på FK:s webbplats →</a>
+                </details>
               </div>
             </div>
           </div>
@@ -326,6 +337,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 4:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
+              <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
+              <Link to="/foraldraledighet-101" className="text-primary hover:underline text-sm mt-1 inline-block">Lär dig mer om hur dagar fungerar →</Link>
+            </div>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
             {pillToggle(durationMode)}
 
@@ -398,6 +413,10 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 5:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
+              <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
+              <Link to="/foraldraledighet-101" className="text-primary hover:underline text-sm mt-1 inline-block">Lär dig mer om hur dagar fungerar →</Link>
+            </div>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
             <p className="text-muted-foreground text-center text-sm">Antal föräldradagar ni planerar ta ut per vecka. Ni kan justera allt i planen efteråt.</p>
 
