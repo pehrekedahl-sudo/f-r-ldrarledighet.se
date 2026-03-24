@@ -380,13 +380,7 @@ export function computeRescueProposal(
   const baseTransfers = existingTransfer && existingTransfer.sicknessDays > 0 ? [existingTransfer] : [];
   const { shortage: shortageBefore, result: origResult } = engineShortage(parents, blocks, baseTransfers, constants);
 
-  console.group('[RESCUE] computeRescueProposal');
-  console.log('[RESCUE] A) shortageBefore =', shortageBefore);
-  for (const pr of origResult.parentsResult) {
-    console.log(`[RESCUE]   ${pr.parentId}: taken.sickness=${pr.taken.sickness}, taken.lowest=${pr.taken.lowest}, remaining.transferable=${pr.remaining.sicknessTransferable}, remaining.reserved=${pr.remaining.sicknessReserved}, remaining.lowest=${pr.remaining.lowest}`);
-  }
-
-  if (shortageBefore <= 0) { console.groupEnd(); return null; }
+  if (shortageBefore <= 0) { return null; }
 
   const origAvg = calcAvgMonthly(origResult.parentsResult);
   const debugBefore = blocks.map(b => ({ ...b }));
@@ -425,8 +419,6 @@ export function computeRescueProposal(
   const { shortage: shortageAfterTransfer, result: afterTransferResult } = engineShortage(
     parents, blocks, transferList, constants,
   );
-  console.log('[RESCUE] B) transferDays =', transferDays, ', maxTransfer =', maxTransfer);
-  console.log('[RESCUE] C) shortageAfterTransfer =', shortageAfterTransfer);
 
   // Transfer-only success
   if (shortageAfterTransfer <= 0) {
@@ -503,7 +495,6 @@ export function computeRescueProposal(
 
   // Safety net — extend if initial estimate is insufficient
   const MAX_EXTEND = 20;
-  console.log('[RESCUE] D) Initial perParentWeeks =', { ...perParentWeeks }, ', capacity =', Object.fromEntries(parents.map(p => [p.id, parentCapacity(blocks, p.id)])));
   let extendIters = 0;
 
   while (unfulfilledAfterFull > 0 && extendIters < MAX_EXTEND) {
@@ -694,8 +685,6 @@ export function computeRescueProposal(
   // ══════════════════════════════════════════════
   const { weeksTotalApplied, perParentWeeksApplied } = deriveFromReductions(allReductions, parents);
   const success = unfulfilledAfterFull <= 0;
-  console.log('[RESCUE] F) FINAL: weeksTotalApplied =', weeksTotalApplied, ', perParentWeeksApplied =', perParentWeeksApplied, ', unfulfilledAfterFull =', unfulfilledAfterFull, ', success =', success);
-  console.groupEnd();
   const newAvg = calcAvgMonthly(finalResult.parentsResult);
 
   // UI text — derived from final reductions + transfer

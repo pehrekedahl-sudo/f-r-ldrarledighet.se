@@ -101,8 +101,6 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
     const newP1End = addDays(handoverDate, -1);
     const newP2Start = handoverDate;
 
-    console.log("[HandoverDrawer]", { selectedDate: handoverDate, computedParent1EndDate: newP1End, computedParent2StartDate: newP2Start });
-
     // Validation
     if (compareDates(newP1End, p1Block.startDate) < 0) return { error: `${parent1.name}s block kan inte sluta före sitt startdatum.` };
     if (compareDates(newP2Start, p2Block.endDate) > 0) return { error: `${parent2.name}s block kan inte börja efter sitt slutdatum.` };
@@ -167,7 +165,6 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
 
   const handleApply = () => {
     if (!proposalResult || "error" in proposalResult) return;
-    console.log("[HandoverDrawer Apply]", { handoverDate });
     const final = applySmartChange(blocks, proposalResult.newBlocks);
     onApply(final);
     onOpenChange(false);
