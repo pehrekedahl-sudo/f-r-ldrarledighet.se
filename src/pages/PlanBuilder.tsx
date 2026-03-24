@@ -313,11 +313,12 @@ const PlanBuilder = () => {
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
-      // Sync overlap pair: dates + daysPerWeek
-      if (updated.isOverlap && updated.overlapGroupId) {
+      // Sync overlap pair daysPerWeek
+      if (updated.isOverlap) {
         replaced = replaced.map(b => {
-          if (b.id !== updated.id && b.isOverlap && b.overlapGroupId === updated.overlapGroupId) {
-            return { ...b, startDate: updated.startDate, endDate: updated.endDate, daysPerWeek: updated.daysPerWeek };
+          if (b.id !== updated.id && b.isOverlap && b.parentId !== updated.parentId &&
+              b.startDate === updated.startDate && b.endDate === updated.endDate) {
+            return { ...b, daysPerWeek: updated.daysPerWeek };
           }
           return b;
         });
