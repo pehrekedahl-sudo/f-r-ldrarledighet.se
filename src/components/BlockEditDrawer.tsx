@@ -224,7 +224,9 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[400px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>{isCreate ? "Ny period" : `Redigera period – ${parentName}`}</SheetTitle>
+          <SheetTitle>
+            {isCreate ? "Ny period" : block?.isOverlap ? `Redigera dubbeldagar – ${parentName}` : `Redigera period – ${parentName}`}
+          </SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
