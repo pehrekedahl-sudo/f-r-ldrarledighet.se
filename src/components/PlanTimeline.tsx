@@ -151,7 +151,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
     };
   }, [allValidBlocks]);
 
-  const { timelineRef, dragState, dragPreviewDate, handlePointerDown, isDragging } = useTimelineDrag({
+  const { timelineRef, dragState, dragPreviewDate, handlePointerDown, isDragging, justDraggedRef } = useTimelineDrag({
     timelineStartMs,
     totalMs,
     onBlockResize: onBlockResize
@@ -397,7 +397,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick && !isDragging ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""} ${isBeingDragged ? "ring-2 ring-primary/50 opacity-80" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
                       onClick={() => {
-                        if (!isDragging) onBlockClick?.(blockId);
+                        if (!isDragging && !justDraggedRef.current) onBlockClick?.(blockId);
                       }}
                     >
                       {/* Left grip handle */}

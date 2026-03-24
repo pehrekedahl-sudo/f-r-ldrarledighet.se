@@ -18,6 +18,7 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
   const [dragState, setDragState] = useState<DragState>(null);
   const [dragPreviewDate, setDragPreviewDate] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const justDraggedRef = useRef(false);
 
   const pctToDate = useCallback(
     (pct: number): string => {
@@ -59,6 +60,9 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
         setDragPreviewDate(null);
         return;
       }
+      // Mark that a drag just completed so click handlers can ignore
+      justDraggedRef.current = true;
+      setTimeout(() => { justDraggedRef.current = false; }, 50);
       // Only fire if date actually changed
       if (dragPreviewDate !== dragState.originalDate) {
         onBlockResize(dragState.blockId, dragState.edge === "start" ? dragPreviewDate : "", dragState.edge === "end" ? dragPreviewDate : "");
@@ -85,5 +89,6 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
     dragPreviewDate,
     handlePointerDown,
     isDragging: dragState !== null,
+    justDraggedRef,
   };
 }
