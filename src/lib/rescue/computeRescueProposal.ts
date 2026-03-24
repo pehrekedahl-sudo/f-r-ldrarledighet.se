@@ -135,37 +135,39 @@ export function allocateReductionWeeks(
     return result;
   }
 
-  // Proportional — equalize dpw first, then split remaining evenly
-  const avgDpw1 = calcAvgDpw(blocks, p1.id);
-  const avgDpw2 = calcAvgDpw(blocks, p2.id);
+  // Proportional — distribute based on each parent's share of total days consumed
+  const load1 = calcParentLoad(blocks, p1.id);
+  const load2 = calcParentLoad(blocks, p2.id);
+  const totalLoad = load1 + load2;
   const cap1 = parentCapacity(blocks, p1.id);
   const cap2 = parentCapacity(blocks, p2.id);
 
-  let assigned1 = 0;
-  let assigned2 = 0;
-  let remaining = weeksTotal;
-
-  // Phase 1: Equalize — reduce the parent with higher avg dpw first
-  if (avgDpw1 > avgDpw2) {
-    const equalizingWeeks = Math.min(remaining, cap1, Math.ceil((avgDpw1 - avgDpw2) * cap1));
-    assigned1 = equalizingWeeks;
-    remaining -= equalizingWeeks;
-  } else if (avgDpw2 > avgDpw1) {
-    const equalizingWeeks = Math.min(remaining, cap2, Math.ceil((avgDpw2 - avgDpw1) * cap2));
-    assigned2 = equalizingWeeks;
-    remaining -= equalizingWeeks;
+  if (totalLoad <= 0) {
+    // Fallback: split evenly
+    result[p1.id] = Math.ceil(weeksTotal / 2);
+    result[p2.id] = Math.floor(weeksTotal / 2);
+    return result;
   }
 
-  // Phase 2: Split remaining evenly, respecting capacity
-  while (remaining > 0) {
-    const can1 = assigned1 < cap1;
-    const can2 = assigned2 < cap2;
-    if (!can1 && !can2) break;
-    if (can1 && (!can2 || assigned1 <= assigned2)) { assigned1++; }
-    else if (can2) { assigned2++; }
-    else break;
-    remaining--;
+  const ratio1 = load1 / totalLoad;
+  const ratio2 = load2 / totalLoad;
+
+  // Initial proportional assignment
+  let assigned1 = Math.round(weeksTotal * ratio1);
+  let assigned2 = weeksTotal - assigned1;
+
+  // Clamp to capacity
+  if (assigned1 > cap1) {
+    assigned1 = cap1;
+    assigned2 = Math.min(cap2, weeksTotal - assigned1);
+  } else if (assigned2 > cap2) {
+    assigned2 = cap2;
+    assigned1 = Math.min(cap1, weeksTotal - assigned2);
   }
+
+  // If a parent is under their individual budget, keep their days intact
+  // and shift reduction to the over-budget parent
+  // (This is handled naturally by the engine extend loop, but we give a better initial estimate)
 
   result[p1.id] = assigned1;
   result[p2.id] = assigned2;
