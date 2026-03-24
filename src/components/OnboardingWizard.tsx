@@ -234,7 +234,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-base">Förälder 1</Label>
-                <Input className="text-lg h-12" placeholder="Förnamn" value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} autoFocus />
+                <Input className="text-lg h-12" placeholder="Förnamn (t.ex. du som fyller i detta)" value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} autoFocus />
+                <p className="text-sm text-muted-foreground">Förälder 1 planerar sina dagar först i nästa steg</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-base">Förälder 2</Label>
