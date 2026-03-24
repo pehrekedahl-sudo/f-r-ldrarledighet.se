@@ -340,6 +340,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
             </div>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
               <div className="mt-2 pl-1 leading-relaxed space-y-2">
@@ -353,7 +354,6 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om hur dagar fungerar →</Link>
               </div>
             </details>
-            <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
             {pillToggle(durationMode)}
 
             {durationMode === "months" ? (
@@ -428,6 +428,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
             </div>
+            <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
               <div className="mt-2 pl-1 leading-relaxed space-y-2">
@@ -442,7 +443,6 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om uttakstakt →</Link>
               </div>
             </details>
-            <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
             <p className="text-muted-foreground text-center text-sm">Antal föräldradagar ni planerar ta ut per vecka. Ni kan justera allt i planen efteråt.</p>
 
             <div className="space-y-6">
