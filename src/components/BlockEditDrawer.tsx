@@ -54,6 +54,7 @@ type Props = {
 const MAX_BLOCKS = 8;
 
 function checkOverlap(block: Block, allBlocks: Block[]): string | null {
+  if (block.isOverlap) return null;
   for (const other of allBlocks) {
     if (other.id === block.id) continue;
     if (other.parentId !== block.parentId) continue;
