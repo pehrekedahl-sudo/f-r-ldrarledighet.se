@@ -341,19 +341,6 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
-            <details className="text-sm text-muted-foreground">
-              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
-              <div className="mt-2 pl-1 leading-relaxed space-y-2">
-                <p>Du anger ungefär hur länge varje förälder tänker vara hemma på heltid. Det styr hur er plan fördelas i kalendern som skapas åt er.</p>
-                <p className="font-medium">Tänk på:</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>Det här är bara ett startförslag – du kan justera startdatum, slut­datum och överlapp direkt i Min Plan efteråt.</li>
-                  <li>FK räknar i föräldradagar (måndag–fredag), inte kalenderdagar. 6 månader heltid ≈ 130 dagar.</li>
-                  <li>Du kan ta ut föräldrapenning ända tills barnet fyller 12 år, men de flesta tar ut det mesta under de första 2 åren.</li>
-                </ul>
-                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om hur dagar fungerar →</Link>
-              </div>
-            </details>
             {pillToggle(durationMode)}
 
             {durationMode === "months" ? (
@@ -419,6 +406,19 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
               </div>
             )}
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
+              <div className="mt-2 pl-1 leading-relaxed space-y-2">
+                <p>Du anger ungefär hur länge varje förälder tänker vara hemma på heltid. Det styr hur er plan fördelas i kalendern som skapas åt er.</p>
+                <p className="font-medium">Tänk på:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>Det här är bara ett startförslag – du kan justera startdatum, slut­datum och överlapp direkt i Min Plan efteråt.</li>
+                  <li>FK räknar i föräldradagar (måndag–fredag), inte kalenderdagar. 6 månader heltid ≈ 130 dagar.</li>
+                  <li>Du kan ta ut föräldrapenning ända tills barnet fyller 12 år, men de flesta tar ut det mesta under de första 2 åren.</li>
+                </ul>
+                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om hur dagar fungerar →</Link>
+              </div>
+            </details>
           </div>
         );
 
@@ -429,20 +429,6 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
-            <details className="text-sm text-muted-foreground">
-              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
-              <div className="mt-2 pl-1 leading-relaxed space-y-2">
-                <p>Du anger i vilken takt varje förälder tar ut dagar – alltså hur stor andel av veckan ni är hemma.</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>5 dagar/vecka = heltidsuttag (vanligast i början)</li>
-                  <li>4 dagar/vecka = 80%-uttag</li>
-                  <li>3 dagar/vecka = 60%-uttag (föräldraledigheten sträcker sig längre i kalendern)</li>
-                  <li>2,5 dagar/vecka = halvtidsuttag</li>
-                </ul>
-                <p>Tänk: ju färre dagar/vecka, desto längre varar perioden i kalendern men du förbrukar lika många föräldradagar totalt. Väljer du till exempel 3 dagar/vecka sträcker sig en "månads­period" ut till nästan 7 kalenderveckor.</p>
-                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om uttakstakt →</Link>
-              </div>
-            </details>
             <p className="text-muted-foreground text-center text-sm">Antal föräldradagar ni planerar ta ut per vecka. Ni kan justera allt i planen efteråt.</p>
 
             <div className="space-y-6">
@@ -468,6 +454,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 )}
               </div>
             </div>
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
+              <div className="mt-2 pl-1 leading-relaxed space-y-2">
+                <p>Du anger i vilken takt varje förälder tar ut dagar – alltså hur stor andel av veckan ni är hemma.</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>5 dagar/vecka = heltidsuttag (vanligast i början)</li>
+                  <li>4 dagar/vecka = 80%-uttag</li>
+                  <li>3 dagar/vecka = 60%-uttag (föräldraledigheten sträcker sig längre i kalendern)</li>
+                  <li>2,5 dagar/vecka = halvtidsuttag</li>
+                </ul>
+                <p>Tänk: ju färre dagar/vecka, desto längre varar perioden i kalendern men du förbrukar lika många föräldradagar totalt. Väljer du till exempel 3 dagar/vecka sträcker sig en "månads­period" ut till nästan 7 kalenderveckor.</p>
+                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om uttakstakt →</Link>
+              </div>
+            </details>
           </div>
         );
 
