@@ -439,10 +439,11 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       key={b.id}
                       data-block-id={b.id}
                       data-overlap="true"
-                      className="absolute top-1.5 bottom-1.5 rounded-lg border border-[#235f56] bg-[#2D7A6F] text-white text-[10px] font-semibold flex items-center justify-center overflow-hidden cursor-default group transition-all shadow-sm"
+                      className={`absolute top-1.5 bottom-1.5 rounded-lg border border-[#235f56] bg-[#2D7A6F] text-white text-[10px] font-semibold flex items-center justify-center overflow-hidden group transition-all shadow-sm ${onBlockClick ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg" : "cursor-default"}`}
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 40 }}
                       onMouseEnter={() => setHoveredOverlap(b.id)}
                       onMouseLeave={() => setHoveredOverlap(null)}
+                      onClick={() => onBlockClick?.(b.id)}
                     >
                       <span className="truncate px-1">DD {days}d</span>
                       {onDeleteOverlap && (
