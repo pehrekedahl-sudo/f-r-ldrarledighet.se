@@ -163,6 +163,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     }
   };
 
+  const isOverlap = mode === "edit" && block?.isOverlap;
   const draftId = mode === "edit" && block ? block.id : `b${Date.now()}`;
   const draft: Block = {
     id: draftId,
@@ -172,6 +173,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     daysPerWeek,
     lowestDaysPerWeek: lowestDaysPerWeek > 0 ? lowestDaysPerWeek : undefined,
     overlapGroupId: mode === "edit" && block ? block.overlapGroupId : undefined,
+    isOverlap: isOverlap || undefined,
     source: "user",
   };
 
@@ -224,7 +226,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[400px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>{isCreate ? "Ny period" : `Redigera period – ${parentName}`}</SheetTitle>
+          <SheetTitle>{isCreate ? "Ny period" : isOverlap ? "Redigera dubbeldagar" : `Redigera period – ${parentName}`}</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
@@ -312,15 +314,17 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Lägstanivå per vecka: {lowestDaysPerWeek}</Label>
-                <Slider
-                  min={0} max={daysPerWeek} step={1}
-                  value={[lowestDaysPerWeek]}
-                  onValueChange={([v]) => setLowestDaysPerWeek(v)}
-                  disabled={daysPerWeek === 0}
-                />
-              </div>
+              {!isOverlap && (
+                <div className="space-y-2">
+                  <Label>Lägstanivå per vecka: {lowestDaysPerWeek}</Label>
+                  <Slider
+                    min={0} max={daysPerWeek} step={1}
+                    value={[lowestDaysPerWeek]}
+                    onValueChange={([v]) => setLowestDaysPerWeek(v)}
+                    disabled={daysPerWeek === 0}
+                  />
+                </div>
+              )}
 
               {/* Split block section */}
               {!isCreate && block && !block.isOverlap && onSplit && (
