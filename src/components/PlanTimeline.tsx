@@ -151,7 +151,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
     };
   }, [allValidBlocks]);
 
-  const { timelineRef, dragState, dragPreviewDate, handlePointerDown, isDragging } = useTimelineDrag({
+  const { timelineRef, dragState, dragPreviewDate, handlePointerDown, isDragging, justDraggedRef } = useTimelineDrag({
     timelineStartMs,
     totalMs,
     onBlockResize: onBlockResize
