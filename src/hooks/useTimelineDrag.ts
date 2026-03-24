@@ -18,6 +18,7 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
   const [dragState, setDragState] = useState<DragState>(null);
   const [dragPreviewDate, setDragPreviewDate] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const justDraggedRef = useRef(false);
 
   const pctToDate = useCallback(
     (pct: number): string => {
