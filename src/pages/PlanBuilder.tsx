@@ -3,6 +3,15 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
@@ -122,6 +131,23 @@ const PlanBuilder = () => {
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
+
+  // Overlap dialog state
+  const [overlapDialog, setOverlapDialog] = useState<{
+    open: boolean;
+    targetBlock: Block | null;
+    otherBlock: Block | null;
+    newStart: string;
+    newEnd: string;
+    overlapDays: number;
+    overlapStart: string;
+    overlapEnd: string;
+    preResizeBlocks: Block[];
+  }>({
+    open: false, targetBlock: null, otherBlock: null,
+    newStart: "", newEnd: "", overlapDays: 0,
+    overlapStart: "", overlapEnd: "", preResizeBlocks: [],
+  });
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -348,20 +374,16 @@ const PlanBuilder = () => {
     toast({ description: "Blocken har slagits ihop." });
   };
 
-  const handleBlockResize = (blockId: string, newStart: string, newEnd: string) => {
-    setHasManualEdits(true);
-    pushHistory();
+  const applyResizeWithoutOverlapCheck = useCallback((blockId: string, newStart: string, newEnd: string) => {
     const target = blocks.find(b => b.id === blockId);
     if (!target || target.isOverlap) return;
     if (compareDates(newEnd, newStart) < 0) return;
 
-    // Find DD blocks for the same parent that overlap with [newStart, newEnd]
     const ddBlocks = blocks
       .filter(b => b.isOverlap && b.parentId === target.parentId)
       .filter(b => compareDates(b.startDate, newEnd) <= 0 && compareDates(b.endDate, newStart) >= 0)
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
-    // Split the resized block around DD blocks
     let segments: { start: string; end: string }[] = [{ start: newStart, end: newEnd }];
     for (const dd of ddBlocks) {
       const newSegs: { start: string; end: string }[] = [];
@@ -380,7 +402,6 @@ const PlanBuilder = () => {
       segments = newSegs;
     }
 
-    // Build new blocks from segments
     const newBlockSegments: Block[] = segments
       .filter(seg => compareDates(seg.end, seg.start) >= 0)
       .map((seg, i) => ({
@@ -393,18 +414,11 @@ const PlanBuilder = () => {
 
     if (newBlockSegments.length === 0) return;
 
-    // Replace the original block with the new segments
     const otherBlocks = blocks.filter(b => b.id !== blockId);
-
-    // Truncate or remove sibling blocks (same parent, non-overlap) that overlap with the new range
     const truncatedOther = otherBlocks.flatMap(b => {
-      // Only truncate regular blocks for the same parent
       if (b.parentId !== target.parentId || b.isOverlap) return [b];
-      // Completely outside → keep as-is
       if (compareDates(b.endDate, newStart) < 0 || compareDates(b.startDate, newEnd) > 0) return [b];
-      // Completely inside → remove
       if (compareDates(b.startDate, newStart) >= 0 && compareDates(b.endDate, newEnd) <= 0) return [];
-      // Partial overlap — truncate
       const result: Block[] = [];
       if (compareDates(b.startDate, newStart) < 0) {
         result.push({ ...b, id: b.id, endDate: addDaysUtil(newStart, -1) });
@@ -421,7 +435,126 @@ const PlanBuilder = () => {
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+  }, [blocks, parents, transfer]);
+
+  const handleBlockResize = (blockId: string, newStart: string, newEnd: string) => {
+    setHasManualEdits(true);
+    pushHistory();
+    const target = blocks.find(b => b.id === blockId);
+    if (!target || target.isOverlap) return;
+    if (compareDates(newEnd, newStart) < 0) return;
+
+    // Detect cross-parent overlap (non-DD blocks from other parent)
+    const otherParentBlocks = blocks.filter(
+      b => b.parentId !== target.parentId && !b.isOverlap && b.id !== blockId
+    );
+    const overlapping = otherParentBlocks.find(
+      b => compareDates(b.startDate, newEnd) <= 0 && compareDates(b.endDate, newStart) >= 0
+    );
+
+    if (overlapping) {
+      // Calculate overlap range
+      const oStart = compareDates(newStart, overlapping.startDate) > 0 ? newStart : overlapping.startDate;
+      const oEnd = compareDates(newEnd, overlapping.endDate) < 0 ? newEnd : overlapping.endDate;
+      let overlapDays = 0;
+      for (let d = oStart; compareDates(d, oEnd) <= 0; d = addDaysUtil(d, 1)) {
+        if (isoWeekdayIndex(d) < 5) overlapDays++;
+      }
+
+      setOverlapDialog({
+        open: true,
+        targetBlock: target,
+        otherBlock: overlapping,
+        newStart,
+        newEnd,
+        overlapDays,
+        overlapStart: oStart,
+        overlapEnd: oEnd,
+        preResizeBlocks: blocks.map(b => ({ ...b })),
+      });
+      return;
+    }
+
+    applyResizeWithoutOverlapCheck(blockId, newStart, newEnd);
+  };
+
+  const handleOverlapCreateDD = () => {
+    if (!overlapDialog.targetBlock || !overlapDialog.otherBlock) return;
+    const { targetBlock, newStart, newEnd, overlapStart, overlapEnd } = overlapDialog;
+
+    // First apply the resize normally
+    applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+
+    // Then create DD blocks for the overlap period
+    const groupId = `overlap-${Date.now()}`;
+    const dd1: Block = {
+      id: `dd-${Date.now()}-p1`,
+      parentId: targetBlock.parentId,
+      startDate: overlapStart,
+      endDate: overlapEnd,
+      daysPerWeek: targetBlock.daysPerWeek,
+      overlapGroupId: groupId,
+      isOverlap: true,
+    };
+    const dd2: Block = {
+      id: `dd-${Date.now()}-p2`,
+      parentId: overlapDialog.otherBlock!.parentId,
+      startDate: overlapStart,
+      endDate: overlapEnd,
+      daysPerWeek: overlapDialog.otherBlock!.daysPerWeek,
+      overlapGroupId: groupId,
+      isOverlap: true,
+    };
+
+    setBlocks(prev => {
+      const withDD = normalizeBlocks([...prev, dd1, dd2]);
+      assertUniqueBlockIds(withDD, "overlapCreateDD");
+      const transfers = transferToArray(transfer);
+      savePlanInput({ parents, blocks: withDD, transfers, constants: CONSTANTS, savedDaysCount });
+      return withDD;
+    });
+
+    setOverlapDialog(prev => ({ ...prev, open: false }));
+    toast({ description: `Dubbeldagar skapade för ${overlapDialog.overlapDays} dagar` });
+  };
+
+  const handleOverlapTruncate = () => {
+    if (!overlapDialog.targetBlock || !overlapDialog.otherBlock) return;
+    const { targetBlock, otherBlock, newStart, newEnd } = overlapDialog;
+
+    // Apply the resize for the target block
+    applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+
+    // Truncate the other parent's block so it ends before the overlap
+    setBlocks(prev => {
+      const updated = prev.map(b => {
+        if (b.id === otherBlock.id) {
+          // If the target extends into the other block from the left, truncate other's start
+          if (compareDates(newStart, b.startDate) <= 0) {
+            return { ...b, startDate: addDaysUtil(newEnd, 1) };
+          }
+          // Otherwise truncate the other block's end
+          return { ...b, endDate: addDaysUtil(newStart, -1) };
+        }
+        return b;
+      }).filter(b => compareDates(b.endDate, b.startDate) >= 0);
+      const normalized = normalizeBlocks(updated);
+      assertUniqueBlockIds(normalized, "overlapTruncate");
+      const transfers = transferToArray(transfer);
+      savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
+      return normalized;
+    });
+
+    setOverlapDialog(prev => ({ ...prev, open: false }));
+    const otherName = parents.find(p => p.id === otherBlock.parentId)?.name ?? "?";
+    toast({ description: `${otherName}s block justerat` });
+  };
+
+  const handleOverlapCancel = () => {
+    // Restore blocks to pre-resize state
+    setBlocks(overlapDialog.preResizeBlocks);
+    setOverlapDialog(prev => ({ ...prev, open: false }));
   };
 
   const blockErrors = useMemo(
@@ -1341,6 +1474,31 @@ const PlanBuilder = () => {
         blocks={blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate))}
         parents={parents}
       />
+
+      {/* Overlap Dialog */}
+      <AlertDialog open={overlapDialog.open} onOpenChange={(open) => { if (!open) handleOverlapCancel(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Överlapp – vad vill du göra?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const targetName = parents.find(p => p.id === overlapDialog.targetBlock?.parentId)?.name ?? "?";
+                const otherName = parents.find(p => p.id === overlapDialog.otherBlock?.parentId)?.name ?? "?";
+                return `${targetName}s och ${otherName}s ledighet överlappar ${overlapDialog.overlapDays} dagar. Båda föräldrar kan ta ut ersättning samtidigt – det kallas dubbeldagar.`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleOverlapCreateDD} className="bg-[#4A9B8E] hover:bg-[#3d8578] text-white">
+              Skapa dubbeldagar för överlappet
+            </Button>
+            <Button variant="outline" onClick={handleOverlapTruncate}>
+              Korta ner {parents.find(p => p.id === overlapDialog.otherBlock?.parentId)?.name ?? "andra förälderns"} block istället
+            </Button>
+            <AlertDialogCancel onClick={handleOverlapCancel}>Avbryt</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
