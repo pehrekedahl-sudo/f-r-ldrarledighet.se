@@ -313,8 +313,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 <details className="text-sm text-muted-foreground mt-1">
                   <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
-                  <p className="mt-2 pl-1 leading-relaxed">Du behöver ha haft en sjukpenninggrundande inkomst (SGI) i minst 240 dagar i rad för att få ersättning på sjukpenningnivå (~80 % av lönen). Annars får du lägstanivå (180 kr/dag).</p>
-                  <a href="https://www.forsakringskassan.se" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på FK:s webbplats →</a>
+                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos FK i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
+                  <a href="https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på Försäkringskassan →</a>
                 </details>
               </div>
               <div className="space-y-2">
@@ -326,8 +326,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 <details className="text-sm text-muted-foreground mt-1">
                   <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
-                  <p className="mt-2 pl-1 leading-relaxed">Du behöver ha haft en sjukpenninggrundande inkomst (SGI) i minst 240 dagar i rad för att få ersättning på sjukpenningnivå (~80 % av lönen). Annars får du lägstanivå (180 kr/dag).</p>
-                  <a href="https://www.forsakringskassan.se" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på FK:s webbplats →</a>
+                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos FK i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
+                  <a href="https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på Försäkringskassan →</a>
                 </details>
               </div>
             </div>
@@ -339,8 +339,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
-              <Link to="/foraldraledighet-101" className="text-primary hover:underline text-sm mt-1 inline-block">Lär dig mer om hur dagar fungerar →</Link>
             </div>
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
+              <div className="mt-2 pl-1 leading-relaxed space-y-2">
+                <p>Du anger ungefär hur länge varje förälder tänker vara hemma på heltid. Det styr hur er plan fördelas i kalendern som skapas åt er.</p>
+                <p className="font-medium">Tänk på:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>Det här är bara ett startförslag – du kan justera startdatum, slut­datum och överlapp direkt i Min Plan efteråt.</li>
+                  <li>FK räknar i föräldradagar (måndag–fredag), inte kalenderdagar. 6 månader heltid ≈ 130 dagar.</li>
+                  <li>Du kan ta ut föräldrapenning ända tills barnet fyller 12 år, men de flesta tar ut det mesta under de första 2 åren.</li>
+                </ul>
+                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om hur dagar fungerar →</Link>
+              </div>
+            </details>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur länge vill ni vara hemma?</h1>
             {pillToggle(durationMode)}
 
@@ -415,8 +427,21 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
               <p>📋 Det här är ett utkast – du kan justera allt i Min Plan efteråt</p>
-              <Link to="/foraldraledighet-101" className="text-primary hover:underline text-sm mt-1 inline-block">Lär dig mer om hur dagar fungerar →</Link>
             </div>
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
+              <div className="mt-2 pl-1 leading-relaxed space-y-2">
+                <p>Du anger i vilken takt varje förälder tar ut dagar – alltså hur stor andel av veckan ni är hemma.</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>5 dagar/vecka = heltidsuttag (vanligast i början)</li>
+                  <li>4 dagar/vecka = 80%-uttag</li>
+                  <li>3 dagar/vecka = 60%-uttag (föräldraledigheten sträcker sig längre i kalendern)</li>
+                  <li>2,5 dagar/vecka = halvtidsuttag</li>
+                </ul>
+                <p>Tänk: ju färre dagar/vecka, desto längre varar perioden i kalendern men du förbrukar lika många föräldradagar totalt. Väljer du till exempel 3 dagar/vecka sträcker sig en "månads­period" ut till nästan 7 kalenderveckor.</p>
+                <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om uttakstakt →</Link>
+              </div>
+            </details>
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
             <p className="text-muted-foreground text-center text-sm">Antal föräldradagar ni planerar ta ut per vecka. Ni kan justera allt i planen efteråt.</p>
 
