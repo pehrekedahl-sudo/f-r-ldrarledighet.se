@@ -172,6 +172,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     daysPerWeek,
     lowestDaysPerWeek: lowestDaysPerWeek > 0 ? lowestDaysPerWeek : undefined,
     overlapGroupId: mode === "edit" && block ? block.overlapGroupId : undefined,
+    isOverlap: mode === "edit" && block ? block.isOverlap : undefined,
     source: "user",
   };
 
