@@ -29,21 +29,21 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(172,30%,96%)]/60 via-background to-[hsl(14,60%,96%)]/60">
       {/* Hero */}
-      <section className="max-w-2xl mx-auto px-6 pt-20 pb-14 text-center space-y-5">
+      <section className="max-w-7xl mx-auto px-6 pt-16 pb-10 text-center space-y-5">
         <h1
           className="text-4xl md:text-5xl font-normal leading-tight text-foreground"
           style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
         >
           Planera er föräldraledighet utan&nbsp;Excel‑kaos
         </h1>
-        <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
+        <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
           480 dagar. Två föräldrar. SGI-tak, lägstanivådagar, reserverade dagar, 
           fyraårsregel och en ansökan som helst ska in två månader innan. 
           Ingen normal människa håller koll på allt det där — så vi byggde ett verktyg som gör det åt er.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1">
           <Button size="lg" asChild>
-            <Link to="/wizard">Skapa vår plan</Link>
+            <Link to="/wizard">Skapa er plan</Link>
           </Button>
           <Link
             to="/foraldraledighet-101"
@@ -55,12 +55,12 @@ const Index = () => {
       </section>
 
       {/* Snapshot cards */}
-      <section className="max-w-3xl mx-auto px-6 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <section className="max-w-7xl mx-auto px-6 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-3xl mx-auto">
           {stats.map((s) => (
             <div
               key={s.number}
-              className="rounded-xl border border-border bg-card p-6 text-center space-y-3"
+              className="rounded-xl border-2 border-border bg-card shadow-sm p-6 text-center space-y-3"
             >
               <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <s.icon className="w-5 h-5 text-primary" />
@@ -81,15 +81,15 @@ const Index = () => {
       </section>
 
       {/* Timeline mockup */}
-      <section className="max-w-3xl mx-auto px-6 pb-16">
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <section className="max-w-7xl mx-auto px-6 pb-16">
+        <div className="rounded-xl border-2 border-border bg-card shadow-sm p-6 space-y-4 max-w-3xl mx-auto">
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
             Så kan en plan se ut
           </p>
           {/* Month labels */}
           <div className="flex gap-0">
             {timelineMonths.map((m) => (
-              <div key={m} className="flex-1 text-center text-[10px] text-muted-foreground">
+              <div key={m} className="flex-1 text-center text-sm text-muted-foreground">
                 {m}
               </div>
             ))}
@@ -156,7 +156,7 @@ const Index = () => {
       </section>
 
       {/* CTA */}
-      <section className="max-w-2xl mx-auto px-6 pb-20 text-center space-y-4">
+      <section className="max-w-7xl mx-auto px-6 pb-20 text-center space-y-4">
         <h2
           className="text-2xl font-normal text-foreground"
           style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
@@ -164,7 +164,7 @@ const Index = () => {
           Redo att planera?
         </h2>
         <Button size="lg" asChild>
-          <Link to="/wizard">Skapa vår plan</Link>
+          <Link to="/wizard">Skapa er plan</Link>
         </Button>
         <p className="text-sm text-muted-foreground">
           <Link
