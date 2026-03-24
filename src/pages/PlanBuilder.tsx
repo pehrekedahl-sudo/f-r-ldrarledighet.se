@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { simulatePlan } from "@/lib/simulatePlan";
 import { FK, FK_CONSTANTS, computeBlockMonthlyBenefit } from "@/lib/fkConstants";
@@ -120,6 +121,7 @@ const PlanBuilder = () => {
   const [hasManualEdits, setHasManualEdits] = useState(false);
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
@@ -753,7 +755,6 @@ const PlanBuilder = () => {
                   </div>
                   <div className="w-px h-6 bg-border/60 hidden sm:block" />
                   <div className="flex gap-1.5 flex-wrap">
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={copyPlan}>Kopiera</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={sharePlan}>Dela</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
                   </div>
@@ -764,16 +765,26 @@ const PlanBuilder = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="flex gap-2 flex-wrap">
                   {result.parentsResult.map((pr) => {
-                    const daysLeft = Math.round(pr.remaining.sicknessTransferable + pr.remaining.sicknessReserved + pr.remaining.lowest);
+                    const reservedLeft = Math.round(pr.remaining.sicknessReserved);
+                    const transferableLeft = Math.round(pr.remaining.sicknessTransferable);
+                    const lowestLeft = Math.round(pr.remaining.lowest);
+                    const daysLeft = reservedLeft + transferableLeft + lowestLeft;
                     const totalBudget = 480;
                     const used = Math.round(pr.taken.sickness + pr.taken.lowest);
                     const pct = totalBudget > 0 ? Math.min(100, Math.round((used / totalBudget) * 100)) : 0;
                     const isP1 = pr.parentId === "p1";
+                    const detailParts: string[] = [];
+                    if (reservedLeft > 0) detailParts.push(`${reservedLeft} reserv`);
+                    if (transferableLeft > 0) detailParts.push(`${transferableLeft} fritt`);
+                    if (lowestLeft > 0) detailParts.push(`${lowestLeft} lägsta`);
                     return (
                       <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-[#4A9B8E]/30 bg-white/80" : "border-[#E8735A]/30 bg-white/80"}`}>
                         <span className={`inline-block w-2 h-2 rounded-full ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} />
                         <span className="font-medium">{pr.name}</span>
-                        <span className="text-muted-foreground">{daysLeft} kvar</span>
+                        <span className="text-muted-foreground text-sm">{daysLeft} kvar</span>
+                        {detailParts.length > 0 && (
+                          <span className="text-muted-foreground text-xs">({detailParts.join(" · ")})</span>
+                        )}
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} style={{ width: `${pct}%` }} />
                         </div>
@@ -1014,12 +1025,19 @@ const PlanBuilder = () => {
                             const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
                             const topUp = (parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0) * Math.min(1, b.daysPerWeek / 5);
                             const totalMonthly = fkMonthly + topUp;
+                            const parentIncome = parents.find(p => p.id === s.parentId)?.monthlyIncomeFixed ?? 0;
+                            const salaryDiff = parentIncome - totalMonthly;
                             return (
                               <div key={b.id} className="text-xs">
                                 <div className="flex items-baseline justify-between">
                                   <span className="text-muted-foreground">{fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v</span>
                                   <span className="font-medium text-foreground tabular-nums">≈ {Math.round(totalMonthly).toLocaleString("sv-SE")} kr/mån</span>
                                 </div>
+                                {salaryDiff > 0 && (
+                                  <p className="text-[10px] text-[#E8735A] text-right tabular-nums">
+                                    –{Math.round(salaryDiff).toLocaleString("sv-SE")} kr/mån jämfört med din lön
+                                  </p>
+                                )}
                                 {topUp > 0 && (
                                   <p className="text-[10px] text-muted-foreground text-right tabular-nums">
                                     FK {Math.round(fkMonthly).toLocaleString("sv-SE")} + top-up {Math.round(topUp).toLocaleString("sv-SE")}
@@ -1038,10 +1056,22 @@ const PlanBuilder = () => {
                                   <ChevronDown className="h-3 w-3 shrink-0 transition-transform duration-200" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="pt-1 space-y-0.5 text-xs text-muted-foreground">
-                                  <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} d</p>
-                                  <p>Kvar överförbara: {Math.round(pr.remaining.sicknessTransferable)}</p>
-                                  <p>Kvar reserverade: {Math.round(pr.remaining.sicknessReserved)}</p>
-                                  <p>Kvar lägstanivå: {Math.round(pr.remaining.lowest)}</p>
+                                  <p>Uttagna denna period: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
+                                  <p>Kvar att överföra till partnern: {Math.round(pr.remaining.sicknessTransferable)} dagar</p>
+                                  <p>Reserverade (kan ej överföras): 90 dagar totalt, {Math.round(pr.remaining.sicknessReserved)} kvar att ta ut</p>
+                                  <TooltipProvider>
+                                    <p className="flex items-center gap-1">
+                                      Lägstanivådagar kvar: {Math.round(pr.remaining.lowest)} dagar
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="h-3 w-3 text-muted-foreground cursor-help inline-block" />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-[250px] text-xs">
+                                          Lägstanivådagarna (180 kr/dag) tas normalt ut sist, ofta vid deltidsuttag eller när barnet är äldre.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </p>
+                                  </TooltipProvider>
                                 </CollapsibleContent>
                               </Collapsible>
                             );
@@ -1074,27 +1104,69 @@ const PlanBuilder = () => {
                         </label>
                       </div>
                       {showTopUp && (
-                        <div className="space-y-1.5 pt-1">
-                          {result.parentSummary.map(s => (
-                            <div key={s.parentId} className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground w-16 shrink-0">{s.name}</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                placeholder="0"
-                                className="h-7 w-28 text-xs tabular-nums"
-                                value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                  const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
-                                  setParents(updated);
-                                  const transfers = transferToArray(transfer);
-                                  savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
-                                }}
-                              />
-                              <span className="text-[10px] text-muted-foreground">kr/mån</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3 pt-1">
+                          {result.parentSummary.map(s => {
+                            const parentTopUp = parents.find(p => p.id === s.parentId)?.topUpMonthly ?? 0;
+                            const parentBlks = blocks
+                              .filter(b => b.parentId === s.parentId && !b.isOverlap)
+                              .sort((a, b) => a.startDate.localeCompare(b.startDate));
+                            const periodStart = parentBlks.length > 0 ? parentBlks[0].startDate : "";
+                            const periodEnd = parentBlks.length > 0 ? parentBlks[parentBlks.length - 1].endDate : "";
+                            const totalPeriodMonths = periodStart && periodEnd
+                              ? Math.max(1, Math.round(diffDaysInclusive(periodStart, periodEnd) / 30.44))
+                              : 0;
+                            const tuMonths = topUpMonths[s.parentId] ?? 3;
+                            const topUpEndDate = periodStart ? addMonths(periodStart, tuMonths) : "";
+
+                            return (
+                              <div key={s.parentId} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-16 shrink-0">{s.name}</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    placeholder="0"
+                                    className="h-7 w-28 text-xs tabular-nums"
+                                    value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                      const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
+                                      setParents(updated);
+                                      const transfers = transferToArray(transfer);
+                                      savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                    }}
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">kr/mån</span>
+                                </div>
+                                {parentTopUp > 0 && (
+                                  <div className="pl-[4.5rem] space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top-up gäller i</span>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        max={18}
+                                        className="h-6 w-14 text-xs tabular-nums"
+                                        value={tuMonths}
+                                        onChange={(e) => {
+                                          const val = Math.max(1, Math.min(18, parseInt(e.target.value) || 1));
+                                          setTopUpMonths(prev => ({ ...prev, [s.parentId]: val }));
+                                        }}
+                                      />
+                                      <span className="text-[10px] text-muted-foreground">månader</span>
+                                    </div>
+                                    {totalPeriodMonths > 0 && (
+                                      <p className={`text-[10px] ${tuMonths >= totalPeriodMonths ? "text-[#4A9B8E]" : "text-muted-foreground"}`}>
+                                        {tuMonths >= totalPeriodMonths
+                                          ? "Täcker hela ledighetsperioden ✓"
+                                          : `Täcker ${tuMonths} av ${totalPeriodMonths} månaders ledighet – top-up tar slut ${topUpEndDate}`}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
