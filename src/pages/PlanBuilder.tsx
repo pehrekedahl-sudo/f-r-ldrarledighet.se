@@ -1517,6 +1517,30 @@ const PlanBuilder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Dela din plan</DialogTitle>
+            <DialogDescription>Skicka länken till din partner eller spara den som bokmärke.</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={shareUrl} className="text-xs" onClick={(e) => (e.target as HTMLInputElement).select()} />
+            <Button variant="outline" size="icon" className="shrink-0" onClick={copyShareUrl}>
+              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
+              <Copy className="h-4 w-4" />Kopiera länk
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
+              <Mail className="h-4 w-4" />Skicka via e-post
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
