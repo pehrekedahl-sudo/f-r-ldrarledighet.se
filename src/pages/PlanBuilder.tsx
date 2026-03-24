@@ -132,11 +132,6 @@ const PlanBuilder = () => {
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
 
-  }>({
-    open: false, targetBlock: null, otherBlock: null,
-    newStart: "", newEnd: "", overlapDays: 0,
-    overlapStart: "", overlapEnd: "", preResizeBlocks: [],
-  });
 
   const loadFromLocalStorage = useCallback(() => {
     const saved = loadPlanInput() as any;
