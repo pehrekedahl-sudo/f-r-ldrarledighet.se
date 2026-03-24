@@ -435,8 +435,8 @@ const PlanBuilder = () => {
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
-  }, [blocks, parents, transfer, savedDaysCount]);
+    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+  }, [blocks, parents, transfer]);
 
   const handleBlockResize = (blockId: string, newStart: string, newEnd: string) => {
     setHasManualEdits(true);
