@@ -9,7 +9,8 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type Block = {
   id: string;
@@ -47,21 +48,13 @@ function formatDate(iso: string): string {
   return `${y}-${m}-${d}`;
 }
 
-function formatDateReadable(iso: string): string {
-  const months = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
-  const [y, m, d] = iso.split("-");
-  return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
-}
-
 function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
   const parentMap = new Map(parents.map(p => [p.id, p.name]));
-
   const sorted = [...blocks]
     .filter(b => b.daysPerWeek > 0)
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   const steps: FKStep[] = [];
-
   for (const block of sorted) {
     const parentName = parentMap.get(block.parentId) ?? block.parentId;
     const lowestDays = block.lowestDaysPerWeek ?? 0;
@@ -77,7 +70,6 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
         level: "Sjukpenningnivå",
       });
     }
-
     if (lowestDays > 0) {
       steps.push({
         parentId: block.parentId,
@@ -89,21 +81,25 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
       });
     }
   }
-
   return steps;
 }
 
 export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: FKGuideDrawerProps) {
+  const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
-  const steps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
+  const fkSteps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
+
+  const copyPeriod = (step: FKStep) => {
+    const text = `Förälder: ${step.parentName}\nPeriod: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}\nUttag: ${step.daysPerWeek} dagar/vecka · ${step.level}`;
+    navigator.clipboard.writeText(text);
+    toast({ description: "Period kopierad" });
+  };
 
   const handlePrint = () => {
     const content = printRef.current;
     if (!content) return;
-
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -114,22 +110,16 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; color: #1a1a1a; }
           h1 { font-size: 20px; margin-bottom: 4px; }
           .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
-          .step { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; page-break-inside: avoid; }
-          .step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-          .step-num { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-          .parent-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
-          .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-          .dot-p1 { background: #4A9B8E; }
-          .dot-p2 { background: #E8735A; }
-          .field { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-          .field:last-child { border-bottom: none; }
+          .step-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; page-break-inside: avoid; }
+          .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+          .step-num { width: 28px; height: 28px; border-radius: 50%; background: #4A9B8E; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+          .step-title { font-weight: 700; font-size: 14px; }
+          .field { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
           .field-label { color: #666; }
-          .field-value { font-weight: 600; }
-          .level-sjuk { color: #4A9B8E; }
-          .level-lagst { color: #E8735A; }
-          .tip { background: #f8f8f8; border-radius: 6px; padding: 12px; margin-top: 24px; font-size: 12px; color: #555; }
-          .tip strong { color: #333; }
-          @media print { body { padding: 16px; } .step { break-inside: avoid; } }
+          .field-value { font-weight: 600; font-family: monospace; }
+          .warning { margin-top: 16px; padding: 12px; background: #FFF8F0; border-radius: 6px; font-size: 12px; }
+          .warning li { margin-bottom: 6px; }
+          @media print { body { padding: 16px; } .step-card { break-inside: avoid; } .no-print { display: none !important; } }
         </style>
       </head>
       <body>
@@ -139,106 +129,147 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 300);
+    setTimeout(() => printWindow.print(), 300);
   };
+
+  // Total guide steps = 1 (login) + N (periods) + 1 (warnings) + 1 (PDF) 
+  const totalSteps = 1 + fkSteps.length + 1 + 1;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[92vh]">
         <DrawerHeader className="text-left">
-          <DrawerTitle className="text-lg">FK-guide</DrawerTitle>
+          <DrawerTitle className="text-xl" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
+            Så här anmäler du till FK – steg för steg
+          </DrawerTitle>
           <DrawerDescription>
-            Steg-för-steg instruktioner för att registrera din plan på Försäkringskassan
+            Ingen API-koppling finns – du anmäler manuellt på Mina sidor. Vi har förberett all information åt dig.
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="overflow-y-auto px-4 pb-2 flex-1">
-          {/* Printable content */}
-          <div ref={printRef}>
+          <div ref={printRef} className="space-y-3">
+            {/* Hidden print title */}
             <h1 style={{ display: "none" }}>FK-guide – Föräldrapenning</h1>
-            <p className="subtitle" style={{ display: "none" }}>
-              Anmälningar att registrera på forsakringskassan.se
-            </p>
+            <p className="subtitle" style={{ display: "none" }}>Anmälningar att registrera på forsakringskassan.se</p>
 
-            {steps.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                Inga perioder att registrera. Lägg till block i din plan först.
+            {/* STEP 1: Login */}
+            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
+              <div className="step-header flex items-center gap-3">
+                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">1</span>
+                <span className="step-title font-bold text-sm text-foreground">Logga in på Mina sidor</span>
+              </div>
+              <p className="text-sm text-[#2D3748] pl-10">
+                Gå till Försäkringskassan → Mina sidor → Föräldrapenning → Anmäl ledighet.
               </p>
-            ) : (
-              <div className="space-y-3">
-                {steps.map((step, i) => {
-                  const isP1 = step.parentId === "p1";
-                  return (
-                    <div
-                      key={`${step.startDate}-${step.parentId}-${step.level}-${i}`}
-                      className="step rounded-lg border border-border bg-card p-4"
-                    >
-                      <div className="step-header flex items-center justify-between mb-3">
-                        <span className="step-num text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                          Steg {i + 1} av {steps.length}
-                        </span>
-                        <span className="parent-badge flex items-center gap-1.5 font-semibold text-sm">
-                          <span className={`dot inline-block w-2 h-2 rounded-full ${isP1 ? "dot-p1 bg-[#4A9B8E]" : "dot-p2 bg-[#E8735A]"}`} />
-                          {step.parentName}
-                        </span>
-                      </div>
+              <div className="pl-10 no-print">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning", "_blank")}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Öppna FK →
+                </Button>
+              </div>
+            </div>
 
-                      <div className="space-y-0">
-                        <div className="field flex items-center justify-between py-1.5 border-b border-border/50 text-sm">
-                          <span className="field-label text-muted-foreground">Startdatum</span>
-                          <span className="field-value font-semibold font-mono text-sm">{formatDate(step.startDate)}</span>
-                        </div>
-                        <div className="field flex items-center justify-between py-1.5 border-b border-border/50 text-sm">
-                          <span className="field-label text-muted-foreground">Slutdatum</span>
-                          <span className="field-value font-semibold font-mono text-sm">{formatDate(step.endDate)}</span>
-                        </div>
-                        <div className="field flex items-center justify-between py-1.5 border-b border-border/50 text-sm">
-                          <span className="field-label text-muted-foreground">Dagar per vecka</span>
-                          <span className="field-value font-semibold">{step.daysPerWeek}</span>
-                        </div>
-                        <div className="field flex items-center justify-between py-1.5 text-sm">
-                          <span className="field-label text-muted-foreground">Nivå</span>
-                          <span className={`field-value font-semibold ${step.level === "Sjukpenningnivå" ? "text-[#4A9B8E] level-sjuk" : "text-[#E8735A] level-lagst"}`}>
-                            {step.level}
-                          </span>
-                        </div>
+            {/* STEPS 2..N+1: Period cards */}
+            {fkSteps.map((step, i) => {
+              const stepNum = i + 2;
+              const isP1 = step.parentId === "p1";
+              return (
+                <div key={`${step.startDate}-${step.parentId}-${step.level}-${i}`} className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
+                  <div className="step-header flex items-center gap-3">
+                    <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{stepNum}</span>
+                    <span className="step-title font-bold text-sm text-foreground">
+                      Anmäl {step.parentName}s period{fkSteps.filter(s => s.parentId === step.parentId).length > 1 ? ` (${step.level.toLowerCase()})` : ""}
+                    </span>
+                  </div>
+                  <div className="pl-10">
+                    <div className={`rounded-lg bg-white border border-border p-3 text-sm font-mono space-y-1 border-l-[3px] ${isP1 ? "border-l-[#4A9B8E]" : "border-l-[#E8735A]"}`}>
+                      <div className="field flex justify-between">
+                        <span className="field-label text-muted-foreground font-sans">Förälder</span>
+                        <span className="field-value font-semibold font-sans">{step.parentName}</span>
+                      </div>
+                      <div className="field flex justify-between">
+                        <span className="field-label text-muted-foreground font-sans">Period</span>
+                        <span className="field-value font-semibold">{formatDate(step.startDate)} – {formatDate(step.endDate)}</span>
+                      </div>
+                      <div className="field flex justify-between">
+                        <span className="field-label text-muted-foreground font-sans">Uttag</span>
+                        <span className="field-value font-semibold font-sans">{step.daysPerWeek} dagar/vecka · <span className={isP1 ? "text-[#4A9B8E]" : "text-[#E8735A]"}>{step.level}</span></span>
                       </div>
                     </div>
-                  );
-                })}
-
-                {/* Instruction tip */}
-                <div className="tip rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground space-y-1.5">
-                  <p className="font-medium text-foreground flex items-center gap-1.5">
-                    <span>💡</span> Så här gör du
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-xs">
-                    <li>Logga in på <strong>forsakringskassan.se</strong> med BankID</li>
-                    <li>Gå till <strong>Föräldrapenning → Anmäl föräldrapenning</strong></li>
-                    <li>Fyll i uppgifterna från varje steg ovan — ett steg = en anmälan</li>
-                    <li>Om ni är två föräldrar, logga in med respektive BankID</li>
-                  </ol>
+                    <div className="mt-2 no-print">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-xs text-muted-foreground"
+                        onClick={() => copyPeriod(step)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Kopiera period
+                      </Button>
+                    </div>
+                  </div>
                 </div>
+              );
+            })}
+
+            {/* STEP N+2: Warnings */}
+            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
+              <div className="step-header flex items-center gap-3">
+                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 2}</span>
+                <span className="step-title font-bold text-sm text-foreground">Viktigt att tänka på</span>
               </div>
-            )}
+              <ul className="pl-10 space-y-2 text-sm text-[#2D3748]">
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>Anmäl senast 2 månader innan ledigheten börjar</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>Du kan bara anmäla en period i taget – kom ihåg att anmäla {parents.length >= 2 ? `${parents[1].name}s` : "varje"} period separat</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>Föräldrapenning betalas inte ut automatiskt – varje ny period måste anmälas</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>Du kan ändra eller avboka en period fram till 1 dag innan den börjar</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* STEP N+3: PDF */}
+            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
+              <div className="step-header flex items-center gap-3">
+                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 3}</span>
+                <span className="step-title font-bold text-sm text-foreground">Ladda ner som PDF</span>
+              </div>
+              <p className="text-sm text-[#2D3748] pl-10">
+                Spara din plan som PDF att ha till hands när du anmäler.
+              </p>
+              <div className="pl-10 no-print">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={handlePrint}
+                  disabled={fkSteps.length === 0}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Ladda ner PDF
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <DrawerFooter className="flex-row gap-2">
-          <Button
-            variant="outline"
-            className="flex-1 gap-2"
-            onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning", "_blank")}
-          >
-            <ExternalLink className="h-4 w-4" />
-            Öppna FK
-          </Button>
-          <Button className="flex-1 gap-2" onClick={handlePrint} disabled={steps.length === 0}>
-            <Download className="h-4 w-4" />
-            Ladda ner PDF
-          </Button>
+        <DrawerFooter>
           <DrawerClose asChild>
             <Button variant="ghost" size="sm">Stäng</Button>
           </DrawerClose>
