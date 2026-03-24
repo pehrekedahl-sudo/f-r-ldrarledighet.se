@@ -224,7 +224,9 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[360px] sm:w-[400px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>{isCreate ? "Ny period" : `Redigera period – ${parentName}`}</SheetTitle>
+          <SheetTitle>
+            {isCreate ? "Ny period" : block?.isOverlap ? `Redigera dubbeldagar – ${parentName}` : `Redigera period – ${parentName}`}
+          </SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
@@ -403,6 +405,12 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                     Det sammanslagna blocket får det nuvarande blockets uttagstakt ({daysPerWeek} d/v).
                   </p>
                 </div>
+              )}
+
+              {!isCreate && block?.isOverlap && (
+                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                  ℹ️ Ändringar av uttagstakt synkas automatiskt med den andra förälderns dubbeldag.
+                </p>
               )}
 
               {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
