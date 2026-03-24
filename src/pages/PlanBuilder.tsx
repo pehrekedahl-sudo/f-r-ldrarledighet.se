@@ -775,7 +775,7 @@ const PlanBuilder = () => {
                     const isP1 = pr.parentId === "p1";
                     const detailParts: string[] = [];
                     if (reservedLeft > 0) detailParts.push(`${reservedLeft} reserv`);
-                    if (transferableLeft > 0) detailParts.push(`${transferableLeft} fritt`);
+                    if (transferableLeft > 0) detailParts.push(`${transferableLeft} sjukpenning`);
                     if (lowestLeft > 0) detailParts.push(`${lowestLeft} lägsta`);
                     return (
                       <div key={pr.parentId} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${isP1 ? "border-[#4A9B8E]/30 bg-white/80" : "border-[#E8735A]/30 bg-white/80"}`}>
