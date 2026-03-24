@@ -89,5 +89,6 @@ export function useTimelineDrag({ timelineStartMs, totalMs, onBlockResize }: Use
     dragPreviewDate,
     handlePointerDown,
     isDragging: dragState !== null,
+    justDraggedRef,
   };
 }
