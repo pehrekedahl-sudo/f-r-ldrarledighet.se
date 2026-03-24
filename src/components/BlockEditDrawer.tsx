@@ -407,6 +407,12 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                 </div>
               )}
 
+              {!isCreate && block?.isOverlap && (
+                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                  ℹ️ Ändringar av uttagstakt synkas automatiskt med den andra förälderns dubbeldag.
+                </p>
+              )}
+
               {overlapError && <p className="text-xs text-destructive font-medium">{overlapError}</p>}
               {validationError && <p className="text-xs text-destructive font-medium">{validationError}</p>}
               {maxBlocksError && <p className="text-xs text-destructive font-medium">{maxBlocksError}</p>}
