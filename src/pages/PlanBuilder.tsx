@@ -857,27 +857,6 @@ const PlanBuilder = () => {
               </div>
             </section>
 
-            {/* ── FK GUIDE SECTION ── */}
-            <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-center mb-2">
-                  <ClipboardList className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setFkGuideOpen(true)}
-              >
-                <ClipboardList className="w-4 h-4" />
-                Visa steg-för-steg guide
-              </Button>
-            </section>
-
             {/* ── TWO-COLUMN: JUSTERA + ERSÄTTNING ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left: Justera planen */}
@@ -1195,6 +1174,27 @@ const PlanBuilder = () => {
                 );
               })()}
             </div>
+
+            {/* ── FK GUIDE SECTION ── */}
+            <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-center mb-2">
+                  <ClipboardList className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setFkGuideOpen(true)}
+              >
+                <ClipboardList className="w-4 h-4" />
+                Visa steg-för-steg guide
+              </Button>
+            </section>
           </>
         );
       })()}
