@@ -227,13 +227,13 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
             <Label htmlFor="transfer-days-input">Sjukpenningdagar</Label>
             <Input
               id="transfer-days-input"
-              type="number"
-              min={0}
-              max={maxSicknessDays}
-              value={days || ""}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={days === 0 ? "" : days}
               onChange={(e) => {
-                const v = Math.max(0, Math.min(maxSicknessDays, Math.floor(Number(e.target.value) || 0)));
-                setDays(v);
+                const v = e.target.value.replace(/\D/g, "");
+                setDays(v === "" ? 0 : Math.min(maxSicknessDays, Number(v)));
               }}
             />
             <p className="text-xs text-muted-foreground">Max {maxSicknessDays} sjukpenningdagar</p>
@@ -244,13 +244,13 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
             <Label htmlFor="transfer-lowest-input">Lägstanivådagar</Label>
             <Input
               id="transfer-lowest-input"
-              type="number"
-              min={0}
-              max={maxLowestDays}
-              value={lowestDays || ""}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={lowestDays === 0 ? "" : lowestDays}
               onChange={(e) => {
-                const v = Math.max(0, Math.min(maxLowestDays, Math.floor(Number(e.target.value) || 0)));
-                setLowestDays(v);
+                const v = e.target.value.replace(/\D/g, "");
+                setLowestDays(v === "" ? 0 : Math.min(maxLowestDays, Number(v)));
               }}
             />
             <p className="text-xs text-muted-foreground">Max {maxLowestDays} lägstanivådagar</p>

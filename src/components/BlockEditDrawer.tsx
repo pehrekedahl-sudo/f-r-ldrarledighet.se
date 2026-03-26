@@ -283,9 +283,13 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
                     />
                     <div className="flex items-center gap-2">
                       <Input
-                        type="number" min={1} max={104}
-                        value={weeks}
-                        onChange={(e) => handleWeeksChange(Number(e.target.value) || 1)}
+                        type="text" inputMode="numeric" pattern="[0-9]*"
+                        value={weeks === 0 ? "" : weeks}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "");
+                          handleWeeksChange(v === "" ? 0 : Number(v));
+                        }}
+                        onBlur={() => { if (weeks < 1) handleWeeksChange(1); }}
                         className="w-24"
                       />
                       <span className="text-xs text-muted-foreground">

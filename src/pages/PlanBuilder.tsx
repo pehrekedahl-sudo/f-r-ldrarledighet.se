@@ -713,7 +713,7 @@ const PlanBuilder = () => {
                     </div>
                     <div className="space-y-1">
                       <Label>Dagar / vecka</Label>
-                      <Input type="number" min={0} max={7} value={block.daysPerWeek} onChange={(e) => updateBlock(block.id, { daysPerWeek: Number(e.target.value) })} />
+                      <Input type="text" inputMode="numeric" pattern="[0-9]*" value={block.daysPerWeek === 0 ? "" : block.daysPerWeek} onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); updateBlock(block.id, { daysPerWeek: v === "" ? 0 : Math.min(7, Number(v)) }); }} />
                     </div>
                     <div className="space-y-1">
                       <Label>Startdatum</Label>
@@ -725,7 +725,7 @@ const PlanBuilder = () => {
                     </div>
                     <div className="space-y-1">
                       <Label>Lägstanivådagar / vecka (valfritt)</Label>
-                      <Input type="number" min={0} max={7} placeholder="—" value={block.lowestDaysPerWeek ?? ""} onChange={(e) => updateBlock(block.id, { lowestDaysPerWeek: e.target.value === "" ? undefined : Number(e.target.value) })} />
+                      <Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="—" value={block.lowestDaysPerWeek ?? ""} onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); updateBlock(block.id, { lowestDaysPerWeek: v === "" ? undefined : Math.min(7, Number(v)) }); }} />
                     </div>
                   </div>
                   {err && <p className="text-xs text-destructive">{err}</p>}
@@ -784,11 +784,11 @@ const PlanBuilder = () => {
                 </div>
                 <div className="space-y-1">
                   <Label>Månader {parents[0].name}</Label>
-                  <Input type="number" min={0} value={months1} onChange={(e) => setMonths1(Math.max(0, Number(e.target.value) || 0))} />
+                  <Input type="text" inputMode="numeric" pattern="[0-9]*" value={months1 === 0 ? "" : months1} onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); setMonths1(v === "" ? 0 : Number(v)); }} />
                 </div>
                 <div className="space-y-1">
                   <Label>Månader {parents[1].name}</Label>
-                  <Input type="number" min={0} value={months2} onChange={(e) => setMonths2(Math.max(0, Number(e.target.value) || 0))} />
+                  <Input type="text" inputMode="numeric" pattern="[0-9]*" value={months2 === 0 ? "" : months2} onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); setMonths2(v === "" ? 0 : Number(v)); }} />
                 </div>
               </div>
               <Button size="sm" disabled={!dueDate} onClick={() => {
@@ -1274,13 +1274,14 @@ const PlanBuilder = () => {
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-muted-foreground w-16 shrink-0">{s.name}</span>
                                   <Input
-                                    type="number"
-                                    min={0}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     placeholder="0"
                                     className="h-7 w-28 text-xs tabular-nums"
                                     value={parents.find(p => p.id === s.parentId)?.topUpMonthly || ""}
                                     onChange={(e) => {
-                                      const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                      const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value.replace(/\D/g, "")) || 0);
                                       const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
                                       setParents(updated);
                                       const transfers = transferToArray(transfer);
@@ -1294,13 +1295,14 @@ const PlanBuilder = () => {
                                     <div className="flex items-center gap-2">
                                       <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top-up gäller i</span>
                                       <Input
-                                        type="number"
-                                        min={1}
-                                        max={18}
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         className="h-6 w-14 text-xs tabular-nums"
-                                        value={tuMonths}
+                                        value={tuMonths === 0 ? "" : tuMonths}
                                         onChange={(e) => {
-                                          const val = Math.max(1, Math.min(18, parseInt(e.target.value) || 1));
+                                          const v = e.target.value.replace(/\D/g, "");
+                                          const val = v === "" ? 0 : Math.min(18, Number(v));
                                           setTopUpMonths(prev => ({ ...prev, [s.parentId]: val }));
                                         }}
                                       />

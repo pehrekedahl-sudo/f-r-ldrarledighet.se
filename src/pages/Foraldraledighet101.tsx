@@ -259,7 +259,7 @@ const Foraldraledighet101 = () => (
                 Färre dagar nu = mer flexibilitet senare.
               </p>
               <WarnBox className="mt-2">
-                <strong>SGI-varning efter 1-årsdagen:</strong> Från barnets 1-årsdag måste du ta ut minst 5 hela föräldradagar
+                <strong>SGI-varning efter 1-årsdagen:</strong> Från barnets 1-årsdag måste du ta ut minst 7 hela föräldradagar
                 i veckan om du är hemma och inte jobbar – annars räknar FK om din SGI till din faktiska (lägre) inkomst.
                 Det slår mot vad du får vid sjukdom och framtida föräldraledigheter. Jobbar du deltid och tar ut föräldradagar
                 för resterande tid är du skyddad.

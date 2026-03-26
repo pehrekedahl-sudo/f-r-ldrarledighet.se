@@ -306,7 +306,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-base">Månadsinkomst {parent1Name || "Förälder 1"} (kr)</Label>
-                <Input type="number" min={0} className="text-lg h-12" value={income1} onChange={(e) => setIncome1(e.target.value)} autoFocus />
+                <Input type="text" inputMode="numeric" pattern="[0-9]*" className="text-lg h-12" value={income1} onChange={(e) => setIncome1(e.target.value.replace(/\D/g, ""))} autoFocus />
                 <div className="flex items-center gap-2 pt-1">
                   <Checkbox id="has240-1" checked={has240Days1} onCheckedChange={(c) => setHas240Days1(!!c)} />
                   <label htmlFor="has240-1" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
@@ -319,7 +319,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               </div>
               <div className="space-y-2">
                 <Label className="text-base">Månadsinkomst {parent2Name || "Förälder 2"} (kr)</Label>
-                <Input type="number" min={0} className="text-lg h-12" value={income2} onChange={(e) => setIncome2(e.target.value)} />
+                <Input type="text" inputMode="numeric" pattern="[0-9]*" className="text-lg h-12" value={income2} onChange={(e) => setIncome2(e.target.value.replace(/\D/g, ""))} />
                 <div className="flex items-center gap-2 pt-1">
                   <Checkbox id="has240-2" checked={has240Days2} onCheckedChange={(c) => setHas240Days2(!!c)} />
                   <label htmlFor="has240-2" className="text-sm text-muted-foreground cursor-pointer">Haft inkomst i minst 240 dagar</label>
@@ -348,24 +348,32 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <div className="space-y-2">
                   <Label className="text-base">{parent1Name || "Förälder 1"} – antal månader</Label>
                   <Input
-                    type="number"
-                    min={1}
-                    max={24}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="text-lg h-12"
-                    value={months1}
-                    onChange={(e) => setMonths1(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                    value={months1 === 0 ? "" : months1}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setMonths1(v === "" ? 0 : Math.min(24, Number(v)));
+                    }}
+                    onBlur={() => { if (months1 < 1) setMonths1(1); }}
                     autoFocus
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-base">{parent2Name || "Förälder 2"} – antal månader</Label>
                   <Input
-                    type="number"
-                    min={1}
-                    max={24}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="text-lg h-12"
-                    value={months2}
-                    onChange={(e) => setMonths2(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                    value={months2 === 0 ? "" : months2}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setMonths2(v === "" ? 0 : Math.min(24, Number(v)));
+                    }}
+                    onBlur={() => { if (months2 < 1) setMonths2(1); }}
                   />
                 </div>
               </div>
@@ -521,7 +529,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center">
+      <div className="flex-1 flex flex-col justify-start pt-4">
         {stepContent()}
       </div>
 

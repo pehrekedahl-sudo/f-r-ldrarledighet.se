@@ -98,13 +98,15 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
             <Label htmlFor="double-days-input">Antal dagar</Label>
             <Input
               id="double-days-input"
-              type="number"
-              min={1}
-              max={maxDoubleDays}
-              value={numDays}
-              onChange={(e) =>
-                setNumDays(Math.max(1, Math.min(maxDoubleDays, Math.floor(Number(e.target.value) || 1))))
-              }
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={numDays === 0 ? "" : numDays}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "");
+                setNumDays(v === "" ? 0 : Math.min(maxDoubleDays, Number(v)));
+              }}
+              onBlur={() => { if (numDays < 1) setNumDays(1); }}
             />
             <p className="text-xs text-muted-foreground">Max {maxDoubleDays} dagar under barnets första levnadsår.</p>
           </div>
@@ -113,13 +115,15 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
             <Label htmlFor="double-days-dpw">Dagar per vecka</Label>
             <Input
               id="double-days-dpw"
-              type="number"
-              min={1}
-              max={5}
-              value={daysPerWeek}
-              onChange={(e) =>
-                setDaysPerWeek(Math.max(1, Math.min(5, Math.floor(Number(e.target.value) || 5))))
-              }
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={daysPerWeek === 0 ? "" : daysPerWeek}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "");
+                setDaysPerWeek(v === "" ? 0 : Math.min(5, Number(v)));
+              }}
+              onBlur={() => { if (daysPerWeek < 1) setDaysPerWeek(1); }}
             />
           </div>
 
