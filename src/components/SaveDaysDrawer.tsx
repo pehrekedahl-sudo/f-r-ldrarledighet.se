@@ -504,13 +504,14 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
             <Label htmlFor="target-days-input">Hur många dagar vill du spara?</Label>
             <Input
               id="target-days-input"
-              type="number"
-              min={0}
-              max={maxDays}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={rawInput}
               onChange={(e) => {
-                setRawInput(e.target.value);
-                applyValue(Number(e.target.value));
+                const v = e.target.value.replace(/\D/g, "");
+                setRawInput(v);
+                if (v !== "") applyValue(Number(v));
               }}
               onBlur={() => setRawInput(String(targetDays))}
             />

@@ -137,7 +137,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[92vh]">
+      <DrawerContent className="max-h-[92vh] max-w-2xl mx-auto">
         <DrawerHeader className="text-left">
           <DrawerTitle className="text-xl" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
             Så här anmäler du till FK – steg för steg
