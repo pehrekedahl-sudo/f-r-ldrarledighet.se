@@ -1,21 +1,24 @@
 
 
-# Byt produktnamn och domän (reviderad)
+# Uppdatera logotypen i TopNav
 
-## Ändringar
+## Ändring
 
-### 1. `index.html`
-- `<title>` → "Planera din föräldraledighet"
-- `og:title` och `twitter:title` → samma
+**Fil:** `src/components/TopNav.tsx` rad 18–19
 
-### 2. `src/components/TopNav.tsx` (rad 19)
-- Logotyptext: `föräldrarledig.se` → `Planera din föräldraledighet`
+Byt från en enda `<span>` med "Planera din föräldraledighet" till två separata `<span>`-element:
 
-### 3. `src/pages/Foraldraledighet101.tsx` (rad 320)
-- `föräldrarledig.se hjälper er…` → `Planera din föräldraledighet hjälper er…`
+- **"Planera"** — `font-bold text-lg text-foreground` (tydlig, stark framtoning)
+- **"föräldraledighet"** — `font-normal text-lg text-muted-foreground` (subtilare, lättare vikt)
 
-### 4. Memory-uppdatering
-Uppdatera brand/identity-memoryn med nytt namn och domän (`planeraföräldraledighet.se`).
+Tar bort "din" helt.
 
-Totalt 3 filer, inga strukturella ändringar.
+```tsx
+<Link to="/" className="flex items-center gap-1.5">
+  <span className="font-bold text-lg tracking-tight text-foreground">Planera</span>
+  <span className="font-normal text-lg tracking-tight text-muted-foreground">föräldraledighet</span>
+</Link>
+```
+
+En fil, en ändring.
 
