@@ -16,7 +16,7 @@ const TopNav = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
       <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
         <Link to="/" className="text-base font-semibold tracking-tight text-foreground">
-          föräldrarledig.se
+          Planera din föräldraledighet
         </Link>
 
         {/* Desktop nav */}
