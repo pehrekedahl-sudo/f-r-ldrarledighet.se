@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RotateCcw, Upload, Lightbulb } from "lucide-react";
 import { saveWizardDraft, loadWizardDraft, clearAllDrafts } from "@/lib/persistence";
 import { addDays, addMonths, diffDaysInclusive } from "@/utils/dateOnly";
+import { computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 
 export type WizardResult = {
   parent1Name: string;
