@@ -565,6 +565,15 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               </div>
             </div>
 
+            {/* Live feedback summary */}
+            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-center space-y-1">
+              {hasIncome && (
+                <p className="font-medium">~{Math.round(combinedMonthly).toLocaleString("sv-SE")} kr/mån sammanlagt från FK</p>
+              )}
+              <p className="text-muted-foreground">
+                {daysConsumed} dagar förbrukas · {daysRemaining} dagar kvar av 390
+              </p>
+            </div>
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
               <div className="mt-2 pl-1 leading-relaxed space-y-2">
