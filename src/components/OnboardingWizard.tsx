@@ -87,15 +87,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
   /** Compute suggested days/week based on months and preference.
    *  For "save": uses both parents' months to budget 214 days total (390 - 176 reserved). */
-  const computeSuggestion = (months: number, preference: "income" | "save" | "balanced", months1Total?: number, months2Total?: number): number => {
+  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): number => {
+    const totalWeeks = (m1Val * 4.33) + (m2Val * 4.33);
     const SGI_DAYS = 195;
-    const weeksNeeded = months * 4.33;
+    const longestMonths = Math.max(m1Val, m2Val);
+    const weeksNeeded = longestMonths * 4.33;
     const baseDpw = SGI_DAYS / weeksNeeded;
     switch (preference) {
-      case "income": return Math.min(7, Math.ceil(baseDpw + 1));
+      case "income": return Math.max(3, Math.min(7, Math.floor(390 / totalWeeks)));
       case "save": {
-        const SAVE_BUDGET = 214; // 390 - 176 reserved for later
-        const totalWeeks = ((months1Total ?? months) * 4.33) + ((months2Total ?? months) * 4.33);
+        const SAVE_BUDGET = 214;
         return Math.max(3, Math.min(7, Math.floor(SAVE_BUDGET / totalWeeks)));
       }
       case "balanced": return Math.max(2, Math.min(7, Math.round(baseDpw)));
@@ -106,16 +107,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setSelectedPreference(pref);
     const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
     const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-    if (pref === "save") {
-      const dpw = computeSuggestion(0, "save", m1, m2);
-      setDpw1(dpw);
-      setDpw2(dpw);
-    } else {
-      const totalMonths = Math.max(1, Math.max(m1, m2));
-      const dpw = computeSuggestion(totalMonths, pref);
-      setDpw1(dpw);
-      setDpw2(dpw);
-    }
+    const dpw = computeSuggestion(pref, m1, m2);
+    setDpw1(dpw);
+    setDpw2(dpw);
   };
 
   // Sync preBirthDate when choice is "1week"
@@ -471,9 +465,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
         const totalMonths = Math.max(1, Math.max(m1, m2));
         const sug = (pref: "income" | "save" | "balanced") => {
-          const dpw = pref === "save"
-            ? computeSuggestion(0, "save", m1, m2)
-            : computeSuggestion(totalMonths, pref);
+          const dpw = computeSuggestion(pref, m1, m2);
           return { p1: dpw, p2: dpw };
         };
 
@@ -487,16 +479,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
           : 0;
 
-        // Income card: check if 7dpw exceeds 390 days
-        const totalDaysAt7 = Math.round((7 * m1 * 4.33) + (7 * m2 * 4.33));
-        const excess = Math.max(0, totalDaysAt7 - 390);
-        const weeksAt5 = Math.ceil(excess / 2);
-        const incomeDesc = excess > 0
-          ? `7 d/v — ${weeksAt5} veckor behöver vara 5 d/v för att dagarna ska räcka`
-          : "Maximera ersättningen under ledigheten";
-
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
-          { key: "income", emoji: "💰", title: "Hög inkomst", desc: incomeDesc },
+          { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 390-dagarsbudgeten" },
           { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
           { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
         ];
