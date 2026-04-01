@@ -471,9 +471,21 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
         const totalMonths = Math.max(1, Math.max(m1, m2));
         const sug = (pref: "income" | "save" | "balanced") => {
-          const dpw = computeSuggestion(totalMonths, pref);
+          const dpw = pref === "save"
+            ? computeSuggestion(0, "save", m1, m2)
+            : computeSuggestion(totalMonths, pref);
           return { p1: dpw, p2: dpw };
         };
+
+        // Live feedback calculations
+        const daysConsumed = Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
+        const daysRemaining = 390 - daysConsumed;
+        const inc1Num = Number(income1) || 0;
+        const inc2Num = Number(income2) || 0;
+        const hasIncome = inc1Num > 0 && inc2Num > 0;
+        const combinedMonthly = hasIncome
+          ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
+          : 0;
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
           { key: "income", emoji: "💰", title: "Hög inkomst", desc: "Maximera ersättningen under ledigheten" },
