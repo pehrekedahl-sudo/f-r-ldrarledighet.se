@@ -553,7 +553,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 {selectedPreference && (
                   <p className="text-sm text-muted-foreground text-center animate-in fade-in duration-150">
-                    Förslaget baseras på er totala ledighetsperiod ({Math.max(m1, m2)} mån). Justera gärna med slidersen nedan.
+                    Förslaget baseras på er totala ledighetsperiod ({m1 + m2} mån). Justera gärna med slidersen nedan.
                   </p>
                 )}
               </div>
