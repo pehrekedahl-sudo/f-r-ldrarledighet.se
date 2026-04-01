@@ -487,8 +487,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
           : 0;
 
+        // Income card: check if 7dpw exceeds 390 days
+        const totalDaysAt7 = Math.round((7 * m1 * 4.33) + (7 * m2 * 4.33));
+        const excess = Math.max(0, totalDaysAt7 - 390);
+        const weeksAt5 = Math.ceil(excess / 2);
+        const incomeDesc = excess > 0
+          ? `7 d/v — ${weeksAt5} veckor behöver vara 5 d/v för att dagarna ska räcka`
+          : "Maximera ersättningen under ledigheten";
+
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
-          { key: "income", emoji: "💰", title: "Hög inkomst", desc: "Maximera ersättningen under ledigheten" },
+          { key: "income", emoji: "💰", title: "Hög inkomst", desc: incomeDesc },
           { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
           { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
         ];
@@ -566,13 +574,18 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             </div>
 
             {/* Live feedback summary */}
-            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-center space-y-1">
+            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm space-y-1.5">
               {hasIncome && (
-                <p className="font-medium">~{Math.round(combinedMonthly).toLocaleString("sv-SE")} kr/mån sammanlagt från FK</p>
+                <div className="space-y-0.5">
+                  <p className="font-medium">{parent1Name || "Förälder 1"}: ~{Math.round(computeBlockMonthlyBenefit(inc1Num, daysPerWeek1)).toLocaleString("sv-SE")} kr/mån från FK</p>
+                  <p className="font-medium">{parent2Name || "Förälder 2"}: ~{Math.round(computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)).toLocaleString("sv-SE")} kr/mån från FK</p>
+                </div>
               )}
-              <p className="text-muted-foreground">
-                {daysConsumed} dagar förbrukas · {daysRemaining} dagar kvar av 390
+              <p className="text-muted-foreground text-center">
+                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 390
+                {daysRemaining < 0 && <span className="text-destructive ml-1">(⚠️ överskrider med {Math.abs(daysRemaining)} dagar)</span>}
               </p>
+              <p className="text-xs text-muted-foreground/70 text-center">I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat.</p>
             </div>
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
