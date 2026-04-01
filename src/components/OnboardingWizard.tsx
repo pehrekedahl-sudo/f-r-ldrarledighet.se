@@ -465,9 +465,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
         const totalMonths = Math.max(1, Math.max(m1, m2));
         const sug = (pref: "income" | "save" | "balanced") => {
-          const dpw = pref === "save"
-            ? computeSuggestion(0, "save", m1, m2)
-            : computeSuggestion(totalMonths, pref);
+          const dpw = computeSuggestion(pref, m1, m2);
           return { p1: dpw, p2: dpw };
         };
 
