@@ -457,10 +457,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 5: {
         const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-        const sug = (pref: "income" | "save" | "balanced") => ({
-          p1: computeSuggestion(Math.max(1, m1), pref),
-          p2: computeSuggestion(Math.max(1, m2), pref),
-        });
+        const totalMonths = Math.max(1, Math.max(m1, m2));
+        const sug = (pref: "income" | "save" | "balanced") => {
+          const dpw = computeSuggestion(totalMonths, pref);
+          return { p1: dpw, p2: dpw };
+        };
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
           { key: "income", emoji: "💰", title: "Hög inkomst", desc: "Maximera ersättningen under ledigheten" },
