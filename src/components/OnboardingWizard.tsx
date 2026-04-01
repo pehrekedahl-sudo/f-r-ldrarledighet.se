@@ -85,21 +85,41 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
 
-  /** Compute suggested days/week based on months and preference.
-   *  For "save": uses both parents' months to budget 214 days total (390 - 176 reserved). */
-  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): number => {
-    const totalWeeks = (m1Val * 4.33) + (m2Val * 4.33);
+  /** Compute suggested days/week based on months and preference. */
+  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): { p1: number; p2: number } => {
+    const weeks1 = m1Val * 4.33;
+    const weeks2 = m2Val * 4.33;
+    const totalWeeks = weeks1 + weeks2;
     const SGI_DAYS = 195;
     const longestMonths = Math.max(m1Val, m2Val);
     const weeksNeeded = longestMonths * 4.33;
     const baseDpw = SGI_DAYS / weeksNeeded;
+    const clamp = (v: number) => Math.max(3, Math.min(7, v));
+
     switch (preference) {
-      case "income": return Math.max(3, Math.min(7, Math.floor(390 / totalWeeks)));
+      case "income": {
+        // Maximize: start with uniform base, then greedily increase each parent
+        const base = clamp(Math.floor(390 / totalWeeks));
+        let p1 = base;
+        let p2 = base;
+        // Try increasing p1
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
+        // Try increasing p2
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        // Try increasing p1 again
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        return { p1, p2 };
+      }
       case "save": {
         const SAVE_BUDGET = 214;
-        return Math.max(3, Math.min(7, Math.floor(SAVE_BUDGET / totalWeeks)));
+        const dpw = clamp(Math.floor(SAVE_BUDGET / totalWeeks));
+        return { p1: dpw, p2: dpw };
       }
-      case "balanced": return Math.max(2, Math.min(7, Math.round(baseDpw)));
+      case "balanced": {
+        const dpw = clamp(Math.round(baseDpw));
+        return { p1: dpw, p2: dpw };
+      }
     }
   };
 
