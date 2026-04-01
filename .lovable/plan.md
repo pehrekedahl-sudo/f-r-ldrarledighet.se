@@ -1,63 +1,50 @@
 
 
-# Smart förslag för uttagstakt i steg 5
+# Uppdaterad plan: Spara dagar + live-feedback
 
-## Idé
+## Korrigering av "Spara dagar"-logik
 
-En "Hjälp mig välja"-knapp under slidersen i steg 5. Vid klick expanderas tre valkort. Valet sätter slidern automatiskt — men med **adaptiv logik** baserat på hur länge varje förälder vill vara ledig (steg 4).
+Målet är **176 dagar kvar TOTALT för paret** (inte per förälder). Paret har 390 SGI-dagar (195 × 2). Alltså får de spendera max **390 - 176 = 214 dagar** totalt.
 
-## Beräkningslogik
-
-Varje förälder har ~195 SGI-dagar. Önskad längd i månader ger önskat antal veckor. Formeln:
+Eftersom `computeSuggestion` returnerar samma dpw för båda föräldrar och `applyPreference` sätter samma värde:
 
 ```text
-baseDpw = 195 / (months × 4.33)   // "perfekt passning"
-
-Inkomst-fokus:  min(7, ceil(baseDpw + 1))   → fler dagar/vecka, dagarna tar slut snabbare
-Spara dagar:    max(2, floor(baseDpw - 1))   → färre dagar/vecka, dagar finns kvar efteråt  
-Balanserat:     clamp(round(baseDpw), 2, 7)  → ungefär jämnt
+totalAvailable = 214 dagar att spendera (för båda tillsammans)
+totalWeeks = weeks1 + weeks2  (varje förälders månader × 4.33)
+saveDpw = max(3, floor(214 / totalWeeks))
 ```
 
-**Exempel:**
-- 6 mån → base ≈ 7.5 → inkomst: 7, balans: 7, spara: 5
-- 12 mån → base ≈ 3.75 → inkomst: 5, balans: 4, spara: 3
-- 18 mån → base ≈ 2.5 → inkomst: 4, balans: 3, spara: 2
+Golv: 3 dagar/vecka — aldrig lägre förslag.
 
-Varje förälder beräknas separat (de kan ha olika `months`).
+### Ändring i `computeSuggestion`
 
-## UI
+Funktionen behöver nu veta **båda föräldrarnas månader** för "save"-fallet. Uppdatera signaturen till att ta `months1` och `months2` separat, eller skicka in totalWeeks. "Income" och "balanced" fortsätter använda `totalMonths` som idag.
 
-Under slidersen, före `<details>`:
+### Ändring i `applyPreference`
+
+Skicka in m1 och m2 till `computeSuggestion` för "save"-beräkningen.
+
+## Live-feedback under slidersen
+
+En sammanfattningsrad efter båda slidersen:
 
 ```text
-┌──────────────────────────────────────────┐
-│  💡 Hjälp mig välja                      │
-└──────────────────────────────────────────┘
-
-  ↓ expanderar ↓
-
-┌──────────┐  ┌──────────┐  ┌──────────┐
-│ 💰 Hög   │  │ ⚖️ Balans│  │ 🏖️ Spara │
-│ inkomst  │  │          │  │ dagar    │
-│          │  │          │  │          │
-│ P1: 7d/v │  │ P1: 4d/v │  │ P1: 3d/v │
-│ P2: 5d/v │  │ P2: 4d/v │  │ P2: 3d/v │
-└──────────┘  └──────────┘  └──────────┘
-
-  "Baserat på era önskade perioder föreslår vi…"
+~56 800 kr/mån sammanlagt · 208 dagar förbrukas · 182 dagar kvar
 ```
 
-Korten visar de beräknade värdena per förälder. Vid klick sätts slidersen och en kort förklaring visas.
+- `daysConsumed = (dpw1 × m1 × 4.33) + (dpw2 × m2 × 4.33)` — avrundad till heltal
+- `daysRemaining = 390 - daysConsumed`
+- `monthlyBenefit = computeBlockMonthlyBenefit(income1, dpw1) + computeBlockMonthlyBenefit(income2, dpw2)` — visas bara om inkomst angetts
+- Importera `computeBlockMonthlyBenefit` från `@/lib/fkConstants`
 
-## Teknisk ändring
+## Teknisk omfattning
 
-**Enda fil: `src/components/OnboardingWizard.tsx`**
+**En fil:** `src/components/OnboardingWizard.tsx`
 
-1. Ny state: `showHelper: boolean`, `selectedPreference: string | null`
-2. Ny funktion `computeSuggestion(months, preference)` → returnerar dpw (integer 2–7)
-3. Tre klickbara kort under slidersen med `variant="outline"`, highlight vid valt
-4. Vid klick: anropar `setDpw1` / `setDpw2` med beräknade värden
-5. Användaren kan fortfarande justera manuellt efteråt
+1. Uppdatera `computeSuggestion` — "save" använder `(m1 + m2)` veckor, 214 dagars budget, golv 3
+2. Uppdatera `applyPreference` och `sug()` att skicka m1/m2
+3. Importera `computeBlockMonthlyBenefit`
+4. Lägg till live-feedback `<div>` efter slidersen (före `<details>`)
 
-~80 rader tillagda, ingen ny fil.
+~35 rader ändrade/tillagda.
 
