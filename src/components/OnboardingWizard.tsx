@@ -76,11 +76,33 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   // Step 5: Days per week
   const [daysPerWeek1, setDaysPerWeek1] = useState(draft?.daysPerWeek1 ?? 5);
   const [daysPerWeek2, setDaysPerWeek2] = useState(draft?.daysPerWeek2 ?? 5);
+  const [showHelper, setShowHelper] = useState(false);
+  const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
 
   const [hasDraft] = useState(() => !!loadWizardDraft());
 
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
+
+  /** Compute suggested days/week based on months and preference */
+  const computeSuggestion = (months: number, preference: "income" | "save" | "balanced"): number => {
+    const SGI_DAYS = 195;
+    const weeksNeeded = months * 4.33;
+    const baseDpw = SGI_DAYS / weeksNeeded;
+    switch (preference) {
+      case "income": return Math.min(7, Math.ceil(baseDpw + 1));
+      case "save": return Math.max(2, Math.floor(baseDpw - 1));
+      case "balanced": return Math.max(2, Math.min(7, Math.round(baseDpw)));
+    }
+  };
+
+  const applyPreference = (pref: "income" | "save" | "balanced") => {
+    setSelectedPreference(pref);
+    const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
+    const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
+    setDpw1(computeSuggestion(Math.max(1, m1), pref));
+    setDpw2(computeSuggestion(Math.max(1, m2), pref));
+  };
 
   // Sync preBirthDate when choice is "1week"
   useEffect(() => {
