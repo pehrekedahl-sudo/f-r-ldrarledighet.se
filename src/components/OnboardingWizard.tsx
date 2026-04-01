@@ -85,14 +85,19 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
 
-  /** Compute suggested days/week based on months and preference */
-  const computeSuggestion = (months: number, preference: "income" | "save" | "balanced"): number => {
+  /** Compute suggested days/week based on months and preference.
+   *  For "save": uses both parents' months to budget 214 days total (390 - 176 reserved). */
+  const computeSuggestion = (months: number, preference: "income" | "save" | "balanced", months1Total?: number, months2Total?: number): number => {
     const SGI_DAYS = 195;
     const weeksNeeded = months * 4.33;
     const baseDpw = SGI_DAYS / weeksNeeded;
     switch (preference) {
       case "income": return Math.min(7, Math.ceil(baseDpw + 1));
-      case "save": return Math.max(2, Math.floor(baseDpw - 1));
+      case "save": {
+        const SAVE_BUDGET = 214; // 390 - 176 reserved for later
+        const totalWeeks = ((months1Total ?? months) * 4.33) + ((months2Total ?? months) * 4.33);
+        return Math.max(3, Math.min(7, Math.floor(SAVE_BUDGET / totalWeeks)));
+      }
       case "balanced": return Math.max(2, Math.min(7, Math.round(baseDpw)));
     }
   };
@@ -101,10 +106,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setSelectedPreference(pref);
     const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
     const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-    const totalMonths = Math.max(1, Math.max(m1, m2));
-    const dpw = computeSuggestion(totalMonths, pref);
-    setDpw1(dpw);
-    setDpw2(dpw);
+    if (pref === "save") {
+      const dpw = computeSuggestion(0, "save", m1, m2);
+      setDpw1(dpw);
+      setDpw2(dpw);
+    } else {
+      const totalMonths = Math.max(1, Math.max(m1, m2));
+      const dpw = computeSuggestion(totalMonths, pref);
+      setDpw1(dpw);
+      setDpw2(dpw);
+    }
   };
 
   // Sync preBirthDate when choice is "1week"
