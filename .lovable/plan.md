@@ -1,46 +1,33 @@
 
 
-# Ändringar i steg 5 — tre justeringar
+# Fix: Hög inkomst-kortet och live-feedback
 
-## 1. Live-feedback: per förälder istället för sammanlagt
+## Problem
 
-Bryt upp den nuvarande sammanlagda raden till att visa FK-ersättning **per förälder**, plus dagar sammanlagt:
+1. **"Hög inkomst"-kortet är motsägelsefullt**: Beskrivningen säger "7 d/v — 48 veckor behöver vara 5 d/v" men föreslår sedan 6 d/v. Användaren förstår inte vad som gäller.
+2. **Live-feedbacken visar fortfarande "överskrider med 26 dagar"** — det beror på att income-förslaget sätter en dpw som ändå spräcker 390-budgeten.
 
-```text
-Anna: ~28 400 kr/mån från FK
-Erik: ~24 200 kr/mån från FK
-208 dagar förbrukas · 182 dagar kvar av 390
+## Lösning
+
+Förenkla income-logiken: istället för att prata om "7 d/v med vissa veckor på 5 d/v", beräkna helt enkelt **högsta möjliga dpw som ryms inom 390 dagar**:
+
+```
+maxDpw = min(7, floor(390 / totalWeeks))
 ```
 
-Dagarna visas fortfarande sammanlagt (som nu).
+Kortet visar sedan t.ex. "Maximalt uttag — 5 dagar/vecka" med en enkel beskrivning. Inga motstridiga meddelanden.
 
-## 2. Hög inkomst-kortet: aldrig visa negativa dagar
+## Tekniska ändringar i `src/components/OnboardingWizard.tsx`
 
-Om "income"-förslaget (7 d/v) resulterar i fler än 390 dagar, beräkna hur många veckor som behöver vara 5 d/v istället:
+1. **`computeSuggestion` — income-fallet (rad 95)**: Byt från `Math.ceil(baseDpw + 1)` till `Math.min(7, Math.floor(390 / totalWeeks))`. Behöver m1/m2 även för income, precis som save.
 
-```text
-excess = totalDaysAt7 - 390
-weeksAt5 = ceil(excess / 2)
-```
+2. **`sug()` (rad 473-478)**: Skicka m1/m2 till computeSuggestion även för income/balanced.
 
-Visa i kortets beskrivning: *"7 d/v — {X} veckor behöver vara 5 d/v för att dagarna ska räcka"* istället för att visa ett negativt dagar-kvar-värde. Sätt dpw till 7 som förslag men tillåt att live-feedbacken visar korrekt (negativa dagar visas aldrig — cappa till 0 med varningstext).
+3. **`applyPreference` (rad 105-118)**: Skicka m1/m2 till alla anrop.
 
-## 3. Tydlig CTA om nästa steg
+4. **Income-kortets beskrivning (rad 490-496)**: Ta bort "weeksAt5"-logiken. Visa istället en enkel beskrivning: `"Maximalt uttag — ta ut så mycket som möjligt"`.
 
-Lägg till en rad under live-feedbacken (eller i den befintliga info-bannern):
+5. **Kortets dpw-display (rad 537-539)**: Visa det faktiska föreslagna värdet (inte "7 d/v" separat).
 
-```text
-"I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat."
-```
-
-## Teknisk omfattning
-
-**En fil:** `src/components/OnboardingWizard.tsx`
-
-1. **Rad 569-576**: Refaktorera live-feedback — visa `benefit1` och `benefit2` separat med föräldrarnas namn, behåll dagar som sammanlagt
-2. **Rad 490-493**: Uppdatera `prefCards` — income-kortets `desc` blir dynamiskt baserat på om 7dpw överstiger 390
-3. **Rad 529-531**: Uppdatera kortets detail-rad för income att visa "X veckor på 5 d/v"
-4. **Rad 498-499**: Uppdatera info-bannern eller lägg till ny rad under live-feedback om att man kan finslipa i planen
-
-~30 rader ändrade.
+~15 rader ändrade.
 
