@@ -452,7 +452,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           </div>
         );
 
-      case 5:
+      case 5: {
+        const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
+        const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
+        const sug = (pref: "income" | "save" | "balanced") => ({
+          p1: computeSuggestion(Math.max(1, m1), pref),
+          p2: computeSuggestion(Math.max(1, m2), pref),
+        });
+
+        const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
+          { key: "income", emoji: "💰", title: "Hög inkomst", desc: "Maximera ersättningen under ledigheten" },
+          { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
+          { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
+        ];
+
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-foreground">
@@ -467,7 +480,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Label className="text-base">{parent1Name || "Förälder 1"}</Label>
                   <span className="text-lg font-semibold">{daysPerWeek1} dagar/vecka</span>
                 </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => setDpw1(v)} />
+                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); }} />
                 {daysPerWeek1 === 0 && (
                   <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
                 )}
@@ -478,12 +491,54 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Label className="text-base">{parent2Name || "Förälder 2"}</Label>
                   <span className="text-lg font-semibold">{daysPerWeek2} dagar/vecka</span>
                 </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => setDpw2(v)} />
+                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => { setDpw2(v); setSelectedPreference(null); }} />
                 {daysPerWeek2 === 0 && (
                   <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
                 )}
               </div>
             </div>
+
+            {/* Smart suggestion helper */}
+            {!showHelper ? (
+              <Button variant="outline" className="w-full gap-2 text-muted-foreground" onClick={() => setShowHelper(true)}>
+                <Lightbulb className="h-4 w-4" />
+                Hjälp mig välja
+              </Button>
+            ) : (
+              <div className="space-y-3 animate-in fade-in duration-200">
+                <p className="text-sm text-muted-foreground text-center">Vad är viktigast för er?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {prefCards.map(({ key, emoji, title, desc }) => {
+                    const s = sug(key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => applyPreference(key)}
+                        className={`flex flex-col items-center text-center gap-1.5 px-3 py-4 rounded-lg border transition-colors ${
+                          selectedPreference === key
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                            : "border-border bg-card hover:bg-muted"
+                        }`}
+                      >
+                        <span className="text-xl">{emoji}</span>
+                        <span className="text-sm font-medium">{title}</span>
+                        <span className="text-xs text-muted-foreground leading-tight">{desc}</span>
+                        <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                          <div>{parent1Name || "F1"}: {s.p1}d/v</div>
+                          <div>{parent2Name || "F2"}: {s.p2}d/v</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedPreference && (
+                  <p className="text-sm text-muted-foreground text-center animate-in fade-in duration-150">
+                    Förslaget baseras på era önskade perioder ({m1} + {m2} mån). Justera gärna med slidersen ovan.
+                  </p>
+                )}
+              </div>
+            )}
+
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
               <div className="mt-2 pl-1 leading-relaxed space-y-2">
@@ -500,6 +555,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             </details>
           </div>
         );
+      }
 
       default:
         return null;
