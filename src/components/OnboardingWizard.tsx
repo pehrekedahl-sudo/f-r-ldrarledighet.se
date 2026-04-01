@@ -107,9 +107,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     setSelectedPreference(pref);
     const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
     const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-    const dpw = computeSuggestion(pref, m1, m2);
-    setDpw1(dpw);
-    setDpw2(dpw);
+    const { p1, p2 } = computeSuggestion(pref, m1, m2);
+    setDpw1(p1);
+    setDpw2(p2);
   };
 
   // Sync preBirthDate when choice is "1week"
