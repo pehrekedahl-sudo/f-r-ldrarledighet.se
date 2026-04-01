@@ -87,15 +87,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
   /** Compute suggested days/week based on months and preference.
    *  For "save": uses both parents' months to budget 214 days total (390 - 176 reserved). */
-  const computeSuggestion = (months: number, preference: "income" | "save" | "balanced", months1Total?: number, months2Total?: number): number => {
+  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): number => {
+    const totalWeeks = (m1Val * 4.33) + (m2Val * 4.33);
     const SGI_DAYS = 195;
-    const weeksNeeded = months * 4.33;
+    const longestMonths = Math.max(m1Val, m2Val);
+    const weeksNeeded = longestMonths * 4.33;
     const baseDpw = SGI_DAYS / weeksNeeded;
     switch (preference) {
-      case "income": return Math.min(7, Math.ceil(baseDpw + 1));
+      case "income": return Math.max(3, Math.min(7, Math.floor(390 / totalWeeks)));
       case "save": {
-        const SAVE_BUDGET = 214; // 390 - 176 reserved for later
-        const totalWeeks = ((months1Total ?? months) * 4.33) + ((months2Total ?? months) * 4.33);
+        const SAVE_BUDGET = 214;
         return Math.max(3, Math.min(7, Math.floor(SAVE_BUDGET / totalWeeks)));
       }
       case "balanced": return Math.max(2, Math.min(7, Math.round(baseDpw)));
