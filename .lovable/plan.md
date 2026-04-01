@@ -1,50 +1,46 @@
 
 
-# Uppdaterad plan: Spara dagar + live-feedback
+# Ändringar i steg 5 — tre justeringar
 
-## Korrigering av "Spara dagar"-logik
+## 1. Live-feedback: per förälder istället för sammanlagt
 
-Målet är **176 dagar kvar TOTALT för paret** (inte per förälder). Paret har 390 SGI-dagar (195 × 2). Alltså får de spendera max **390 - 176 = 214 dagar** totalt.
-
-Eftersom `computeSuggestion` returnerar samma dpw för båda föräldrar och `applyPreference` sätter samma värde:
+Bryt upp den nuvarande sammanlagda raden till att visa FK-ersättning **per förälder**, plus dagar sammanlagt:
 
 ```text
-totalAvailable = 214 dagar att spendera (för båda tillsammans)
-totalWeeks = weeks1 + weeks2  (varje förälders månader × 4.33)
-saveDpw = max(3, floor(214 / totalWeeks))
+Anna: ~28 400 kr/mån från FK
+Erik: ~24 200 kr/mån från FK
+208 dagar förbrukas · 182 dagar kvar av 390
 ```
 
-Golv: 3 dagar/vecka — aldrig lägre förslag.
+Dagarna visas fortfarande sammanlagt (som nu).
 
-### Ändring i `computeSuggestion`
+## 2. Hög inkomst-kortet: aldrig visa negativa dagar
 
-Funktionen behöver nu veta **båda föräldrarnas månader** för "save"-fallet. Uppdatera signaturen till att ta `months1` och `months2` separat, eller skicka in totalWeeks. "Income" och "balanced" fortsätter använda `totalMonths` som idag.
-
-### Ändring i `applyPreference`
-
-Skicka in m1 och m2 till `computeSuggestion` för "save"-beräkningen.
-
-## Live-feedback under slidersen
-
-En sammanfattningsrad efter båda slidersen:
+Om "income"-förslaget (7 d/v) resulterar i fler än 390 dagar, beräkna hur många veckor som behöver vara 5 d/v istället:
 
 ```text
-~56 800 kr/mån sammanlagt · 208 dagar förbrukas · 182 dagar kvar
+excess = totalDaysAt7 - 390
+weeksAt5 = ceil(excess / 2)
 ```
 
-- `daysConsumed = (dpw1 × m1 × 4.33) + (dpw2 × m2 × 4.33)` — avrundad till heltal
-- `daysRemaining = 390 - daysConsumed`
-- `monthlyBenefit = computeBlockMonthlyBenefit(income1, dpw1) + computeBlockMonthlyBenefit(income2, dpw2)` — visas bara om inkomst angetts
-- Importera `computeBlockMonthlyBenefit` från `@/lib/fkConstants`
+Visa i kortets beskrivning: *"7 d/v — {X} veckor behöver vara 5 d/v för att dagarna ska räcka"* istället för att visa ett negativt dagar-kvar-värde. Sätt dpw till 7 som förslag men tillåt att live-feedbacken visar korrekt (negativa dagar visas aldrig — cappa till 0 med varningstext).
+
+## 3. Tydlig CTA om nästa steg
+
+Lägg till en rad under live-feedbacken (eller i den befintliga info-bannern):
+
+```text
+"I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat."
+```
 
 ## Teknisk omfattning
 
 **En fil:** `src/components/OnboardingWizard.tsx`
 
-1. Uppdatera `computeSuggestion` — "save" använder `(m1 + m2)` veckor, 214 dagars budget, golv 3
-2. Uppdatera `applyPreference` och `sug()` att skicka m1/m2
-3. Importera `computeBlockMonthlyBenefit`
-4. Lägg till live-feedback `<div>` efter slidersen (före `<details>`)
+1. **Rad 569-576**: Refaktorera live-feedback — visa `benefit1` och `benefit2` separat med föräldrarnas namn, behåll dagar som sammanlagt
+2. **Rad 490-493**: Uppdatera `prefCards` — income-kortets `desc` blir dynamiskt baserat på om 7dpw överstiger 390
+3. **Rad 529-531**: Uppdatera kortets detail-rad för income att visa "X veckor på 5 d/v"
+4. **Rad 498-499**: Uppdatera info-bannern eller lägg till ny rad under live-feedback om att man kan finslipa i planen
 
-~35 rader ändrade/tillagda.
+~30 rader ändrade.
 
