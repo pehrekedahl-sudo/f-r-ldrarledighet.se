@@ -477,30 +477,6 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <h1 className="text-3xl font-bold tracking-tight text-center">Hur många dagar per vecka?</h1>
             <p className="text-muted-foreground text-center text-sm">Antal föräldradagar ni planerar ta ut per vecka. Ni kan justera allt i planen efteråt.</p>
 
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base">{parent1Name || "Förälder 1"}</Label>
-                  <span className="text-lg font-semibold">{daysPerWeek1} dagar/vecka</span>
-                </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); }} />
-                {daysPerWeek1 === 0 && (
-                  <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base">{parent2Name || "Förälder 2"}</Label>
-                  <span className="text-lg font-semibold">{daysPerWeek2} dagar/vecka</span>
-                </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => { setDpw2(v); setSelectedPreference(null); }} />
-                {daysPerWeek2 === 0 && (
-                  <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
-                )}
-              </div>
-            </div>
-
             {/* Smart suggestion helper */}
             {!showHelper ? (
               <Button variant="outline" className="w-full gap-2 text-muted-foreground" onClick={() => setShowHelper(true)}>
@@ -527,8 +503,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                         <span className="text-sm font-medium">{title}</span>
                         <span className="text-xs text-muted-foreground leading-tight">{desc}</span>
                         <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                          <div>{parent1Name || "F1"}: {s.p1}d/v</div>
-                          <div>{parent2Name || "F2"}: {s.p2}d/v</div>
+                          <div>{s.p1} dagar/vecka</div>
                         </div>
                       </button>
                     );
@@ -536,11 +511,35 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 {selectedPreference && (
                   <p className="text-sm text-muted-foreground text-center animate-in fade-in duration-150">
-                    Förslaget baseras på era önskade perioder ({m1} + {m2} mån). Justera gärna med slidersen ovan.
+                    Förslaget baseras på er totala ledighetsperiod ({Math.max(m1, m2)} mån). Justera gärna med slidersen nedan.
                   </p>
                 )}
               </div>
             )}
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base">{parent1Name || "Förälder 1"}</Label>
+                  <span className="text-lg font-semibold">{daysPerWeek1} dagar/vecka</span>
+                </div>
+                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); }} />
+                {daysPerWeek1 === 0 && (
+                  <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base">{parent2Name || "Förälder 2"}</Label>
+                  <span className="text-lg font-semibold">{daysPerWeek2} dagar/vecka</span>
+                </div>
+                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => { setDpw2(v); setSelectedPreference(null); }} />
+                {daysPerWeek2 === 0 && (
+                  <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
+                )}
+              </div>
+            </div>
 
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground transition-colors">ℹ️ Vad bestämmer jag här?</summary>
