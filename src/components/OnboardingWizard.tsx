@@ -538,7 +538,14 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                         <span className="text-sm font-medium">{title}</span>
                         <span className="text-xs text-muted-foreground leading-tight">{desc}</span>
                         <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                          <div>{s.p1} dagar/vecka</div>
+                          {s.p1 === s.p2 ? (
+                            <div>{s.p1} d/v</div>
+                          ) : (
+                            <>
+                              <div>{parent1Name || "F1"}: {s.p1} d/v</div>
+                              <div>{parent2Name || "F2"}: {s.p2} d/v</div>
+                            </>
+                          )}
                         </div>
                       </button>
                     );
