@@ -487,8 +487,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
           : 0;
 
+        // Income card: check if 7dpw exceeds 390 days
+        const totalDaysAt7 = Math.round((7 * m1 * 4.33) + (7 * m2 * 4.33));
+        const excess = Math.max(0, totalDaysAt7 - 390);
+        const weeksAt5 = Math.ceil(excess / 2);
+        const incomeDesc = excess > 0
+          ? `7 d/v — ${weeksAt5} veckor behöver vara 5 d/v för att dagarna ska räcka`
+          : "Maximera ersättningen under ledigheten";
+
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
-          { key: "income", emoji: "💰", title: "Hög inkomst", desc: "Maximera ersättningen under ledigheten" },
+          { key: "income", emoji: "💰", title: "Hög inkomst", desc: incomeDesc },
           { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
           { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
         ];
