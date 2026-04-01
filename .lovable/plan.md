@@ -1,24 +1,63 @@
 
 
-# Uppdatera logotypen i TopNav
+# Smart förslag för uttagstakt i steg 5
 
-## Ändring
+## Idé
 
-**Fil:** `src/components/TopNav.tsx` rad 18–19
+En "Hjälp mig välja"-knapp under slidersen i steg 5. Vid klick expanderas tre valkort. Valet sätter slidern automatiskt — men med **adaptiv logik** baserat på hur länge varje förälder vill vara ledig (steg 4).
 
-Byt från en enda `<span>` med "Planera din föräldraledighet" till två separata `<span>`-element:
+## Beräkningslogik
 
-- **"Planera"** — `font-bold text-lg text-foreground` (tydlig, stark framtoning)
-- **"föräldraledighet"** — `font-normal text-lg text-muted-foreground` (subtilare, lättare vikt)
+Varje förälder har ~195 SGI-dagar. Önskad längd i månader ger önskat antal veckor. Formeln:
 
-Tar bort "din" helt.
+```text
+baseDpw = 195 / (months × 4.33)   // "perfekt passning"
 
-```tsx
-<Link to="/" className="flex items-center gap-1.5">
-  <span className="font-bold text-lg tracking-tight text-foreground">Planera</span>
-  <span className="font-normal text-lg tracking-tight text-muted-foreground">föräldraledighet</span>
-</Link>
+Inkomst-fokus:  min(7, ceil(baseDpw + 1))   → fler dagar/vecka, dagarna tar slut snabbare
+Spara dagar:    max(2, floor(baseDpw - 1))   → färre dagar/vecka, dagar finns kvar efteråt  
+Balanserat:     clamp(round(baseDpw), 2, 7)  → ungefär jämnt
 ```
 
-En fil, en ändring.
+**Exempel:**
+- 6 mån → base ≈ 7.5 → inkomst: 7, balans: 7, spara: 5
+- 12 mån → base ≈ 3.75 → inkomst: 5, balans: 4, spara: 3
+- 18 mån → base ≈ 2.5 → inkomst: 4, balans: 3, spara: 2
+
+Varje förälder beräknas separat (de kan ha olika `months`).
+
+## UI
+
+Under slidersen, före `<details>`:
+
+```text
+┌──────────────────────────────────────────┐
+│  💡 Hjälp mig välja                      │
+└──────────────────────────────────────────┘
+
+  ↓ expanderar ↓
+
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│ 💰 Hög   │  │ ⚖️ Balans│  │ 🏖️ Spara │
+│ inkomst  │  │          │  │ dagar    │
+│          │  │          │  │          │
+│ P1: 7d/v │  │ P1: 4d/v │  │ P1: 3d/v │
+│ P2: 5d/v │  │ P2: 4d/v │  │ P2: 3d/v │
+└──────────┘  └──────────┘  └──────────┘
+
+  "Baserat på era önskade perioder föreslår vi…"
+```
+
+Korten visar de beräknade värdena per förälder. Vid klick sätts slidersen och en kort förklaring visas.
+
+## Teknisk ändring
+
+**Enda fil: `src/components/OnboardingWizard.tsx`**
+
+1. Ny state: `showHelper: boolean`, `selectedPreference: string | null`
+2. Ny funktion `computeSuggestion(months, preference)` → returnerar dpw (integer 2–7)
+3. Tre klickbara kort under slidersen med `variant="outline"`, highlight vid valt
+4. Vid klick: anropar `setDpw1` / `setDpw2` med beräknade värden
+5. Användaren kan fortfarande justera manuellt efteråt
+
+~80 rader tillagda, ingen ny fil.
 
