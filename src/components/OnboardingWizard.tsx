@@ -86,6 +86,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [daysPerWeek2, setDaysPerWeek2] = useState(draft?.daysPerWeek2 ?? 5);
   const [showHelper, setShowHelper] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
+  const [suggestedSchedule, setSuggestedSchedule] = useState<ScheduleSegment[] | null>(null);
 
   const [hasDraft] = useState(() => !!loadWizardDraft());
 
