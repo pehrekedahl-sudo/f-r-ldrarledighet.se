@@ -292,6 +292,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         endDate1: finalEndDate1,
         endDate2: finalEndDate2,
         preBirthDate: hasPre ? preBirthDate : null,
+        schedule: suggestedSchedule ?? undefined,
       });
     }
   };

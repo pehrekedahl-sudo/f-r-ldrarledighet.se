@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import type { WizardResult } from "@/components/OnboardingWizard";
 import { savePlanInput } from "@/lib/persistence";
-import { addDays, addMonths, compareDates } from "@/utils/dateOnly";
+import { addDays, addMonths, addWeeks, compareDates } from "@/utils/dateOnly";
 import { generateBlockId } from "@/lib/blockIdUtils";
 
 const DEFAULT_PARENTS = [
@@ -68,15 +68,56 @@ const Wizard = () => {
       }
     }
 
-    // Main blocks — use endDate if available, otherwise compute from months
-    const end1 = wr.endDate1 || addMonths(due, wr.months1);
-    const end2 = wr.endDate2 || addMonths(end1, wr.months2);
+    // If schedule is provided (multi-block optimization), generate blocks from it
+    if (wr.schedule && wr.schedule.length > 0) {
+      // Group segments by parent, preserving order
+      const p1Segs = wr.schedule.filter(s => s.parentId === "p1");
+      const p2Segs = wr.schedule.filter(s => s.parentId === "p2");
 
-    const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
-    [
-      maybeBlock({ id: generateBlockId("wiz"), parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1), source: "system" }),
-      maybeBlock({ id: generateBlockId("wiz"), parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2), source: "system" }),
-    ].forEach(b => b && generatedBlocks.push(b));
+      // Parent 1 blocks start at due date
+      let cursor = due;
+      for (const seg of p1Segs) {
+        const segEnd = addWeeks(cursor, seg.weeks);
+        if (compareDates(cursor, segEnd) < 0 && seg.daysPerWeek > 0) {
+          generatedBlocks.push({
+            id: generateBlockId("wiz"),
+            parentId: "p1",
+            startDate: cursor,
+            endDate: addDays(segEnd, -1),
+            daysPerWeek: seg.daysPerWeek,
+            source: "system",
+          });
+        }
+        cursor = segEnd;
+      }
+
+      // Parent 2 blocks start where parent 1 ends
+      const p2Start = cursor;
+      for (const seg of p2Segs) {
+        const segEnd = addWeeks(cursor, seg.weeks);
+        if (compareDates(cursor, segEnd) < 0 && seg.daysPerWeek > 0) {
+          generatedBlocks.push({
+            id: generateBlockId("wiz"),
+            parentId: "p2",
+            startDate: cursor,
+            endDate: addDays(segEnd, -1),
+            daysPerWeek: seg.daysPerWeek,
+            source: "system",
+          });
+        }
+        cursor = segEnd;
+      }
+    } else {
+      // Fallback: uniform dpw (original behavior)
+      const end1 = wr.endDate1 || addMonths(due, wr.months1);
+      const end2 = wr.endDate2 || addMonths(end1, wr.months2);
+
+      const maybeBlock = (b: Block) => compareDates(b.startDate, b.endDate) < 0 && b.daysPerWeek > 0 ? b : null;
+      [
+        maybeBlock({ id: generateBlockId("wiz"), parentId: "p1", startDate: due, endDate: end1, daysPerWeek: Math.round(wr.daysPerWeek1), source: "system" }),
+        maybeBlock({ id: generateBlockId("wiz"), parentId: "p2", startDate: end1, endDate: end2, daysPerWeek: Math.round(wr.daysPerWeek2), source: "system" }),
+      ].forEach(b => b && generatedBlocks.push(b));
+    }
 
     if (generatedBlocks.length === 0) return;
 
