@@ -499,7 +499,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           : 0;
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
-          { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 390-dagarsbudgeten" },
+          { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 480-dagarsbudgeten" },
           { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
           { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
         ];
