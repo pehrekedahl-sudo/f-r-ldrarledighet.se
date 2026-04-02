@@ -10,6 +10,12 @@ import { saveWizardDraft, loadWizardDraft, clearAllDrafts } from "@/lib/persiste
 import { addDays, addMonths, diffDaysInclusive } from "@/utils/dateOnly";
 import { computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 
+export type ScheduleSegment = {
+  parentId: string;
+  daysPerWeek: number;
+  weeks: number;
+};
+
 export type WizardResult = {
   parent1Name: string;
   parent2Name: string;
@@ -28,6 +34,7 @@ export type WizardResult = {
   endDate1: string;
   endDate2: string;
   preBirthDate: string | null;
+  schedule?: ScheduleSegment[];
 };
 
 type Props = {
@@ -79,57 +86,100 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const [daysPerWeek2, setDaysPerWeek2] = useState(draft?.daysPerWeek2 ?? 5);
   const [showHelper, setShowHelper] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
+  const [suggestedSchedule, setSuggestedSchedule] = useState<ScheduleSegment[] | null>(null);
 
   const [hasDraft] = useState(() => !!loadWizardDraft());
 
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
 
-  /** Compute suggested days/week based on months and preference. */
-  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): { p1: number; p2: number } => {
-    const weeks1 = m1Val * 4.33;
-    const weeks2 = m2Val * 4.33;
+  /** Compute an optimal multi-block schedule that fills the budget evenly between parents. */
+  const computeOptimalSchedule = (
+    preference: "income" | "save" | "balanced",
+    m1Val: number,
+    m2Val: number
+  ): ScheduleSegment[] => {
+    const weeks1 = Math.round(m1Val * 4.33);
+    const weeks2 = Math.round(m2Val * 4.33);
     const totalWeeks = weeks1 + weeks2;
-    const SGI_DAYS = 195;
-    const longestMonths = Math.max(m1Val, m2Val);
-    const weeksNeeded = longestMonths * 4.33;
-    const baseDpw = SGI_DAYS / weeksNeeded;
-    const clamp = (v: number) => Math.max(3, Math.min(7, v));
+    if (totalWeeks === 0) return [];
 
+    let budget: number;
     switch (preference) {
-      case "income": {
-        // Maximize: start with uniform base, then greedily increase each parent
-        const base = clamp(Math.floor(480 / totalWeeks));
-        let p1 = base;
-        let p2 = base;
-        // Try increasing p1
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
-        // Try increasing p2
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
-        // Try increasing p1 again
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
-        return { p1, p2 };
-      }
-      case "save": {
-        const SAVE_BUDGET = 304;
-        const dpw = clamp(Math.floor(SAVE_BUDGET / totalWeeks));
-        return { p1: dpw, p2: dpw };
-      }
+      case "income": budget = 480; break;
+      case "save": budget = 304; break;
       case "balanced": {
-        const dpw = clamp(Math.round(baseDpw));
-        return { p1: dpw, p2: dpw };
+        const SGI_DAYS = 195;
+        const longestWeeks = Math.max(weeks1, weeks2);
+        const idealDpw = SGI_DAYS / longestWeeks;
+        budget = Math.round(idealDpw * totalWeeks);
+        budget = Math.max(totalWeeks * 3, Math.min(480, budget));
+        break;
       }
     }
+
+    const baseRate = Math.min(7, Math.max(3, Math.floor(budget / totalWeeks)));
+    const extraDays = budget - baseRate * totalWeeks;
+
+    // Distribute extra days as +1 dpw weeks, split evenly between parents
+    const extraWeeksTotal = Math.min(totalWeeks, Math.max(0, extraDays));
+    const extraWeeks1 = Math.min(weeks1, Math.ceil(extraWeeksTotal / 2));
+    const extraWeeks2 = Math.min(weeks2, extraWeeksTotal - extraWeeks1);
+
+    const highRate = Math.min(7, baseRate + 1);
+    const segments: ScheduleSegment[] = [];
+
+    // Parent 1 segments
+    if (extraWeeks1 > 0 && highRate !== baseRate) {
+      segments.push({ parentId: "p1", daysPerWeek: highRate, weeks: extraWeeks1 });
+    }
+    const remainWeeks1 = weeks1 - extraWeeks1;
+    if (remainWeeks1 > 0) {
+      segments.push({ parentId: "p1", daysPerWeek: baseRate, weeks: remainWeeks1 });
+    }
+
+    // Parent 2 segments
+    if (extraWeeks2 > 0 && highRate !== baseRate) {
+      segments.push({ parentId: "p2", daysPerWeek: highRate, weeks: extraWeeks2 });
+    }
+    const remainWeeks2 = weeks2 - extraWeeks2;
+    if (remainWeeks2 > 0) {
+      segments.push({ parentId: "p2", daysPerWeek: baseRate, weeks: remainWeeks2 });
+    }
+
+    return segments;
+  };
+
+  /** Summarize a schedule for a given parent */
+  const summarizeParentSchedule = (schedule: ScheduleSegment[], parentId: string): string => {
+    const segs = schedule.filter(s => s.parentId === parentId);
+    if (segs.length === 0) return "–";
+    if (segs.length === 1) return `${segs[0].daysPerWeek} d/v`;
+    return segs.map(s => `${s.daysPerWeek} d/v i ${s.weeks}v`).join(" + ");
+  };
+
+  /** Compute total days consumed by a schedule */
+  const scheduleTotalDays = (schedule: ScheduleSegment[]): number => {
+    return schedule.reduce((sum, s) => sum + s.daysPerWeek * s.weeks, 0);
   };
 
   const applyPreference = (pref: "income" | "save" | "balanced") => {
     setSelectedPreference(pref);
     const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
     const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-    const { p1, p2 } = computeSuggestion(pref, m1, m2);
-    setDpw1(p1);
-    setDpw2(p2);
+    const schedule = computeOptimalSchedule(pref, m1, m2);
+    setSuggestedSchedule(schedule);
+
+    // Also set slider values to the weighted average for each parent (visual hint)
+    const p1Segs = schedule.filter(s => s.parentId === "p1");
+    const p2Segs = schedule.filter(s => s.parentId === "p2");
+    const avgDpw = (segs: ScheduleSegment[]) => {
+      const totalW = segs.reduce((s, seg) => s + seg.weeks, 0);
+      if (totalW === 0) return 5;
+      return Math.round(segs.reduce((s, seg) => s + seg.daysPerWeek * seg.weeks, 0) / totalW);
+    };
+    setDpw1(avgDpw(p1Segs));
+    setDpw2(avgDpw(p2Segs));
   };
 
   // Sync preBirthDate when choice is "1week"
@@ -242,6 +292,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         endDate1: finalEndDate1,
         endDate2: finalEndDate2,
         preBirthDate: hasPre ? preBirthDate : null,
+        schedule: suggestedSchedule ?? undefined,
       });
     }
   };
@@ -483,20 +534,15 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 5: {
         const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-        const totalMonths = Math.max(1, Math.max(m1, m2));
-        const sug = (pref: "income" | "save" | "balanced") => {
-          return computeSuggestion(pref, m1, m2);
-        };
 
-        // Live feedback calculations
-        const daysConsumed = Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
-        const daysRemaining = 480 - daysConsumed;
+        // Live feedback: use schedule if active, otherwise uniform sliders
+        const activeDaysConsumed = suggestedSchedule
+          ? scheduleTotalDays(suggestedSchedule)
+          : Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
+        const daysRemaining = 480 - activeDaysConsumed;
         const inc1Num = Number(income1) || 0;
         const inc2Num = Number(income2) || 0;
         const hasIncome = inc1Num > 0 && inc2Num > 0;
-        const combinedMonthly = hasIncome
-          ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
-          : 0;
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
           { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 480-dagarsbudgeten" },
@@ -523,7 +569,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <p className="text-sm text-muted-foreground text-center">Vad är viktigast för er?</p>
                 <div className="grid grid-cols-3 gap-2">
                   {prefCards.map(({ key, emoji, title, desc }) => {
-                    const s = sug(key);
+                    const sched = computeOptimalSchedule(key, m1, m2);
+                    const totalDays = scheduleTotalDays(sched);
                     return (
                       <button
                         key={key}
@@ -538,23 +585,19 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                         <span className="text-sm font-medium">{title}</span>
                         <span className="text-xs text-muted-foreground leading-tight">{desc}</span>
                         <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                          {s.p1 === s.p2 ? (
-                            <div>{s.p1} d/v</div>
-                          ) : (
-                            <>
-                              <div>{parent1Name || "F1"}: {s.p1} d/v</div>
-                              <div>{parent2Name || "F2"}: {s.p2} d/v</div>
-                            </>
-                          )}
+                          <div>{parent1Name || "F1"}: {summarizeParentSchedule(sched, "p1")}</div>
+                          <div>{parent2Name || "F2"}: {summarizeParentSchedule(sched, "p2")}</div>
+                          <div className="text-primary/70 font-medium">{totalDays} dagar</div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-                {selectedPreference && (
-                  <p className="text-sm text-muted-foreground text-center animate-in fade-in duration-150">
-                    Förslaget baseras på er totala ledighetsperiod ({m1 + m2} mån). Justera gärna med slidersen nedan.
-                  </p>
+                {selectedPreference && suggestedSchedule && (
+                  <div className="text-sm text-muted-foreground text-center animate-in fade-in duration-150 space-y-1">
+                    <p>Optimerat schema: {scheduleTotalDays(suggestedSchedule)} av 480 dagar förbrukas.</p>
+                    <p className="text-xs">Dra i slidersen nedan för att byta till enkel uttagstakt istället.</p>
+                  </div>
                 )}
               </div>
             )}
@@ -565,7 +608,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Label className="text-base">{parent1Name || "Förälder 1"}</Label>
                   <span className="text-lg font-semibold">{daysPerWeek1} dagar/vecka</span>
                 </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); }} />
+                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); setSuggestedSchedule(null); }} />
                 {daysPerWeek1 === 0 && (
                   <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
                 )}
@@ -576,7 +619,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Label className="text-base">{parent2Name || "Förälder 2"}</Label>
                   <span className="text-lg font-semibold">{daysPerWeek2} dagar/vecka</span>
                 </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => { setDpw2(v); setSelectedPreference(null); }} />
+                <Slider min={0} max={7} step={1} value={[daysPerWeek2]} onValueChange={([v]) => { setDpw2(v); setSelectedPreference(null); setSuggestedSchedule(null); }} />
                 {daysPerWeek2 === 0 && (
                   <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
                 )}
@@ -592,7 +635,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
               )}
               <p className="text-muted-foreground text-center">
-                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 480
+                {activeDaysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 480
                 {daysRemaining < 0 && <span className="text-destructive ml-1">(⚠️ överskrider med {Math.abs(daysRemaining)} dagar)</span>}
               </p>
               <p className="text-xs text-muted-foreground/70 text-center">I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat.</p>
