@@ -490,7 +490,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
         // Live feedback calculations
         const daysConsumed = Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
-        const daysRemaining = 390 - daysConsumed;
+        const daysRemaining = 480 - daysConsumed;
         const inc1Num = Number(income1) || 0;
         const inc2Num = Number(income2) || 0;
         const hasIncome = inc1Num > 0 && inc2Num > 0;
