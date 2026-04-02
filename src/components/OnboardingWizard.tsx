@@ -533,20 +533,15 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       case 5: {
         const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
         const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-        const totalMonths = Math.max(1, Math.max(m1, m2));
-        const sug = (pref: "income" | "save" | "balanced") => {
-          return computeSuggestion(pref, m1, m2);
-        };
 
-        // Live feedback calculations
-        const daysConsumed = Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
-        const daysRemaining = 480 - daysConsumed;
+        // Live feedback: use schedule if active, otherwise uniform sliders
+        const activeDaysConsumed = suggestedSchedule
+          ? scheduleTotalDays(suggestedSchedule)
+          : Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
+        const daysRemaining = 480 - activeDaysConsumed;
         const inc1Num = Number(income1) || 0;
         const inc2Num = Number(income2) || 0;
         const hasIncome = inc1Num > 0 && inc2Num > 0;
-        const combinedMonthly = hasIncome
-          ? computeBlockMonthlyBenefit(inc1Num, daysPerWeek1) + computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)
-          : 0;
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
           { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 480-dagarsbudgeten" },
@@ -573,7 +568,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <p className="text-sm text-muted-foreground text-center">Vad är viktigast för er?</p>
                 <div className="grid grid-cols-3 gap-2">
                   {prefCards.map(({ key, emoji, title, desc }) => {
-                    const s = sug(key);
+                    const sched = computeOptimalSchedule(key, m1, m2);
+                    const totalDays = scheduleTotalDays(sched);
                     return (
                       <button
                         key={key}
@@ -588,23 +584,19 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                         <span className="text-sm font-medium">{title}</span>
                         <span className="text-xs text-muted-foreground leading-tight">{desc}</span>
                         <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                          {s.p1 === s.p2 ? (
-                            <div>{s.p1} d/v</div>
-                          ) : (
-                            <>
-                              <div>{parent1Name || "F1"}: {s.p1} d/v</div>
-                              <div>{parent2Name || "F2"}: {s.p2} d/v</div>
-                            </>
-                          )}
+                          <div>{parent1Name || "F1"}: {summarizeParentSchedule(sched, "p1")}</div>
+                          <div>{parent2Name || "F2"}: {summarizeParentSchedule(sched, "p2")}</div>
+                          <div className="text-primary/70 font-medium">{totalDays} dagar</div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-                {selectedPreference && (
-                  <p className="text-sm text-muted-foreground text-center animate-in fade-in duration-150">
-                    Förslaget baseras på er totala ledighetsperiod ({m1 + m2} mån). Justera gärna med slidersen nedan.
-                  </p>
+                {selectedPreference && suggestedSchedule && (
+                  <div className="text-sm text-muted-foreground text-center animate-in fade-in duration-150 space-y-1">
+                    <p>Optimerat schema: {scheduleTotalDays(suggestedSchedule)} av 480 dagar förbrukas.</p>
+                    <p className="text-xs">Dra i slidersen nedan för att byta till enkel uttagstakt istället.</p>
+                  </div>
                 )}
               </div>
             )}
