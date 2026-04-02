@@ -112,7 +112,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         return { p1, p2 };
       }
       case "save": {
-        const SAVE_BUDGET = 214;
+        const SAVE_BUDGET = 304;
         const dpw = clamp(Math.floor(SAVE_BUDGET / totalWeeks));
         return { p1: dpw, p2: dpw };
       }
