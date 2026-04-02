@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RotateCcw, Upload, Lightbulb } from "lucide-react";
+import { RotateCcw, Upload, Lightbulb, X } from "lucide-react";
 import { saveWizardDraft, loadWizardDraft, clearAllDrafts } from "@/lib/persistence";
 import { addDays, addMonths, diffDaysInclusive } from "@/utils/dateOnly";
 import { computeBlockMonthlyBenefit } from "@/lib/fkConstants";
