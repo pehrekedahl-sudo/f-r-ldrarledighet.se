@@ -35,7 +35,11 @@ export function addDays(dateStr: string, n: number): string {
   return fmt(d);
 }
 
-/**
+/** Add (or subtract) calendar weeks. DST-safe. */
+export function addWeeks(dateStr: string, n: number): string {
+  return addDays(dateStr, n * 7);
+}
+
  * Number of calendar days from start to end, INCLUSIVE of both endpoints.
  * start === end → 1.
  */
