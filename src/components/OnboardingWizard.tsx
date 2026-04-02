@@ -119,14 +119,17 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     }
 
     const baseRate = Math.min(7, Math.max(3, Math.floor(budget / totalWeeks)));
+    const highRate = Math.min(7, baseRate + 1);
     const extraDays = budget - baseRate * totalWeeks;
 
     // Distribute extra days as +1 dpw weeks, split evenly between parents
-    const extraWeeksTotal = Math.min(totalWeeks, Math.max(0, extraDays));
+    let extraWeeksTotal = Math.min(totalWeeks, Math.max(0, extraDays));
+
+    // If baseRate is already at cap (7), no differentiation needed
+    if (highRate === baseRate) extraWeeksTotal = 0;
+
     const extraWeeks1 = Math.min(weeks1, Math.ceil(extraWeeksTotal / 2));
     const extraWeeks2 = Math.min(weeks2, extraWeeksTotal - extraWeeks1);
-
-    const highRate = Math.min(7, baseRate + 1);
     const segments: ScheduleSegment[] = [];
 
     // Parent 1 segments
