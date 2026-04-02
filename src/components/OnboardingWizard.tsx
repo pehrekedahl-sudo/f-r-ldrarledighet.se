@@ -93,51 +93,93 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const setDpw1 = (v: number) => setDaysPerWeek1(Math.round(Math.max(0, Math.min(7, v))));
   const setDpw2 = (v: number) => setDaysPerWeek2(Math.round(Math.max(0, Math.min(7, v))));
 
-  /** Compute suggested days/week based on months and preference. */
-  const computeSuggestion = (preference: "income" | "save" | "balanced", m1Val: number, m2Val: number): { p1: number; p2: number } => {
-    const weeks1 = m1Val * 4.33;
-    const weeks2 = m2Val * 4.33;
+  /** Compute an optimal multi-block schedule that fills the budget evenly between parents. */
+  const computeOptimalSchedule = (
+    preference: "income" | "save" | "balanced",
+    m1Val: number,
+    m2Val: number
+  ): ScheduleSegment[] => {
+    const weeks1 = Math.round(m1Val * 4.33);
+    const weeks2 = Math.round(m2Val * 4.33);
     const totalWeeks = weeks1 + weeks2;
-    const SGI_DAYS = 195;
-    const longestMonths = Math.max(m1Val, m2Val);
-    const weeksNeeded = longestMonths * 4.33;
-    const baseDpw = SGI_DAYS / weeksNeeded;
-    const clamp = (v: number) => Math.max(3, Math.min(7, v));
+    if (totalWeeks === 0) return [];
 
+    let budget: number;
     switch (preference) {
-      case "income": {
-        // Maximize: start with uniform base, then greedily increase each parent
-        const base = clamp(Math.floor(480 / totalWeeks));
-        let p1 = base;
-        let p2 = base;
-        // Try increasing p1
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
-        // Try increasing p2
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
-        // Try increasing p1 again
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
-        return { p1, p2 };
-      }
-      case "save": {
-        const SAVE_BUDGET = 304;
-        const dpw = clamp(Math.floor(SAVE_BUDGET / totalWeeks));
-        return { p1: dpw, p2: dpw };
-      }
+      case "income": budget = 480; break;
+      case "save": budget = 304; break;
       case "balanced": {
-        const dpw = clamp(Math.round(baseDpw));
-        return { p1: dpw, p2: dpw };
+        const SGI_DAYS = 195;
+        const longestWeeks = Math.max(weeks1, weeks2);
+        const idealDpw = SGI_DAYS / longestWeeks;
+        budget = Math.round(idealDpw * totalWeeks);
+        budget = Math.max(totalWeeks * 3, Math.min(480, budget));
+        break;
       }
     }
+
+    const baseRate = Math.min(7, Math.max(3, Math.floor(budget / totalWeeks)));
+    const extraDays = budget - baseRate * totalWeeks;
+
+    // Distribute extra days as +1 dpw weeks, split evenly between parents
+    const extraWeeksTotal = Math.min(totalWeeks, Math.max(0, extraDays));
+    const extraWeeks1 = Math.min(weeks1, Math.ceil(extraWeeksTotal / 2));
+    const extraWeeks2 = Math.min(weeks2, extraWeeksTotal - extraWeeks1);
+
+    const highRate = Math.min(7, baseRate + 1);
+    const segments: ScheduleSegment[] = [];
+
+    // Parent 1 segments
+    if (extraWeeks1 > 0 && highRate !== baseRate) {
+      segments.push({ parentId: "p1", daysPerWeek: highRate, weeks: extraWeeks1 });
+    }
+    const remainWeeks1 = weeks1 - extraWeeks1;
+    if (remainWeeks1 > 0) {
+      segments.push({ parentId: "p1", daysPerWeek: baseRate, weeks: remainWeeks1 });
+    }
+
+    // Parent 2 segments
+    if (extraWeeks2 > 0 && highRate !== baseRate) {
+      segments.push({ parentId: "p2", daysPerWeek: highRate, weeks: extraWeeks2 });
+    }
+    const remainWeeks2 = weeks2 - extraWeeks2;
+    if (remainWeeks2 > 0) {
+      segments.push({ parentId: "p2", daysPerWeek: baseRate, weeks: remainWeeks2 });
+    }
+
+    return segments;
+  };
+
+  /** Summarize a schedule for a given parent */
+  const summarizeParentSchedule = (schedule: ScheduleSegment[], parentId: string): string => {
+    const segs = schedule.filter(s => s.parentId === parentId);
+    if (segs.length === 0) return "–";
+    if (segs.length === 1) return `${segs[0].daysPerWeek} d/v`;
+    return segs.map(s => `${s.daysPerWeek} d/v i ${s.weeks}v`).join(" + ");
+  };
+
+  /** Compute total days consumed by a schedule */
+  const scheduleTotalDays = (schedule: ScheduleSegment[]): number => {
+    return schedule.reduce((sum, s) => sum + s.daysPerWeek * s.weeks, 0);
   };
 
   const applyPreference = (pref: "income" | "save" | "balanced") => {
     setSelectedPreference(pref);
     const m1 = durationMode === "dates" && dueDate && endDate1 ? approxMonths(dueDate, endDate1) : months1;
     const m2 = durationMode === "dates" && endDate1 && endDate2 ? approxMonths(endDate1, endDate2) : months2;
-    const { p1, p2 } = computeSuggestion(pref, m1, m2);
-    setDpw1(p1);
-    setDpw2(p2);
+    const schedule = computeOptimalSchedule(pref, m1, m2);
+    setSuggestedSchedule(schedule);
+
+    // Also set slider values to the weighted average for each parent (visual hint)
+    const p1Segs = schedule.filter(s => s.parentId === "p1");
+    const p2Segs = schedule.filter(s => s.parentId === "p2");
+    const avgDpw = (segs: ScheduleSegment[]) => {
+      const totalW = segs.reduce((s, seg) => s + seg.weeks, 0);
+      if (totalW === 0) return 5;
+      return Math.round(segs.reduce((s, seg) => s + seg.daysPerWeek * seg.weeks, 0) / totalW);
+    };
+    setDpw1(avgDpw(p1Segs));
+    setDpw2(avgDpw(p2Segs));
   };
 
   // Sync preBirthDate when choice is "1week"
