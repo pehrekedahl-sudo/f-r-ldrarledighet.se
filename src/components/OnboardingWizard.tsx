@@ -99,16 +99,16 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     switch (preference) {
       case "income": {
         // Maximize: start with uniform base, then greedily increase each parent
-        const base = clamp(Math.floor(390 / totalWeeks));
+        const base = clamp(Math.floor(480 / totalWeeks));
         let p1 = base;
         let p2 = base;
         // Try increasing p1
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
         // Try increasing p2
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
         // Try increasing p1 again
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
         return { p1, p2 };
       }
       case "save": {
