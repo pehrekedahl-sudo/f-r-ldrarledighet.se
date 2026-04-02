@@ -590,7 +590,9 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                         <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
                           <div>{parent1Name || "F1"}: {summarizeParentSchedule(sched, "p1")}</div>
                           <div>{parent2Name || "F2"}: {summarizeParentSchedule(sched, "p2")}</div>
-                          <div className="text-primary/70 font-medium">{totalDays} dagar</div>
+                          <div className="text-primary/70 font-medium">
+                            {totalDays} dagar · {480 - totalDays} sparas
+                          </div>
                         </div>
                       </button>
                     );
