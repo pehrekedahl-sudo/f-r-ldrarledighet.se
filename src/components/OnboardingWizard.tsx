@@ -99,20 +99,20 @@ const OnboardingWizard = ({ onComplete }: Props) => {
     switch (preference) {
       case "income": {
         // Maximize: start with uniform base, then greedily increase each parent
-        const base = clamp(Math.floor(390 / totalWeeks));
+        const base = clamp(Math.floor(480 / totalWeeks));
         let p1 = base;
         let p2 = base;
         // Try increasing p1
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
         // Try increasing p2
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
         // Try increasing p1 again
-        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 390) p1++;
-        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 390) p2++;
+        if (p1 < 7 && Math.round((p1 + 1) * weeks1 + p2 * weeks2) <= 480) p1++;
+        if (p2 < 7 && Math.round(p1 * weeks1 + (p2 + 1) * weeks2) <= 480) p2++;
         return { p1, p2 };
       }
       case "save": {
-        const SAVE_BUDGET = 214;
+        const SAVE_BUDGET = 304;
         const dpw = clamp(Math.floor(SAVE_BUDGET / totalWeeks));
         return { p1: dpw, p2: dpw };
       }
@@ -490,7 +490,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
 
         // Live feedback calculations
         const daysConsumed = Math.round((daysPerWeek1 * m1 * 4.33) + (daysPerWeek2 * m2 * 4.33));
-        const daysRemaining = 390 - daysConsumed;
+        const daysRemaining = 480 - daysConsumed;
         const inc1Num = Number(income1) || 0;
         const inc2Num = Number(income2) || 0;
         const hasIncome = inc1Num > 0 && inc2Num > 0;
@@ -499,7 +499,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           : 0;
 
         const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
-          { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 390-dagarsbudgeten" },
+          { key: "income", emoji: "💰", title: "Maximalt uttag", desc: "Ta ut så mycket som möjligt inom 480-dagarsbudgeten" },
           { key: "balanced", emoji: "⚖️", title: "Balanserat", desc: "Bra mix av inkomst och sparade dagar" },
           { key: "save", emoji: "🏖️", title: "Spara dagar", desc: "Ha dagar kvar för semestrar och ledighet senare" },
         ];
@@ -592,7 +592,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
               )}
               <p className="text-muted-foreground text-center">
-                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 390
+                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 480
                 {daysRemaining < 0 && <span className="text-destructive ml-1">(⚠️ överskrider med {Math.abs(daysRemaining)} dagar)</span>}
               </p>
               <p className="text-xs text-muted-foreground/70 text-center">I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat.</p>
