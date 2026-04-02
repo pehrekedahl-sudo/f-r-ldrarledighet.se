@@ -607,7 +607,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   <Label className="text-base">{parent1Name || "Förälder 1"}</Label>
                   <span className="text-lg font-semibold">{daysPerWeek1} dagar/vecka</span>
                 </div>
-                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); }} />
+                <Slider min={0} max={7} step={1} value={[daysPerWeek1]} onValueChange={([v]) => { setDpw1(v); setSelectedPreference(null); setSuggestedSchedule(null); }} />
                 {daysPerWeek1 === 0 && (
                   <p className="text-sm text-destructive/80">Om du väljer 0 skapas ingen ledighet för perioden.</p>
                 )}
