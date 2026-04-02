@@ -592,7 +592,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
               )}
               <p className="text-muted-foreground text-center">
-                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 390
+                {daysConsumed} dagar förbrukas · {Math.max(0, daysRemaining)} dagar kvar av 480
                 {daysRemaining < 0 && <span className="text-destructive ml-1">(⚠️ överskrider med {Math.abs(daysRemaining)} dagar)</span>}
               </p>
               <p className="text-xs text-muted-foreground/70 text-center">I nästa steg kan du bryta ner detta i olika block och skräddarsy uttagstakten för bästa resultat.</p>
