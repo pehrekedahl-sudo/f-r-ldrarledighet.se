@@ -10,6 +10,12 @@ import { saveWizardDraft, loadWizardDraft, clearAllDrafts } from "@/lib/persiste
 import { addDays, addMonths, diffDaysInclusive } from "@/utils/dateOnly";
 import { computeBlockMonthlyBenefit } from "@/lib/fkConstants";
 
+export type ScheduleSegment = {
+  parentId: string;
+  daysPerWeek: number;
+  weeks: number;
+};
+
 export type WizardResult = {
   parent1Name: string;
   parent2Name: string;
@@ -28,6 +34,7 @@ export type WizardResult = {
   endDate1: string;
   endDate2: string;
   preBirthDate: string | null;
+  schedule?: ScheduleSegment[];
 };
 
 type Props = {
