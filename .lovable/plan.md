@@ -1,55 +1,35 @@
 
 
-# Smarta multi-block-förslag i wizard steg 5
+# Fix: Empty schedule when baseRate hits cap (7)
 
-## Problem
-Förslagsmotorn ger varje förälder **en enda uttagstakt**, vilket lämnar oanvända dagar (t.ex. "Maximalt uttag" ger 6 d/v åt båda → 64 dagar kvar). Autojusteringsmotorn i plan-buildern kan splitta block med olika takt för att optimera — samma flexibilitet saknas i wizarden.
+## Root cause
 
-## Lösning
-Byt ut `computeSuggestion` från att returnera `{ p1: number, p2: number }` till att returnera en **blocklista per förälder** med olika uttagstakter. Målet: fyll budgeten så jämnt och nära målet som möjligt, med block i vecko-granularitet.
+In `computeOptimalSchedule` (line 121-148), when the budget is large relative to total weeks (e.g. 480 days over ~26 weeks), `baseRate` is clamped to 7. Then `highRate = min(7, baseRate + 1) = 7`, which equals `baseRate`.
 
-### Algoritm (alla tre strategier)
+This causes two failures:
+1. High-rate segments skipped: `if (extraWeeks > 0 && highRate !== baseRate)` → false
+2. Low-rate segments have 0 weeks: `remainWeeks = weeks - extraWeeks = 0` (all weeks allocated as "extra")
 
-```text
-Input: m1, m2 (månader), budget (480 / ~350 / 304)
-Output: [ { parentId, daysPerWeek, weeks }[] ]
+Result: no segments pushed → 0 days consumed.
 
-1. Beräkna weeks1 = m1 * 4.33, weeks2 = m2 * 4.33
-2. Hitta uniform basrate = floor(budget / totalWeeks)
-3. Beräkna kvarvarande dagar = budget - basrate * totalWeeks
-4. Fördela resterande dagar som +1 dpw-block, 
-   alternerande mellan föräldrarna (jämnast möjligt)
-5. Varje förälder får: [{ dpw: basrate+1, weeks: X }, { dpw: basrate, weeks: Y }]
-   där X + Y = förälderns totala veckor
+The same issue affects "balanced" — it gets `baseRate = 7` but the budget is only 182, so the schedule shows 182 days but the card description is misleading (all weeks at 7 dpw but only 26 weeks total).
+
+## Fix in `src/components/OnboardingWizard.tsx`
+
+**Lines 124-127**: When `highRate === baseRate`, reset `extraWeeksTotal` to 0 so all weeks fall into the "remain" buckets at `baseRate`:
+
+```typescript
+const extraDays = budget - baseRate * totalWeeks;
+let extraWeeksTotal = Math.min(totalWeeks, Math.max(0, extraDays));
+
+// If baseRate is already at cap, no differentiation needed
+if (highRate === baseRate) extraWeeksTotal = 0;
+
+const extraWeeks1 = Math.min(weeks1, Math.ceil(extraWeeksTotal / 2));
+const extraWeeks2 = Math.min(weeks2, extraWeeksTotal - extraWeeks1);
 ```
 
-Exempel med 8+8 månader, budget 480:
-- totalWeeks ≈ 69.3 → basrate = 6, kvar = 480 - 6×69 = 66 dagar
-- 66 extra veckor med +1 dpw → 33 veckor per förälder vid 7 d/v
-- P1: 33v @ 7dpw + 2v @ 6dpw, P2: 33v @ 7dpw + 2v @ 6dpw → ~478 dagar
+This ensures that when the budget can't be fully filled (because 7 dpw × totalWeeks < budget), every week still gets a segment at the max rate (7), and the remaining unused days are transparently shown in the live feedback.
 
-### UI-ändringar i steg 5
-
-1. **Korten** visar en sammanfattning: "7 d/v i 33v + 6 d/v i 2v" istället för ett enda tal
-2. **Slidersen behålls** som en "override" — om användaren drar i en slider avaktiveras det smarta förslaget och planen faller tillbaka till enkel uniform takt (som idag)
-3. **Live-feedback** räknar dagarna från den aktiva planen (multi-block om förslag valt, uniform om slider justerad)
-4. **State**: Nytt `suggestedSchedule` som håller blocklistan. Nollställs vid slider-drag.
-
-### Dataflöde till Wizard.tsx
-
-Utöka `WizardResult` med ett valfritt fält:
-
-```ts
-schedule?: { parentId: string; daysPerWeek: number; weeks: number }[];
-```
-
-Om `schedule` finns i `Wizard.tsx`, generera ett block per segment istället för ett enda block per förälder. Om det saknas (slider-override) fungerar det som idag.
-
-## Teknisk omfattning
-
-**Filer:**
-1. `src/components/OnboardingWizard.tsx` — Ny `computeOptimalSchedule()`, uppdaterad UI, nytt state, utökad `WizardResult`
-2. `src/pages/Wizard.tsx` — `handleWizardComplete` genererar multi-block plan från `schedule`
-
-~80 rader ändrade/tillagda totalt.
+One change, ~2 lines added, same file.
 
