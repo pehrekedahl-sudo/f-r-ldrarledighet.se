@@ -548,18 +548,21 @@ const OnboardingWizard = ({ onComplete }: Props) => {
         const hasIncome = inc1Num > 0 && inc2Num > 0;
 
         const totalMonthsDisplay = m1 + m2;
-        const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string }[] = [
+        const prefCards: { key: "income" | "balanced" | "save"; emoji: string; title: string; desc: string; detail: string }[] = [
           {
             key: "income", emoji: "💰", title: "Maximalt uttag",
-            desc: "Högsta möjliga ersättning nu – alla dagar används under era " + totalMonthsDisplay + " månaders ledighet. Inga dagar sparas till senare."
+            desc: "Ni tar ut alla 480 föräldradagar under er ledighet.",
+            detail: "Det ger er högsta möjliga ersättning från Försäkringskassan under tiden ni är hemma, men inga dagar sparas för senare. Bra om ni vill maximera inkomsten nu och inte planerar att vara lediga igen."
           },
           {
             key: "balanced", emoji: "⚖️", title: "Balanserat",
-            desc: "Bra ersättning under ledigheten och en del dagar kvar till senare, t.ex. semestrar eller inskolning."
+            desc: "En mellanväg – bra inkomst nu och dagar kvar för framtiden.",
+            detail: "Ni använder merparten av dagarna men sparar en del till senare, t.ex. för att förlänga semestrar eller vara hemma vid inskolning. Hur många som sparas beror på hur länge ni planerar vara lediga."
           },
           {
             key: "save", emoji: "🏖️", title: "Spara dagar",
-            desc: "Lägre ersättning per månad men ca 176 dagar sparas till efter ledigheten – kan användas fritt tills barnet fyller 12."
+            desc: "Ni sparar en stor del av dagarna till efter ledigheten.",
+            detail: "Ersättningen per månad blir något lägre, men ni har ca 176 dagar kvar som kan användas fritt tills barnet fyller 12 – perfekt för längre semestrar, VAB-buffert eller kortare ledighetsperioder senare."
           },
         ];
 
@@ -590,7 +593,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                   </button>
                 </div>
                 <div className="flex flex-col gap-3">
-                  {prefCards.map(({ key, emoji, title, desc }) => {
+                  {prefCards.map(({ key, emoji, title, desc, detail }) => {
                     const sched = computeOptimalSchedule(key, m1, m2);
                     const totalDays = scheduleTotalDays(sched);
                     const saved = 480 - totalDays;
@@ -598,18 +601,23 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                       <button
                         key={key}
                         onClick={() => applyPreference(key)}
-                        className={`flex flex-col items-start text-left gap-1 px-4 py-3 rounded-lg border transition-colors ${
+                        className={`flex flex-col items-start text-left gap-1 px-4 py-4 rounded-lg border transition-colors ${
                           selectedPreference === key
                             ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                             : "border-border bg-card hover:bg-muted"
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{emoji}</span>
-                          <span className="text-sm font-semibold">{title}</span>
-                          <span className="ml-auto text-xs text-muted-foreground">{totalDays} används · {saved > 0 ? `${saved} sparas` : "0 sparas"}</span>
+                          <span className="text-xl">{emoji}</span>
+                          <span className="text-base font-semibold">{title}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                        <p className="text-sm text-foreground/80 leading-snug">{desc}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{detail}</p>
+                        <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-medium text-primary/80">{totalDays} dagar används</span>
+                          <span>·</span>
+                          <span>{saved > 0 ? `${saved} dagar sparas` : "Inga dagar sparas"}</span>
+                        </div>
                       </button>
                     );
                   })}
