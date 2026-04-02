@@ -1,33 +1,24 @@
 
 
-# Fix: Hög inkomst-kortet och live-feedback
+# Fix: Ändra totalbudget från 390 till 480 dagar
 
 ## Problem
+All budgetlogik i steg 5 använder 390 som tak, men parets totala budget är **480 dagar** (390 SGI + 90 lägstanivå). Alla tre förslag och live-feedbacken ska utgå från 480.
 
-1. **"Hög inkomst"-kortet är motsägelsefullt**: Beskrivningen säger "7 d/v — 48 veckor behöver vara 5 d/v" men föreslår sedan 6 d/v. Användaren förstår inte vad som gäller.
-2. **Live-feedbacken visar fortfarande "överskrider med 26 dagar"** — det beror på att income-förslaget sätter en dpw som ändå spräcker 390-budgeten.
+## Ändringar i `src/components/OnboardingWizard.tsx`
 
-## Lösning
+1. **Konstant**: Byt alla hårdkodade `390` till `480` (eller en `TOTAL_BUDGET = 480`-konstant).
 
-Förenkla income-logiken: istället för att prata om "7 d/v med vissa veckor på 5 d/v", beräkna helt enkelt **högsta möjliga dpw som ryms inom 390 dagar**:
+2. **`computeSuggestion`**:
+   - `income`: Greedy-algoritmen optimerar mot 480 istället för 390
+   - `save`: `SAVE_BUDGET = 480 - 176 = 304` (istället för 214)
+   - `balanced`: Beräknas mot 480
 
-```
-maxDpw = min(7, floor(390 / totalWeeks))
-```
+3. **Live-feedback (rad 492-596)**:
+   - `daysRemaining = 480 - daysConsumed`
+   - Texten: "X dagar kvar av 480"
 
-Kortet visar sedan t.ex. "Maximalt uttag — 5 dagar/vecka" med en enkel beskrivning. Inga motstridiga meddelanden.
+4. **Kortbeskrivning (rad 502)**: "inom 480-dagarsbudgeten"
 
-## Tekniska ändringar i `src/components/OnboardingWizard.tsx`
-
-1. **`computeSuggestion` — income-fallet (rad 95)**: Byt från `Math.ceil(baseDpw + 1)` till `Math.min(7, Math.floor(390 / totalWeeks))`. Behöver m1/m2 även för income, precis som save.
-
-2. **`sug()` (rad 473-478)**: Skicka m1/m2 till computeSuggestion även för income/balanced.
-
-3. **`applyPreference` (rad 105-118)**: Skicka m1/m2 till alla anrop.
-
-4. **Income-kortets beskrivning (rad 490-496)**: Ta bort "weeksAt5"-logiken. Visa istället en enkel beskrivning: `"Maximalt uttag — ta ut så mycket som möjligt"`.
-
-5. **Kortets dpw-display (rad 537-539)**: Visa det faktiska föreslagna värdet (inte "7 d/v" separat).
-
-~15 rader ändrade.
+~8 ställen att ändra, alla i samma fil.
 
