@@ -1,58 +1,53 @@
 
 
-# Pop-up-tutorial för PlanBuilder
+# Tutorial: Pulsande ram utan overlay
 
-## Översikt
-En stegvis "spotlight"-tutorial som highlightar nyckelområden i planeringsvyn med förklaringar om vad användaren kan göra och vilken effekt det har. Visas automatiskt vid första besöket, kan stängas och återkallas via en subtil knapp.
+## Vad ändras
+Hela spotlight-logiken (clip-path overlay + getBoundingClientRect-positionering) ersätts med en enklare approach: en animerad ring/glow runt aktuellt element via CSS-klasser, plus en förankrad tooltip. Ingen mörk overlay alls.
 
-## Arkitektur
+## Teknik
 
-### Ny komponent: `src/components/PlanTutorial.tsx`
-En modal-liknande overlay med spotlight-effekt. Varje steg pekar på ett element via `id`-attribut och visar en tooltip-liknande ruta intill det.
+### `src/components/PlanTutorial.tsx` — omskriven
 
-**Stegen (5 st):**
+**Bort:** clip-path-overlay, spotlight-ring-div, all `getBoundingClientRect`-logik, manuell tooltip-positionering.
 
-1. **Hero-bannern** (`id="plan-hero"`) — "Här ser du en sammanfattning av er plan: hur länge pengarna räcker, snittinkomst per månad, och hur många dagar varje förälder har kvar. Du kan dela planen eller börja om."
+**Nytt:**
+1. **Transparent click-blocker** — en `fixed inset-0 z-40` div utan bakgrundsfärg (eller max `bg-black/10` för subtil dimning) som fångar klick utanför tooltip:en.
+2. **Ring på målelementet** — vid varje steg, lägg till en CSS-klass direkt på target-elementet:
+   ```ts
+   el.classList.add("tutorial-highlight");
+   // cleanup: el.classList.remove("tutorial-highlight");
+   ```
+3. **CSS-klass** (läggs i `index.css`):
+   ```css
+   .tutorial-highlight {
+     position: relative;
+     z-index: 45;
+     box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2);
+     border-radius: 0.75rem;
+     transition: box-shadow 0.3s ease;
+     animation: tutorial-pulse 2s ease-in-out infinite;
+   }
+   @keyframes tutorial-pulse {
+     0%, 100% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2); }
+     50% { box-shadow: 0 0 0 5px hsl(var(--primary) / 0.3), 0 0 24px hsl(var(--primary) / 0.15); }
+   }
+   ```
+4. **Tooltip-positionering** — fortfarande `fixed`, men enklare: scrolla till elementet, mät rect en gång efter scroll, placera tooltip under. Eftersom det inte finns ett overlay-hål att matcha pixelperfekt är off-by-a-few-px inte synligt.
+5. **scrollIntoView + requestAnimationFrame** istället för `setTimeout(350)` för mer robust timing.
 
-2. **Tidslinjen** (`id="plan-timeline"`) — "Tidslinjen visar era ledighetsblocki kronologisk ordning. Dra i kanterna för att ändra längd, eller klicka på ett block för att redigera dagar per vecka. Det påverkar direkt hur länge dagarna räcker och vad ni får i ersättning."
+### `src/index.css` — ny klass
+Lägg till `.tutorial-highlight` och `@keyframes tutorial-pulse`.
 
-3. **Justera planen** (`id="adjust-panel"`) — "Här finjusterar ni planen: ändra växlingsdatum mellan föräldrar, spara dagar som reserv, överföra dagar sinsemellan eller lägga till dubbeldagar. Varje ändring uppdaterar tidslinjen och ersättningen direkt."
+### `src/pages/PlanBuilder.tsx` — inga ändringar
+Id-attributen och ❓-knappen behålls som de är.
 
-4. **Ersättning per förälder** (`id="benefit-panel"`) — "Här ser ni vad varje förälder får utbetalt per månad i snitt och hur mycket av lönen det täcker. Ni kan även lägga till arbetsgivarens tillägg (löneuppfyllnad) för att se den riktiga nettoskillnaden."
+## Steg och texter
+Samma 5 steg, samma texter, samma navigering (Nästa / Hoppa över / prickar / Klar). Samma localStorage-logik.
 
-5. **Klart!** (centrerad, ingen spotlight) — "Nu är ni redo att planera! Ni kan alltid ta fram den här guiden igen via ❓-knappen."
-
-**Teknik:**
-- Varje steg identifierar sitt mål-element via `document.getElementById(targetId)`
-- `getBoundingClientRect()` + scroll till elementet → rita en halvtransparent overlay med ett "hål" (CSS clip-path eller box-shadow `0 0 0 9999px rgba(0,0,0,0.5)`) runt mål-elementet
-- Tooltip-ruta positioneras under/bredvid elementet med pil
-- Navigering: "Nästa" / "Hoppa över" / steg-indikator (1/5 prickar)
-- Vid sista steget: "Klar!"-knapp
-
-**State:**
-- `localStorage` key `planTutorialSeenV1` — sätts till `true` efter avslut/skip
-- PlanBuilder kontrollerar detta vid mount: om ej sett → öppna tutorial
-- Exponerar `open`/`onClose` props
-
-### Ändringar i `src/pages/PlanBuilder.tsx`
-- Lägg till `id`-attribut på 4 sektioner:
-  - `id="plan-hero"` på hero-bannern (rad ~907)
-  - `id="plan-timeline"` på tidslinje-sektionen (rad ~997)
-  - `id="adjust-panel"` finns redan (rad ~1059)
-  - `id="benefit-panel"` på ersättnings-sektionen (rad ~1209)
-- Importera och rendera `<PlanTutorial>` med state (`showTutorial` / `setShowTutorial`)
-- Lägg till en ❓-knapp i hero-bannern (bredvid "Dela plan" / "Rensa") som sätter `setShowTutorial(true)`
-
-### Filer
+## Filer
 | Fil | Ändring |
 |---|---|
-| `src/components/PlanTutorial.tsx` | Ny — spotlight-tutorial-komponent |
-| `src/pages/PlanBuilder.tsx` | Lägg till id-attribut, importera tutorial, ❓-knapp |
-
-### Design
-- Overlay: `bg-black/60` med clip-path-hål runt aktuellt element
-- Tooltip-ruta: `bg-card rounded-xl shadow-lg border p-4 max-w-sm`
-- Steg-prickar: små cirklar, aktiv = `bg-primary`, inaktiv = `bg-muted`
-- ❓-knapp: `variant="ghost" size="sm"` med `HelpCircle`-ikon, placerad i hero-bannerns actions-rad
-- Smooth scroll till element vid stegbyte via `scrollIntoView({ behavior: "smooth", block: "center" })`
+| `src/components/PlanTutorial.tsx` | Omskriven — ta bort clip-path, lägga till classList-approach |
+| `src/index.css` | Ny CSS-klass + keyframes |
 
