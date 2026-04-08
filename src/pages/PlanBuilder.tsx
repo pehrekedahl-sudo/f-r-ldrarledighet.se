@@ -641,6 +641,29 @@ const PlanBuilder = () => {
     } catch { return 0; }
   }, [result, parents, transfer]);
 
+  // SGI warnings: per-block warnings for blocks after child's 1st birthday
+  const sgiWarnings = useMemo(() => {
+    if (!dueDate) return [];
+    const firstBirthday = addMonths(dueDate, 12);
+    const warnings: { blockId: string; parentName: string; message: string }[] = [];
+    for (const b of blocks) {
+      if (blockErrors.get(b.id)) continue;
+      if (b.isOverlap) continue;
+      if (compareDates(b.endDate, firstBirthday) < 0) continue;
+      const parentWork = workDaysPerWeek[b.parentId] ?? 0;
+      const totalDays = b.daysPerWeek + parentWork;
+      if (totalDays < 5) {
+        const parentName = parents.find(p => p.id === b.parentId)?.name ?? "?";
+        warnings.push({
+          blockId: b.id,
+          parentName,
+          message: `${parentName} tar ut färre än 5 dagar/vecka efter barnets 1-årsdag. Om du inte arbetar de resterande dagarna kan din SGI påverkas negativt.`,
+        });
+      }
+    }
+    return warnings;
+  }, [blocks, blockErrors, dueDate, parents, workDaysPerWeek]);
+
   const handleTransfer = (toParentId: string) => {
     const fromParentId = toParentId === "p1" ? "p2" : "p1";
     const senderResult = result?.parentsResult.find((pr) => pr.parentId === fromParentId);
