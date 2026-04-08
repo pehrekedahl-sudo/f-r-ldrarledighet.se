@@ -273,7 +273,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
             {/* STEP N+3: PDF */}
             <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
               <div className="step-header flex items-center gap-3">
-                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 3}</span>
+                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 2 + stepOffset}</span>
                 <span className="step-title font-bold text-sm text-foreground">Ladda ner som PDF</span>
               </div>
               <p className="text-sm text-[#2D3748] pl-10">

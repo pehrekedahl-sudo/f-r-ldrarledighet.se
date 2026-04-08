@@ -158,6 +158,14 @@ const Foraldraledighet101 = () => {
           <InfoBox>
             Alla 90 lägstanivådagar och de 300 övriga SGI-dagarna kan fritt fördelas om mellan er via en ansökan till FK.
           </InfoBox>
+
+          <InfoBox>
+            <strong>Tillfällig föräldrapenning vid födseln (10 dagar)</strong>
+            <br />
+            Den andra föräldern har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse.
+            Dessa dagar ligger <em>utanför</em> 480-dagarsbudgeten och måste tas ut inom 60 dagar.
+            De anmäls separat hos FK under "Tillfällig föräldrapenning" – inte som vanlig föräldrapenning.
+          </InfoBox>
         </AccordionContent>
       </AccordionItem>
 
