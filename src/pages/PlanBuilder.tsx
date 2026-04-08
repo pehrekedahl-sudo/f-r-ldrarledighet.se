@@ -518,6 +518,7 @@ const PlanBuilder = () => {
         overlapStart: oStart,
         overlapEnd: oEnd,
         preResizeBlocks: blocks.map(b => ({ ...b })),
+        source: "resize",
       });
       return;
     }
