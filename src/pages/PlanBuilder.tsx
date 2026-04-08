@@ -143,6 +143,7 @@ const PlanBuilder = () => {
   const [topUpMode, setTopUpMode] = useState<Record<string, "amount" | "percent">>({ p1: "amount", p2: "amount" });
   const [topUpPercent, setTopUpPercent] = useState<Record<string, number>>({ p1: 10, p2: 10 });
   const [childName, setChildName] = useState("");
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState<Record<string, number>>({});
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
 
   // Overlap dialog state
