@@ -159,10 +159,13 @@ const PlanBuilder = () => {
     overlapStart: string;
     overlapEnd: string;
     preResizeBlocks: Block[];
+    source: "resize" | "drawer";
+    pendingDrawerBlock?: Block;
   }>({
     open: false, targetBlock: null, otherBlock: null,
     newStart: "", newEnd: "", overlapDays: 0,
     overlapStart: "", overlapEnd: "", preResizeBlocks: [],
+    source: "resize",
   });
 
   const loadFromLocalStorage = useCallback(() => {
