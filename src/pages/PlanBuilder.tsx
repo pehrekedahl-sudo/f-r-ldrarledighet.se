@@ -569,12 +569,38 @@ const PlanBuilder = () => {
     applyResizeWithoutOverlapCheck(blockId, newStart, newEnd);
   };
 
+  // Count existing DD weekdays
+  const existingDDDays = useMemo(() => {
+    let count = 0;
+    // Count unique DD days (only one parent side to avoid double-counting)
+    const ddBlocks = blocks.filter(b => b.isOverlap);
+    const seen = new Set<string>();
+    for (const dd of ddBlocks) {
+      const key = `${dd.overlapGroupId}-${dd.startDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      for (let d = dd.startDate; compareDates(d, dd.endDate) <= 0; d = addDaysUtil(d, 1)) {
+        if (isoWeekdayIndex(d) < 5) count++;
+      }
+    }
+    return count;
+  }, [blocks]);
+
+  const ddCapExceeded = useMemo(() => {
+    const proposed = overlapDialog.overlapDays || 0;
+    return (existingDDDays + proposed) > 60;
+  }, [existingDDDays, overlapDialog.overlapDays]);
+
   const handleOverlapCreateDD = () => {
     if (!overlapDialog.targetBlock || !overlapDialog.otherBlock) return;
     const { targetBlock, newStart, newEnd, overlapStart, overlapEnd } = overlapDialog;
 
-    // First apply the resize normally
-    applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+    // Apply the underlying change first
+    if (overlapDialog.source === "resize") {
+      applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+    } else if (overlapDialog.pendingDrawerBlock) {
+      applyDrawerSave(overlapDialog.pendingDrawerBlock);
+    }
 
     // Then create DD blocks for the overlap period
     const groupId = `overlap-${Date.now()}`;
@@ -613,18 +639,20 @@ const PlanBuilder = () => {
     if (!overlapDialog.targetBlock || !overlapDialog.otherBlock) return;
     const { targetBlock, otherBlock, newStart, newEnd } = overlapDialog;
 
-    // Apply the resize for the target block
-    applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+    // Apply the underlying change first
+    if (overlapDialog.source === "resize") {
+      applyResizeWithoutOverlapCheck(targetBlock.id, newStart, newEnd);
+    } else if (overlapDialog.pendingDrawerBlock) {
+      applyDrawerSave(overlapDialog.pendingDrawerBlock);
+    }
 
     // Truncate the other parent's block so it ends before the overlap
     setBlocks(prev => {
       const updated = prev.map(b => {
         if (b.id === otherBlock.id) {
-          // If the target extends into the other block from the left, truncate other's start
           if (compareDates(newStart, b.startDate) <= 0) {
             return { ...b, startDate: addDaysUtil(newEnd, 1) };
           }
-          // Otherwise truncate the other block's end
           return { ...b, endDate: addDaysUtil(newStart, -1) };
         }
         return b;
@@ -642,8 +670,10 @@ const PlanBuilder = () => {
   };
 
   const handleOverlapCancel = () => {
-    // Restore blocks to pre-resize state
-    setBlocks(overlapDialog.preResizeBlocks);
+    if (overlapDialog.source === "resize") {
+      setBlocks(overlapDialog.preResizeBlocks);
+    }
+    // For drawer source, nothing was applied yet, so just close
     setOverlapDialog(prev => ({ ...prev, open: false }));
   };
 
