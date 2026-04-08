@@ -1753,8 +1753,17 @@ const PlanBuilder = () => {
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {ddCapExceeded && (
+            <p className="text-xs text-destructive font-medium">
+              Dubbeldagar kan vara max 60 dagar totalt. Ni har redan {existingDDDays} — överlappet är {overlapDialog.overlapDays} dagar till.
+            </p>
+          )}
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button onClick={handleOverlapCreateDD} className="bg-[#4A9B8E] hover:bg-[#3d8578] text-white">
+            <Button
+              onClick={handleOverlapCreateDD}
+              disabled={ddCapExceeded}
+              className="bg-[#4A9B8E] hover:bg-[#3d8578] text-white"
+            >
               Skapa dubbeldagar för överlappet
             </Button>
             <Button variant="outline" onClick={handleOverlapTruncate}>
