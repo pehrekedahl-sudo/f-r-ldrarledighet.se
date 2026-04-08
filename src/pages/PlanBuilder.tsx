@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -167,6 +167,7 @@ const PlanBuilder = () => {
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
+      if (saved.dueDate) setDueDate(saved.dueDate);
       if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) {
         const enabled: Record<string, boolean> = {};
         saved.parents.forEach((p: any) => { if ((p.topUpMonthly ?? 0) > 0) enabled[p.id] = true; });
