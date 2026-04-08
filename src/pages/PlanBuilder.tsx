@@ -146,6 +146,7 @@ const PlanBuilder = () => {
   const [topUpPercent, setTopUpPercent] = useState<Record<string, number>>({ p1: 10, p2: 10 });
   const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
+  const { showTutorial, setShowTutorial } = usePlanTutorial();
 
   // Overlap dialog state
   const [overlapDialog, setOverlapDialog] = useState<{
@@ -905,7 +906,7 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-5 py-4 mt-4 space-y-3">
+            <section id="plan-hero" className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-5 py-4 mt-4 space-y-3">
               {/* Row 1: Title + KPIs + Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
@@ -927,6 +928,7 @@ const PlanBuilder = () => {
                   <div className="flex gap-1.5 flex-wrap">
                     <Button variant="outline" size="sm" className="text-xs h-7 px-3 gap-1.5" onClick={sharePlan}><Share2 className="h-3.5 w-3.5" />Dela plan</Button>
                     <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
               </div>
@@ -995,7 +997,7 @@ const PlanBuilder = () => {
             </section>
 
             {/* ── TIMELINE ── */}
-            <section className="space-y-3">
+            <section id="plan-timeline" className="space-y-3">
               <h2 className="text-lg font-medium tracking-tight">Tidslinje</h2>
               <PlanTimeline
                 blocks={validBlocks}
@@ -1207,7 +1209,7 @@ const PlanBuilder = () => {
                   p2: { bg: "bg-[hsl(14,75%,88%)]", border: "border-l-[hsl(14,75%,63%)]", dot: "bg-[hsl(14,75%,63%)]" },
                 };
                 return (
-                  <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                  <section id="benefit-panel" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                       <Wallet className="w-4 h-4 text-primary" />
                       <h3 className="text-sm font-semibold text-foreground">Ersättning per förälder</h3>
@@ -1709,6 +1711,7 @@ const PlanBuilder = () => {
           </div>
         </DialogContent>
       </Dialog>
+      <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
     </div>
   );
 };
