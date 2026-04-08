@@ -19,6 +19,7 @@ export type ScheduleSegment = {
 export type WizardResult = {
   parent1Name: string;
   parent2Name: string;
+  childName: string;
   dueDate: string;
   months1: number;
   months2: number;
@@ -59,6 +60,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   // Step 1: Names
   const [parent1Name, setParent1Name] = useState(draft?.parent1Name ?? "");
   const [parent2Name, setParent2Name] = useState(draft?.parent2Name ?? "");
+  const [childName, setChildName] = useState(draft?.childName ?? "");
 
   // Step 2: Due date + pre-birth
   const [dueDate, setDueDate] = useState(draft?.dueDate ?? "");
@@ -221,7 +223,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   useEffect(() => {
     saveWizardDraft({
       planningMode: null,
-      parent1Name, parent2Name,
+      parent1Name, parent2Name, childName,
       wantIncome, income1, income2,
       has240Days1, has240Days2,
       dueDate,
@@ -232,7 +234,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       savingPreset: null, savedDays: 0,
       step,
     });
-  }, [parent1Name, parent2Name, wantIncome, income1, income2,
+  }, [parent1Name, parent2Name, childName, wantIncome, income1, income2,
     has240Days1, has240Days2, dueDate, preBirthChoice, preBirthDate,
     endDate1, endDate2, months1, months2,
     daysPerWeek1, daysPerWeek2, step]);
@@ -240,7 +242,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   const handleReset = useCallback(() => {
     clearAllDrafts();
     setStep(1);
-    setParent1Name(""); setParent2Name("");
+    setParent1Name(""); setParent2Name(""); setChildName("");
     setWantIncome(null); setIncome1(""); setIncome2("");
     setHas240Days1(true); setHas240Days2(true);
     setDueDate("");
@@ -280,6 +282,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       onComplete({
         parent1Name,
         parent2Name,
+        childName,
         dueDate,
         months1,
         months2,
@@ -345,6 +348,11 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <div className="space-y-2">
                 <Label className="text-base">Förälder 2</Label>
                 <Input className="text-lg h-12" placeholder="Förnamn" value={parent2Name} onChange={(e) => setParent2Name(e.target.value)} />
+              </div>
+              <div className="space-y-2 pt-2">
+                <Label className="text-base text-muted-foreground">Barnets namn / arbetsnamn</Label>
+                <Input className="text-lg h-12" placeholder="Valfritt – t.ex. Saga" value={childName} onChange={(e) => setChildName(e.target.value)} />
+                <p className="text-sm text-muted-foreground">Valfritt – används för att namnge planen</p>
               </div>
             </div>
           </div>

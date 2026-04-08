@@ -126,6 +126,7 @@ const Wizard = () => {
       blocks: generatedBlocks,
       transfers: [],
       constants: CONSTANTS,
+      childName: wr.childName || undefined,
     };
 
     savePlanInput(finalPlan);
