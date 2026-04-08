@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
 interface TutorialStep {
-  targetId: string | null; // null = centered, no spotlight
+  targetId: string | null;
   title: string;
   body: string;
 }
@@ -47,25 +47,43 @@ export default function PlanTutorial({ open, onClose }: Props) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const highlightedRef = useRef<HTMLElement | null>(null);
 
   const currentStep = STEPS[step];
 
-  const measureTarget = useCallback(() => {
-    if (!currentStep.targetId) {
+  // Add/remove highlight class on target element
+  const applyHighlight = useCallback((targetId: string | null) => {
+    // Remove previous highlight
+    if (highlightedRef.current) {
+      highlightedRef.current.classList.remove("tutorial-highlight");
+      highlightedRef.current = null;
+    }
+    if (!targetId) {
       setRect(null);
       return;
     }
-    const el = document.getElementById(currentStep.targetId);
+    const el = document.getElementById(targetId);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Small delay so scroll settles before measuring
-      setTimeout(() => {
-        setRect(el.getBoundingClientRect());
-      }, 350);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.classList.add("tutorial-highlight");
+          highlightedRef.current = el;
+          setRect(el.getBoundingClientRect());
+        });
+      });
     } else {
       setRect(null);
     }
-  }, [currentStep.targetId]);
+  }, []);
+
+  // Cleanup highlight on unmount or close
+  useEffect(() => {
+    if (!open && highlightedRef.current) {
+      highlightedRef.current.classList.remove("tutorial-highlight");
+      highlightedRef.current = null;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,17 +92,29 @@ export default function PlanTutorial({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    measureTarget();
-    const onResize = () => measureTarget();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
+    applyHighlight(currentStep.targetId);
+  }, [open, step, currentStep.targetId, applyHighlight]);
+
+  // Update rect on scroll/resize
+  useEffect(() => {
+    if (!open || !currentStep.targetId) return;
+    const update = () => {
+      const el = highlightedRef.current;
+      if (el) setRect(el.getBoundingClientRect());
     };
-  }, [open, step, measureTarget]);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, currentStep.targetId]);
 
   const finish = useCallback(() => {
+    if (highlightedRef.current) {
+      highlightedRef.current.classList.remove("tutorial-highlight");
+      highlightedRef.current = null;
+    }
     try { localStorage.setItem(STORAGE_KEY, "true"); } catch {}
     onClose();
   }, [onClose]);
@@ -98,26 +128,13 @@ export default function PlanTutorial({ open, onClose }: Props) {
 
   if (!open) return null;
 
-  const PAD = 8;
-  const isSpotlight = currentStep.targetId !== null && rect !== null;
-
-  // Clip-path to cut a hole in the overlay
-  const clipPath = isSpotlight
-    ? `polygon(
-        0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
-        ${rect!.left - PAD}px ${rect!.top - PAD}px,
-        ${rect!.left - PAD}px ${rect!.bottom + PAD}px,
-        ${rect!.right + PAD}px ${rect!.bottom + PAD}px,
-        ${rect!.right + PAD}px ${rect!.top - PAD}px,
-        ${rect!.left - PAD}px ${rect!.top - PAD}px
-      )`
-    : undefined;
+  const hasTarget = currentStep.targetId !== null && rect !== null;
 
   // Position tooltip below the target, or centered
-  const tooltipStyle: React.CSSProperties = isSpotlight
+  const tooltipStyle: React.CSSProperties = hasTarget
     ? {
         position: "fixed",
-        top: Math.min(rect!.bottom + PAD + 12, window.innerHeight - 220),
+        top: Math.min(rect!.bottom + 16, window.innerHeight - 220),
         left: Math.max(16, Math.min(rect!.left, window.innerWidth - 380)),
         zIndex: 60,
       }
@@ -131,28 +148,11 @@ export default function PlanTutorial({ open, onClose }: Props) {
 
   return (
     <>
-      {/* Overlay */}
+      {/* Transparent click-blocker */}
       <div
-        className="fixed inset-0 z-50 transition-all duration-300"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.55)",
-          clipPath,
-        }}
+        className="fixed inset-0 z-40 bg-black/10"
         onClick={skip}
       />
-
-      {/* Spotlight ring */}
-      {isSpotlight && (
-        <div
-          className="fixed z-50 rounded-lg border-2 border-primary/60 pointer-events-none transition-all duration-300"
-          style={{
-            top: rect!.top - PAD,
-            left: rect!.left - PAD,
-            width: rect!.width + PAD * 2,
-            height: rect!.height + PAD * 2,
-          }}
-        />
-      )}
 
       {/* Tooltip card */}
       <div
@@ -169,7 +169,6 @@ export default function PlanTutorial({ open, onClose }: Props) {
         <p className="text-sm text-muted-foreground leading-relaxed mb-4">{currentStep.body}</p>
 
         <div className="flex items-center justify-between">
-          {/* Step dots */}
           <div className="flex gap-1.5">
             {STEPS.map((_, i) => (
               <span
@@ -200,7 +199,6 @@ export function usePlanTutorial() {
   useEffect(() => {
     try {
       if (localStorage.getItem(STORAGE_KEY) !== "true") {
-        // Small delay so the plan renders first
         const t = setTimeout(() => setShowTutorial(true), 800);
         return () => clearTimeout(t);
       }

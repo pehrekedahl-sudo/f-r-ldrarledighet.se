@@ -114,3 +114,21 @@ body {
   font-family: 'DM Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+.tutorial-highlight {
+  position: relative;
+  z-index: 45;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2);
+  border-radius: 0.75rem;
+  transition: box-shadow 0.3s ease;
+  animation: tutorial-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tutorial-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 5px hsl(var(--primary) / 0.3), 0 0 24px hsl(var(--primary) / 0.15);
+  }
+}
