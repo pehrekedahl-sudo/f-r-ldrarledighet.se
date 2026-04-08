@@ -1294,9 +1294,9 @@ const PlanBuilder = () => {
                               )}
 
                               {/* Integrated top-up */}
-                              <div className="rounded-md border border-border bg-muted/30 p-2.5 space-y-2">
+                              <div className="rounded-md border border-border bg-muted/30 p-2 space-y-1.5">
                                 <div className="flex items-center justify-between">
-                                  <label className="text-xs text-foreground font-medium cursor-pointer" htmlFor={`topup-${s.parentId}`}>
+                                  <label className="text-[11px] text-foreground font-medium cursor-pointer" htmlFor={`topup-${s.parentId}`}>
                                     Tillägg från arbetsgivare
                                   </label>
                                   <Switch
