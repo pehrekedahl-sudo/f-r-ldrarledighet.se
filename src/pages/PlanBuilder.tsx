@@ -587,9 +587,13 @@ const PlanBuilder = () => {
   }, [blocks]);
 
   const ddCapExceeded = useMemo(() => {
+    return existingDDDays >= 60;
+  }, [existingDDDays]);
+
+  const ddWillBeCapped = useMemo(() => {
     const proposed = overlapDialog.overlapDays || 0;
-    return (existingDDDays + proposed) > 60;
-  }, [existingDDDays, overlapDialog.overlapDays]);
+    return !ddCapExceeded && (existingDDDays + proposed) > 60;
+  }, [existingDDDays, overlapDialog.overlapDays, ddCapExceeded]);
 
   /**
    * Apply the pending block change (drawer or resize) to a blocks array inline,
@@ -668,18 +672,42 @@ const PlanBuilder = () => {
 
   const handleOverlapCreateDD = () => {
     if (!overlapDialog.targetBlock || !overlapDialog.otherBlock) return;
-    const { targetBlock, overlapStart, overlapEnd } = overlapDialog;
+    const { targetBlock, overlapStart } = overlapDialog;
+
+    // Hard guard: re-compute remaining DD allowance inline
+    const remainingDD = 60 - existingDDDays;
+    if (remainingDD <= 0) {
+      toast({ title: "Max antal dubbeldagar nått", description: "Ni har redan 60 dubbeldagar." });
+      setOverlapDialog(prev => ({ ...prev, open: false }));
+      return;
+    }
+
+    // Auto-cap: if overlap exceeds remaining DD, truncate endDate
+    let cappedEnd = overlapDialog.overlapEnd;
+    const proposedDays = overlapDialog.overlapDays;
+    if (proposedDays > remainingDD) {
+      // Advance from overlapStart by remainingDD weekdays to find capped end
+      let weekdayCt = 0;
+      let d = overlapStart;
+      while (true) {
+        if (isoWeekdayIndex(d) < 5) weekdayCt++;
+        if (weekdayCt >= remainingDD) break;
+        d = addDaysUtil(d, 1);
+      }
+      cappedEnd = d;
+    }
+    const actualDays = Math.min(proposedDays, remainingDD);
 
     // Step 1: apply pending change inline
     let working = applyPendingChangeInline(blocks, overlapDialog);
 
-    // Step 2: create DD blocks
+    // Step 2: create DD blocks with capped end
     const groupId = `overlap-${Date.now()}`;
     const dd1: Block = {
       id: `dd-${Date.now()}-p1`,
       parentId: targetBlock.parentId,
       startDate: overlapStart,
-      endDate: overlapEnd,
+      endDate: cappedEnd,
       daysPerWeek: targetBlock.daysPerWeek,
       overlapGroupId: groupId,
       isOverlap: true,
@@ -688,7 +716,7 @@ const PlanBuilder = () => {
       id: `dd-${Date.now()}-p2`,
       parentId: overlapDialog.otherBlock!.parentId,
       startDate: overlapStart,
-      endDate: overlapEnd,
+      endDate: cappedEnd,
       daysPerWeek: overlapDialog.otherBlock!.daysPerWeek,
       overlapGroupId: groupId,
       isOverlap: true,
@@ -703,7 +731,8 @@ const PlanBuilder = () => {
     savePlanInput({ parents, blocks: final, transfers, constants: CONSTANTS, savedDaysCount });
 
     setOverlapDialog(prev => ({ ...prev, open: false }));
-    toast({ description: `Dubbeldagar skapade för ${overlapDialog.overlapDays} dagar` });
+    const cappedNote = proposedDays > remainingDD ? ` (begränsat från ${proposedDays})` : "";
+    toast({ description: `Dubbeldagar skapade för ${actualDays} dagar${cappedNote}` });
   };
 
   const handleOverlapTruncate = () => {
@@ -1822,7 +1851,12 @@ const PlanBuilder = () => {
           </AlertDialogHeader>
           {ddCapExceeded && (
             <p className="text-xs text-destructive font-medium">
-              Dubbeldagar kan vara max 60 dagar totalt. Ni har redan {existingDDDays} — överlappet är {overlapDialog.overlapDays} dagar till.
+              Dubbeldagar kan vara max 60 dagar totalt. Ni har redan använt alla 60.
+            </p>
+          )}
+          {ddWillBeCapped && (
+            <p className="text-xs text-amber-600 font-medium">
+              Överlappet är {overlapDialog.overlapDays} dagar men max {60 - existingDDDays} dubbeldagar kvar — perioden kortas automatiskt.
             </p>
           )}
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
@@ -1831,7 +1865,9 @@ const PlanBuilder = () => {
               disabled={ddCapExceeded}
               className="bg-[#4A9B8E] hover:bg-[#3d8578] text-white"
             >
-              Skapa dubbeldagar för överlappet
+              {ddWillBeCapped
+                ? `Skapa dubbeldagar (max ${60 - existingDDDays} dagar)`
+                : "Skapa dubbeldagar för överlappet"}
             </Button>
             <Button variant="outline" onClick={handleOverlapTruncate}>
               Korta ner {parents.find(p => p.id === overlapDialog.otherBlock?.parentId)?.name ?? "andra förälderns"} block istället
