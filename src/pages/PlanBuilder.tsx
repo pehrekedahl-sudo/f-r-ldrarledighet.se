@@ -1178,10 +1178,10 @@ const PlanBuilder = () => {
                 };
                 return (
                   <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-border flex items-center gap-2.5">
-                      <Wallet className="w-5 h-5 text-primary" />
-                      <h3 className="text-base font-semibold text-foreground">Ersättning per förälder</h3>
-                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-auto">före skatt</span>
+                    <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Ersättning per förälder</h3>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full ml-auto">före skatt</span>
                     </div>
                     <div className="divide-y divide-border">
                       {result.parentSummary.map(s => {
@@ -1196,14 +1196,12 @@ const PlanBuilder = () => {
                           .filter(b => b.parentId === s.parentId && !b.isOverlap)
                           .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
-                        // Compute effective top-up for this parent
                         const effectiveTopUp = isEnabled
                           ? (mode === "percent"
                             ? Math.round(monthlyIncome * (pctVal / 100))
                             : (parent?.topUpMonthly ?? 0))
                           : 0;
 
-                        // Compute weighted average monthly benefit across blocks
                         let totalWeightedBenefit = 0;
                         let totalDays = 0;
                         parentBlocks.forEach(b => {
@@ -1217,7 +1215,6 @@ const PlanBuilder = () => {
                         const avgMonthly = totalDays > 0 ? Math.round(totalWeightedBenefit / totalDays) : 0;
                         const coveragePercent = monthlyIncome > 0 ? Math.min(100, Math.round((avgMonthly / monthlyIncome) * 100)) : 0;
 
-                        // Top-up coverage info
                         const periodStart = parentBlocks.length > 0 ? parentBlocks[0].startDate : "";
                         const periodEnd = parentBlocks.length > 0 ? parentBlocks[parentBlocks.length - 1].endDate : "";
                         const totalPeriodMonths = periodStart && periodEnd
@@ -1228,34 +1225,33 @@ const PlanBuilder = () => {
 
                         return (
                           <div key={s.parentId} className={`border-l-4 ${colors.border}`}>
-                            {/* Header */}
-                            <div className={`px-5 py-3 ${colors.bg}`}>
+                            <div className={`px-4 py-2 ${colors.bg}`}>
                               <div className="flex items-center justify-between">
-                                <p className="font-semibold text-foreground">{s.name}</p>
-                                <p className="text-xs text-muted-foreground">Lön: {monthlyIncome.toLocaleString("sv-SE")} kr/mån</p>
+                                <p className="text-sm font-semibold text-foreground">{s.name}</p>
+                                <p className="text-[11px] text-muted-foreground">Lön: {monthlyIncome.toLocaleString("sv-SE")} kr/mån</p>
                               </div>
                             </div>
 
-                            <div className="px-5 py-4 space-y-4">
-                              {/* Big number */}
+                            <div className="px-4 py-3 space-y-2.5">
+                              {/* Amount + coverage */}
                               <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-bold text-foreground tabular-nums">
+                                <span className="text-lg font-bold text-foreground tabular-nums">
                                   {avgMonthly.toLocaleString("sv-SE")}
                                 </span>
-                                <span className="text-sm text-muted-foreground">kr/mån i snitt</span>
+                                <span className="text-xs text-muted-foreground">kr/mån i snitt</span>
+                                {monthlyIncome - avgMonthly > 0 && (
+                                  <span className="text-xs text-destructive font-medium tabular-nums ml-auto">
+                                    –{(monthlyIncome - avgMonthly).toLocaleString("sv-SE")} kr
+                                  </span>
+                                )}
                               </div>
 
                               {/* Coverage bar */}
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
                                   <span className="text-muted-foreground">Täcker {coveragePercent}% av din lön</span>
-                                  {monthlyIncome - avgMonthly > 0 && (
-                                    <span className="text-destructive font-medium tabular-nums">
-                                      –{(monthlyIncome - avgMonthly).toLocaleString("sv-SE")} kr/mån
-                                    </span>
-                                  )}
                                 </div>
-                                <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                                   <div
                                     className="h-full rounded-full bg-primary transition-all duration-500"
                                     style={{ width: `${coveragePercent}%` }}
@@ -1263,41 +1259,44 @@ const PlanBuilder = () => {
                                 </div>
                               </div>
 
-                              {/* Block breakdown */}
-                              <div className="space-y-2">
-                                {parentBlocks.map((b, i) => {
-                                  const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
-                                  const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                                  const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5);
-                                  const totalMonthly = fkMonthly + topUpScaled;
-                                  return (
-                                    <div key={b.id} className="flex items-start gap-2.5 text-sm">
-                                      <div className="flex flex-col items-center mt-1.5">
-                                        <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                                        {i < parentBlocks.length - 1 && <div className="w-px h-6 bg-border" />}
-                                      </div>
-                                      <div className="flex-1 flex items-baseline justify-between">
-                                        <span className="text-muted-foreground text-xs">
-                                          {fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v
-                                        </span>
-                                        <span className="font-medium text-foreground tabular-nums text-xs">
-                                          {Math.round(totalMonthly).toLocaleString("sv-SE")} kr
-                                          {topUpScaled > 0 && (
-                                            <span className="text-muted-foreground font-normal ml-1">
-                                              (FK {Math.round(fkMonthly).toLocaleString("sv-SE")} + tillägg {Math.round(topUpScaled).toLocaleString("sv-SE")})
+                              {/* Block breakdown – collapsible */}
+                              {parentBlocks.length > 0 && (
+                                <Collapsible>
+                                  <CollapsibleTrigger className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                                    Visa {parentBlocks.length} perioder
+                                    <ChevronDown className="h-3 w-3 shrink-0 transition-transform duration-200" />
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent className="pt-1.5 space-y-1">
+                                    {parentBlocks.map((b, i) => {
+                                      const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
+                                      const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
+                                      const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5);
+                                      const totalMonthly = fkMonthly + topUpScaled;
+                                      return (
+                                        <div key={b.id} className="flex items-start gap-2 text-xs">
+                                          <div className="flex flex-col items-center mt-1">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                                            {i < parentBlocks.length - 1 && <div className="w-px h-4 bg-border" />}
+                                          </div>
+                                          <div className="flex-1 flex items-baseline justify-between">
+                                            <span className="text-muted-foreground text-[11px]">
+                                              {fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v
                                             </span>
-                                          )}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                                            <span className="font-medium text-foreground tabular-nums text-[11px]">
+                                              {Math.round(totalMonthly).toLocaleString("sv-SE")} kr
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              )}
 
                               {/* Integrated top-up */}
-                              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+                              <div className="rounded-md border border-border bg-muted/30 p-2.5 space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <label className="text-sm text-foreground font-medium cursor-pointer" htmlFor={`topup-${s.parentId}`}>
+                                  <label className="text-xs text-foreground font-medium cursor-pointer" htmlFor={`topup-${s.parentId}`}>
                                     Tillägg från arbetsgivare
                                   </label>
                                   <Switch
@@ -1315,7 +1314,7 @@ const PlanBuilder = () => {
                                   />
                                 </div>
                                 {isEnabled && (
-                                  <div className="space-y-3">
+                                  <div className="space-y-2">
                                     <ToggleGroup
                                       type="single"
                                       value={mode}
@@ -1323,7 +1322,6 @@ const PlanBuilder = () => {
                                         if (val) {
                                           setTopUpMode(prev => ({ ...prev, [s.parentId]: val as "amount" | "percent" }));
                                           if (val === "percent") {
-                                            // Auto-compute amount from percent
                                             const amt = Math.round(monthlyIncome * (pctVal / 100));
                                             const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: amt } : p);
                                             setParents(updated);
@@ -1334,10 +1332,10 @@ const PlanBuilder = () => {
                                       }}
                                       className="justify-start"
                                     >
-                                      <ToggleGroupItem value="amount" className="text-xs h-7 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                                      <ToggleGroupItem value="amount" className="text-[11px] h-6 px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                                         kr/mån
                                       </ToggleGroupItem>
-                                      <ToggleGroupItem value="percent" className="text-xs h-7 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                                      <ToggleGroupItem value="percent" className="text-[11px] h-6 px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                                         % av lön
                                       </ToggleGroupItem>
                                     </ToggleGroup>
@@ -1350,7 +1348,7 @@ const PlanBuilder = () => {
                                             inputMode="numeric"
                                             pattern="[0-9]*"
                                             placeholder="0"
-                                            className="h-8 w-28 text-sm tabular-nums"
+                                            className="h-7 w-24 text-xs tabular-nums"
                                             value={parent?.topUpMonthly || ""}
                                             onChange={(e) => {
                                               const val = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value.replace(/\D/g, "")) || 0);
@@ -1360,7 +1358,7 @@ const PlanBuilder = () => {
                                               savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                             }}
                                           />
-                                          <span className="text-xs text-muted-foreground">kr/mån</span>
+                                          <span className="text-[11px] text-muted-foreground">kr/mån</span>
                                         </>
                                       ) : (
                                         <>
@@ -1369,7 +1367,7 @@ const PlanBuilder = () => {
                                             inputMode="numeric"
                                             pattern="[0-9]*"
                                             placeholder="10"
-                                            className="h-8 w-20 text-sm tabular-nums"
+                                            className="h-7 w-16 text-xs tabular-nums"
                                             value={pctVal || ""}
                                             onChange={(e) => {
                                               const v = e.target.value.replace(/\D/g, "");
@@ -1382,22 +1380,21 @@ const PlanBuilder = () => {
                                               savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                             }}
                                           />
-                                          <span className="text-xs text-muted-foreground">% av lön</span>
-                                          <span className="text-xs text-foreground font-medium tabular-nums ml-1">
+                                          <span className="text-[11px] text-muted-foreground">%</span>
+                                          <span className="text-[11px] text-foreground font-medium tabular-nums">
                                             = {Math.round(monthlyIncome * (pctVal / 100)).toLocaleString("sv-SE")} kr
                                           </span>
                                         </>
                                       )}
                                     </div>
 
-                                    {/* Duration */}
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">Gäller i</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[11px] text-muted-foreground">Gäller i</span>
                                       <Input
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
-                                        className="h-7 w-14 text-xs tabular-nums"
+                                        className="h-6 w-12 text-[11px] tabular-nums"
                                         value={tuMonths === 0 ? "" : tuMonths}
                                         onChange={(e) => {
                                           const v = e.target.value.replace(/\D/g, "");
@@ -1405,15 +1402,13 @@ const PlanBuilder = () => {
                                           setTopUpMonths(prev => ({ ...prev, [s.parentId]: val }));
                                         }}
                                       />
-                                      <span className="text-xs text-muted-foreground">månader</span>
+                                      <span className="text-[11px] text-muted-foreground">mån</span>
+                                      {totalPeriodMonths > 0 && (
+                                        <span className={`text-[11px] ml-1 ${tuMonths >= totalPeriodMonths ? "text-primary" : "text-muted-foreground"}`}>
+                                          {tuMonths >= totalPeriodMonths ? "✓ Hela perioden" : `${tuMonths}/${totalPeriodMonths} mån`}
+                                        </span>
+                                      )}
                                     </div>
-                                    {totalPeriodMonths > 0 && (
-                                      <p className={`text-xs ${tuMonths >= totalPeriodMonths ? "text-primary" : "text-muted-foreground"}`}>
-                                        {tuMonths >= totalPeriodMonths
-                                          ? "✓ Täcker hela ledighetsperioden"
-                                          : `Täcker ${tuMonths} av ${totalPeriodMonths} mån — slutar ${topUpEndDate}`}
-                                      </p>
-                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1424,24 +1419,24 @@ const PlanBuilder = () => {
                                 if (!pr) return null;
                                 return (
                                   <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
-                                      <PiggyBank className="h-3.5 w-3.5" />
+                                    <CollapsibleTrigger className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+                                      <PiggyBank className="h-3 w-3" />
                                       Budget & dagstatus
                                       <ChevronDown className="h-3 w-3 shrink-0 transition-transform duration-200" />
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent className="pt-2 space-y-1 text-xs text-muted-foreground">
-                                      <p>Uttagna denna period: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
-                                      <p>Kvar att överföra: {Math.round(pr.remaining.sicknessTransferable)} dagar</p>
-                                      <p>Reserverade (ej överförbara): 90 tot, {Math.round(pr.remaining.sicknessReserved)} kvar</p>
+                                    <CollapsibleContent className="pt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                                      <p>Uttagna: {Math.round(pr.taken.sickness + pr.taken.lowest)} dagar</p>
+                                      <p>Kvar att överföra: {Math.round(pr.remaining.sicknessTransferable)} d</p>
+                                      <p>Reserverade: 90 tot, {Math.round(pr.remaining.sicknessReserved)} kvar</p>
                                       <TooltipProvider>
                                         <p className="flex items-center gap-1">
-                                          Lägstanivådagar kvar: {Math.round(pr.remaining.lowest)} dagar
+                                          Lägstanivå kvar: {Math.round(pr.remaining.lowest)} d
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <Info className="h-3 w-3 text-muted-foreground cursor-help inline-block" />
                                             </TooltipTrigger>
-                                            <TooltipContent side="top" className="max-w-[250px] text-xs">
-                                              Lägstanivådagarna (180 kr/dag) tas normalt ut sist, ofta vid deltidsuttag eller när barnet är äldre.
+                                            <TooltipContent side="top" className="max-w-[220px] text-[11px]">
+                                              Lägstanivådagarna (180 kr/dag) tas normalt ut sist.
                                             </TooltipContent>
                                           </Tooltip>
                                         </p>
@@ -1455,11 +1450,10 @@ const PlanBuilder = () => {
                         );
                       })}
                     </div>
-                    {/* FK info footer */}
-                    <div className="px-5 py-3 border-t border-border bg-muted/20">
-                      <p className="text-xs text-muted-foreground">
+                    <div className="px-4 py-2 border-t border-border bg-muted/20">
+                      <p className="text-[11px] text-muted-foreground">
                         {result.parentSummary.some(s => s.isAboveSgiTak)
-                          ? `FK betalar 77,6% av din lön upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
+                          ? `FK betalar 77,6% upp till taket (${Math.round(FK.sgiTakArslon / 12).toLocaleString("sv-SE")} kr/mån).`
                           : "FK betalar 77,6% av din lön."}
                       </p>
                     </div>
