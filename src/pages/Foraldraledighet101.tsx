@@ -119,7 +119,7 @@ const Foraldraledighet101 = () => {
     </div>
 
     {/* Accordion */}
-    <Accordion type="single" collapsible className="border rounded-xl overflow-hidden">
+    <Accordion type="single" collapsible className="border rounded-xl overflow-hidden" value={openItem} onValueChange={setOpenItem}>
       {/* Section 1 */}
       <AccordionItem value="days-split">
         <AccordionTrigger className="px-5 py-4 hover:no-underline">
