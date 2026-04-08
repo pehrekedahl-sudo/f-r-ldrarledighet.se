@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { addDays, compareDates, toEpochMs, getYear, getMonthIndex, startOfNextMonth, isoWeekdayIndex } from "@/utils/dateOnly";
 import { useTimelineDrag } from "@/hooks/useTimelineDrag";
 
@@ -123,9 +124,12 @@ function findUnfulfilledDate(blocks: Block[]): string | null {
   return null;
 }
 
-const LABEL_WIDTH = 140;
+const LABEL_WIDTH_DESKTOP = 140;
+const LABEL_WIDTH_MOBILE = 80;
 
 const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBlockClick, onDeleteOverlap, onBlockResize }: Props) => {
+  const isMobile = useIsMobile();
+  const LABEL_WIDTH = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP;
   const [hoveredOverlap, setHoveredOverlap] = useState<string | null>(null);
 
   const regularBlocks = blocks.filter((b) => !b.isOverlap);
@@ -273,8 +277,8 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
     };
   });
 
-  const rowHeight = 60;
-  const overlapRowHeight = 44;
+  const rowHeight = isMobile ? 72 : 60;
+  const overlapRowHeight = isMobile ? 52 : 44;
   const hasOverlapRow = validOverlaps.length > 0;
   const totalRowHeight = parentRows.length * rowHeight + (hasOverlapRow ? overlapRowHeight : 0);
 
@@ -285,7 +289,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
 
   return (
     <div className={`rounded-xl border border-border bg-white shadow-sm w-full overflow-hidden ${isDragging ? "select-none" : ""}`}>
-      <div className="flex w-full">
+      <div className="flex w-full overflow-x-auto">
         {/* Fixed label column */}
         <div className="flex-shrink-0 bg-muted/20" style={{ width: LABEL_WIDTH }}>
           <div className="h-8" />
@@ -308,7 +312,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
         </div>
 
         {/* Timeline area */}
-        <div className="flex-1 min-w-0 relative" ref={timelineRef}>
+        <div className="flex-1 relative" style={{ minWidth: 500 }} ref={timelineRef}>
           {/* Month/year header */}
           <div className="relative h-8 border-b border-border/60">
             {monthBoundaries.map((mb) => (
@@ -403,7 +407,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       {/* Left grip handle */}
                       {canResize && (
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          className="absolute left-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
                           onPointerDown={(e) => handlePointerDown(e, blockId, "start", b.startDate)}
                         />
                       )}
@@ -413,7 +417,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                       {/* Right grip handle */}
                       {canResize && (
                         <div
-                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          className="absolute right-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
                           onPointerDown={(e) => handlePointerDown(e, blockId, "end", b.endDate)}
                         />
                       )}
