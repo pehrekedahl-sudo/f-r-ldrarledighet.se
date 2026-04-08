@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -143,6 +143,7 @@ const PlanBuilder = () => {
   const [topUpMode, setTopUpMode] = useState<Record<string, "amount" | "percent">>({ p1: "amount", p2: "amount" });
   const [topUpPercent, setTopUpPercent] = useState<Record<string, number>>({ p1: 10, p2: 10 });
   const [childName, setChildName] = useState("");
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState<Record<string, number>>({});
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
 
   // Overlap dialog state
@@ -167,6 +168,7 @@ const PlanBuilder = () => {
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
+      if (saved.dueDate) setDueDate(saved.dueDate);
       if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) {
         const enabled: Record<string, boolean> = {};
         saved.parents.forEach((p: any) => { if ((p.topUpMonthly ?? 0) > 0) enabled[p.id] = true; });
@@ -639,6 +641,29 @@ const PlanBuilder = () => {
     } catch { return 0; }
   }, [result, parents, transfer]);
 
+  // SGI warnings: per-block warnings for blocks after child's 1st birthday
+  const sgiWarnings = useMemo(() => {
+    if (!dueDate) return [];
+    const firstBirthday = addMonths(dueDate, 12);
+    const warnings: { blockId: string; parentName: string; message: string }[] = [];
+    for (const b of blocks) {
+      if (blockErrors.get(b.id)) continue;
+      if (b.isOverlap) continue;
+      if (compareDates(b.endDate, firstBirthday) < 0) continue;
+      const parentWork = workDaysPerWeek[b.parentId] ?? 0;
+      const totalDays = b.daysPerWeek + parentWork;
+      if (totalDays < 5) {
+        const parentName = parents.find(p => p.id === b.parentId)?.name ?? "?";
+        warnings.push({
+          blockId: b.id,
+          parentName,
+          message: `${parentName} tar ut färre än 5 dagar/vecka efter barnets 1-årsdag. Om du inte arbetar de resterande dagarna kan din SGI påverkas negativt.`,
+        });
+      }
+    }
+    return warnings;
+  }, [blocks, blockErrors, dueDate, parents, workDaysPerWeek]);
+
   const handleTransfer = (toParentId: string) => {
     const fromParentId = toParentId === "p1" ? "p2" : "p1";
     const senderResult = result?.parentsResult.find((pr) => pr.parentId === fromParentId);
@@ -1025,7 +1050,19 @@ const PlanBuilder = () => {
               </div>
             </section>
 
-            {/* ── TWO-COLUMN: JUSTERA + ERSÄTTNING ── */}
+            {/* ── SGI WARNINGS ── */}
+            {sgiWarnings.length > 0 && (
+              <div className="space-y-2">
+                {sgiWarnings.map(w => (
+                  <div key={w.blockId} className="flex items-start gap-2.5 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span>{w.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left: Justera planen */}
               <div id="adjust-panel" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
