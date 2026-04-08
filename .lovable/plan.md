@@ -1,27 +1,27 @@
 
 
-# Fix: Enforce 60-day DD cap in overlap handlers
+# Fix: DD block deletion must remove both paired blocks
 
 ## Problem
-When a user moves a block (e.g., Pelle's) earlier via the BlockEditDrawer, creating a large cross-parent overlap (224 days in this case), the "Skapa dubbeldagar" option should be disabled but somehow 224 DD days were created. The current `ddCapExceeded` check only disables the UI button — there is no enforcement inside `handleOverlapCreateDD` itself.
+When clicking the X on a DD block in the timeline, only the single clicked block is removed (`blocks.filter(b => b.id !== blockId)`). DD blocks are paired via `overlapGroupId` — both blocks in the pair must be removed together. The first click removes one DD block, causing the partner DD block to remain as an orphan, which triggers visual glitches and requires a second click.
 
-## Root cause candidates
-1. **No hard enforcement in handler**: `handleOverlapCreateDD` has no guard — if the button is somehow clicked (race condition, stale memo, or UI glitch), the full overlap becomes DD with no cap.
-2. **Possible stale memo**: `ddCapExceeded` depends on `overlapDialog.overlapDays` via `useMemo`. If the dialog state updates but the memo hasn't re-evaluated before the user clicks, the button could briefly be enabled.
+## Root cause
+In `PlanBuilder.tsx` line 1182-1189, the `onDeleteOverlap` handler filters by the single `blockId`:
+```typescript
+const updated = blocks.filter(b => b.id !== blockId);
+```
+It should filter out **all blocks sharing the same `overlapGroupId`**.
 
 ## Fix
 
-### `src/pages/PlanBuilder.tsx`
+### `src/pages/PlanBuilder.tsx` — `onDeleteOverlap` handler
 
-1. **Add hard guard in `handleOverlapCreateDD`**: At the top of the function, re-compute the cap check inline (not relying on the memo). If `existingDDDays + overlapDays > 60`, return early with a toast warning. This is the defense-in-depth fix.
-
-2. **Cap DD creation to remaining days**: Instead of creating DD for the entire overlap when it exceeds 60 days, truncate the DD block's `endDate` so that only up to `60 - existingDDDays` weekdays are covered. Update the dialog text to explain: "Dubbeldagar begränsas till 60 dagar — överlappet kortas automatiskt."
-
-3. **Re-enable button with cap behavior**: Instead of fully disabling the DD button when cap is exceeded, keep it enabled but change the label to "Skapa dubbeldagar (max 60)" and have the handler automatically cap the DD period. Only disable when `existingDDDays >= 60` (no room left at all).
-
-## Changes
+Replace the single-ID filter with a group-based filter:
+1. Find the clicked block's `overlapGroupId`
+2. Remove all blocks with that `overlapGroupId`
+3. Run `normalizeBlocks` on the result to clean up any gaps
 
 | File | Change |
 |---|---|
-| `src/pages/PlanBuilder.tsx` | Add hard guard + auto-cap logic in `handleOverlapCreateDD`; update dialog UI to show capped DD option instead of disabling |
+| `src/pages/PlanBuilder.tsx` | Update `onDeleteOverlap` to remove both DD blocks in the pair by filtering on `overlapGroupId` instead of single `id` |
 
