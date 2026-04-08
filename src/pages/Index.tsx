@@ -27,6 +27,7 @@ const stats = [
 const timelineMonths = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
 
 const Index = () => {
+  const [showLimitations, setShowLimitations] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(172,30%,96%)]/60 via-background to-[hsl(14,60%,96%)]/60">
       {/* Hero */}
