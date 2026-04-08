@@ -255,7 +255,7 @@ const Foraldraledighet101 = () => {
       </AccordionItem>
 
       {/* Section 4 */}
-      <AccordionItem value="tradeoffs">
+      <AccordionItem value="tradeoffs" id="section-tradeoffs">
         <AccordionTrigger className="px-5 py-4 hover:no-underline">
           <span className="flex items-center gap-2.5 text-left">
             <Dot color="#E8735A" />
@@ -353,7 +353,8 @@ const Foraldraledighet101 = () => {
         Börja planera →
       </Link>
     </section>
-  </div>
-);
+   </div>
+  );
+};
 
 export default Foraldraledighet101;
