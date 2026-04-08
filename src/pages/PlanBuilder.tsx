@@ -323,8 +323,7 @@ const PlanBuilder = () => {
     setDrawerOpen(true);
   };
 
-  const handleDrawerSave = (updated: Block) => {
-    setHasManualEdits(true);
+  const applyDrawerSave = (updated: Block) => {
     if (drawerMode === "create") {
       const newBlocks = normalizeBlocks([...blocks, updated]);
       assertUniqueBlockIds(newBlocks, "drawerSave-create");
@@ -351,6 +350,50 @@ const PlanBuilder = () => {
       const transfers = transferToArray(transfer);
       savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     }
+  };
+
+  const handleDrawerSave = (updated: Block) => {
+    setHasManualEdits(true);
+
+    // Skip cross-parent overlap check for DD blocks
+    if (updated.isOverlap) {
+      applyDrawerSave(updated);
+      return;
+    }
+
+    // Detect cross-parent overlap
+    const otherParentBlocks = blocks.filter(
+      b => b.parentId !== updated.parentId && !b.isOverlap && b.id !== updated.id
+    );
+    const overlapping = otherParentBlocks.find(
+      b => compareDates(b.startDate, updated.endDate) <= 0 && compareDates(b.endDate, updated.startDate) >= 0
+    );
+
+    if (overlapping) {
+      const oStart = compareDates(updated.startDate, overlapping.startDate) > 0 ? updated.startDate : overlapping.startDate;
+      const oEnd = compareDates(updated.endDate, overlapping.endDate) < 0 ? updated.endDate : overlapping.endDate;
+      let overlapDays = 0;
+      for (let d = oStart; compareDates(d, oEnd) <= 0; d = addDaysUtil(d, 1)) {
+        if (isoWeekdayIndex(d) < 5) overlapDays++;
+      }
+
+      setOverlapDialog({
+        open: true,
+        targetBlock: updated,
+        otherBlock: overlapping,
+        newStart: updated.startDate,
+        newEnd: updated.endDate,
+        overlapDays,
+        overlapStart: oStart,
+        overlapEnd: oEnd,
+        preResizeBlocks: blocks.map(b => ({ ...b })),
+        source: "drawer",
+        pendingDrawerBlock: updated,
+      });
+      return;
+    }
+
+    applyDrawerSave(updated);
   };
 
   const handleDrawerDelete = (id: string) => {
