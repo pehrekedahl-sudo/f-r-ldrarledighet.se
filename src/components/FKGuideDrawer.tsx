@@ -34,6 +34,7 @@ type FKStep = {
   endDate: string;
   daysPerWeek: number;
   level: "Sjukpenningnivå" | "Lägstanivå";
+  isOverlap?: boolean;
 };
 
 interface FKGuideDrawerProps {
@@ -68,6 +69,7 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
         endDate: block.endDate,
         daysPerWeek: sicknessDays,
         level: "Sjukpenningnivå",
+        isOverlap: block.isOverlap,
       });
     }
     if (lowestDays > 0) {
@@ -78,6 +80,7 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
         endDate: block.endDate,
         daysPerWeek: lowestDays,
         level: "Lägstanivå",
+        isOverlap: block.isOverlap,
       });
     }
   }
@@ -228,6 +231,12 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                         <span className="field-value font-semibold font-sans">{step.daysPerWeek} dagar/vecka · <span className={isP1 ? "text-[#4A9B8E]" : "text-[#E8735A]"}>{step.level}</span></span>
                       </div>
                     </div>
+                    {step.isOverlap && (
+                      <div className="mt-2 rounded-md bg-white/70 border border-[#E8B89A] p-2.5 text-xs text-[#2D3748] space-y-1">
+                        <p className="font-semibold">🔄 Dubbeldag – båda föräldrarna anmäler samma period var för sig</p>
+                        <p>Dubbeldagar anmäls som två separata perioder på Mina sidor – en per förälder. Varje förälder loggar in på sitt eget konto och anmäler perioden med samma startdatum, slutdatum och uttag. Det ser ut som överlappande perioder, men det är korrekt – FK kopplar ihop dem automatiskt.</p>
+                      </div>
+                    )}
                     <div className="mt-2 no-print">
                       <Button
                         variant="ghost"
