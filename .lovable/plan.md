@@ -1,53 +1,35 @@
 
 
-# Tutorial: Pulsande ram utan overlay
+# Mobilanpassning av PlanBuilder
 
-## Vad ändras
-Hela spotlight-logiken (clip-path overlay + getBoundingClientRect-positionering) ersätts med en enklare approach: en animerad ring/glow runt aktuellt element via CSS-klasser, plus en förankrad tooltip. Ingen mörk overlay alls.
+## Problem
+På mobilskärmar (≤640px) blir layouten ihoptryckt på flera ställen:
+1. **Tidslinjen**: Fast labelkolumn på 140px lämnar bara ~200px för blocken — omöjligt att dra/trycka
+2. **Hero-bannern**: Föräldrapillerna med detaljtext (reserv · sjukpenning · lägsta) svämmar över
+3. **Padding/spacing**: `px-6 py-8 space-y-8` är generöst för desktop men slösar yta på mobil
+4. **Blocktext**: `text-[10px]` "3d/v" i tidslinjen är knappt läsbar på liten skärm
 
-## Teknik
+## Ändringar (desktop opåverkat)
 
-### `src/components/PlanTutorial.tsx` — omskriven
+### 1. `src/components/PlanTimeline.tsx` — responsiv tidslinje
+- **Labelkolumn**: Gör `LABEL_WIDTH` responsiv — `80px` på mobil, `140px` på desktop. Använd en hook eller media query. På mobil visa bara förnamn (redan `truncate`), krympta prickar.
+- **Blockhöjd**: Öka `rowHeight` från 60→72px på mobil för större touch-targets.
+- **Horisontell scroll**: Lägg till `overflow-x-auto` på timeline-containern så att blocken behåller minsta bredd istället för att tryckas ihop. En `min-width: 500px` på den inre timeline-div:en säkerställer att blocken alltid är interaktiva.
 
-**Bort:** clip-path-overlay, spotlight-ring-div, all `getBoundingClientRect`-logik, manuell tooltip-positionering.
+### 2. `src/pages/PlanBuilder.tsx` — responsiv spacing och layout
+- **Outer wrapper**: `px-6 py-8 space-y-8` → `px-3 py-4 space-y-5 sm:px-6 sm:py-8 sm:space-y-8`
+- **Hero banner section**: `px-5 py-4` → `px-3 py-3 sm:px-5 sm:py-4`
+- **Föräldrapills (rad ~953)**: Dölj detaljtext `(reserv · sjukpenning · lägsta)` på mobil med `hidden sm:inline`. Visa bara "X kvar".
+- **KPI-rad**: Redan `flex-col sm:flex-row`, men minska gap på mobil: `gap-2 sm:gap-3`
 
-**Nytt:**
-1. **Transparent click-blocker** — en `fixed inset-0 z-40` div utan bakgrundsfärg (eller max `bg-black/10` för subtil dimning) som fångar klick utanför tooltip:en.
-2. **Ring på målelementet** — vid varje steg, lägg till en CSS-klass direkt på target-elementet:
-   ```ts
-   el.classList.add("tutorial-highlight");
-   // cleanup: el.classList.remove("tutorial-highlight");
-   ```
-3. **CSS-klass** (läggs i `index.css`):
-   ```css
-   .tutorial-highlight {
-     position: relative;
-     z-index: 45;
-     box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2);
-     border-radius: 0.75rem;
-     transition: box-shadow 0.3s ease;
-     animation: tutorial-pulse 2s ease-in-out infinite;
-   }
-   @keyframes tutorial-pulse {
-     0%, 100% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 16px hsl(var(--primary) / 0.2); }
-     50% { box-shadow: 0 0 0 5px hsl(var(--primary) / 0.3), 0 0 24px hsl(var(--primary) / 0.15); }
-   }
-   ```
-4. **Tooltip-positionering** — fortfarande `fixed`, men enklare: scrolla till elementet, mät rect en gång efter scroll, placera tooltip under. Eftersom det inte finns ett overlay-hål att matcha pixelperfekt är off-by-a-few-px inte synligt.
-5. **scrollIntoView + requestAnimationFrame** istället för `setTimeout(350)` för mer robust timing.
+### 3. `src/components/PlanTimeline.tsx` — touch-vänligare drag-handles
+- Öka grip-handles bredd från `w-2` till `w-3 sm:w-2` på mobil för enklare drag-interaktion.
 
-### `src/index.css` — ny klass
-Lägg till `.tutorial-highlight` och `@keyframes tutorial-pulse`.
-
-### `src/pages/PlanBuilder.tsx` — inga ändringar
-Id-attributen och ❓-knappen behålls som de är.
-
-## Steg och texter
-Samma 5 steg, samma texter, samma navigering (Nästa / Hoppa över / prickar / Klar). Samma localStorage-logik.
-
-## Filer
+### Filer
 | Fil | Ändring |
 |---|---|
-| `src/components/PlanTutorial.tsx` | Omskriven — ta bort clip-path, lägga till classList-approach |
-| `src/index.css` | Ny CSS-klass + keyframes |
+| `src/components/PlanTimeline.tsx` | Responsiv labelkolumn, min-width + scroll, större touch-targets |
+| `src/pages/PlanBuilder.tsx` | Responsiv padding/spacing, dölj detaljtext på mobil |
+
+Inga ändringar påverkar desktop (alla justeringar gated bakom `sm:` breakpoints).
 
