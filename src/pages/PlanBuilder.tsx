@@ -873,9 +873,12 @@ const PlanBuilder = () => {
 
         const startYear = validBlocks.length > 0 ? validBlocks.reduce((min, b) => b.startDate < min ? b.startDate : min, validBlocks[0].startDate).slice(0, 4) : "";
         const endYear = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate).slice(0, 4) : "";
-        const planTitle = parents.length >= 2
-          ? `${parents[0].name} & ${parents[1].name} – Planerad ledighet ${startYear}–${endYear}`
-          : `${parents[0].name} – Planerad ledighet ${startYear}–${endYear}`;
+        const savedChildName = (loadedPlan as any)?.childName;
+        const planTitle = savedChildName
+          ? `Plan för föräldraledighet med ${savedChildName}`
+          : parents.length >= 2
+            ? `${parents[0].name} & ${parents[1].name} – Planerad ledighet ${startYear}–${endYear}`
+            : `${parents[0].name} – Planerad ledighet ${startYear}–${endYear}`;
 
         const formattedEnd = latestEnd ? (() => {
           try {

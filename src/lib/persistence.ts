@@ -14,6 +14,7 @@ export type WizardDraft = {
   income2: string;
   has240Days1: boolean;
   has240Days2: boolean;
+  childName: string;
   dueDate: string;
   preBirthChoice: "none" | "1week" | "custom" | null;
   preBirthDate: string | null; // ISO string
