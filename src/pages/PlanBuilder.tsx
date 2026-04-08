@@ -1050,7 +1050,19 @@ const PlanBuilder = () => {
               </div>
             </section>
 
-            {/* ── TWO-COLUMN: JUSTERA + ERSÄTTNING ── */}
+            {/* ── SGI WARNINGS ── */}
+            {sgiWarnings.length > 0 && (
+              <div className="space-y-2">
+                {sgiWarnings.map(w => (
+                  <div key={w.blockId} className="flex items-start gap-2.5 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span>{w.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left: Justera planen */}
               <div id="adjust-panel" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
