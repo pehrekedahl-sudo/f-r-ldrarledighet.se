@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Accordion,
   AccordionContent,
@@ -63,7 +64,23 @@ const NumberCircle = ({ n }: { n: number }) => (
 );
 
 /* ─── Page ─── */
-const Foraldraledighet101 = () => (
+const Foraldraledighet101 = () => {
+  const [searchParams] = useSearchParams();
+  const sectionParam = searchParams.get("section") || "";
+  const [openItem, setOpenItem] = useState(sectionParam || "");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (sectionParam) {
+      setOpenItem(sectionParam);
+      setTimeout(() => {
+        const el = document.getElementById(`section-${sectionParam}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  }, [sectionParam]);
+
+  return (
   <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-8">
     {/* Hero */}
     <header className="flex flex-col gap-2">
@@ -102,7 +119,7 @@ const Foraldraledighet101 = () => (
     </div>
 
     {/* Accordion */}
-    <Accordion type="single" collapsible className="border rounded-xl overflow-hidden">
+    <Accordion type="single" collapsible className="border rounded-xl overflow-hidden" value={openItem} onValueChange={setOpenItem}>
       {/* Section 1 */}
       <AccordionItem value="days-split">
         <AccordionTrigger className="px-5 py-4 hover:no-underline">
@@ -238,7 +255,7 @@ const Foraldraledighet101 = () => (
       </AccordionItem>
 
       {/* Section 4 */}
-      <AccordionItem value="tradeoffs">
+      <AccordionItem value="tradeoffs" id="section-tradeoffs">
         <AccordionTrigger className="px-5 py-4 hover:no-underline">
           <span className="flex items-center gap-2.5 text-left">
             <Dot color="#E8735A" />
@@ -336,7 +353,8 @@ const Foraldraledighet101 = () => (
         Börja planera →
       </Link>
     </section>
-  </div>
-);
+   </div>
+  );
+};
 
 export default Foraldraledighet101;
