@@ -1,65 +1,58 @@
 
 
-# SGI-varning per block i PlanBuilder
+# Pop-up-tutorial för PlanBuilder
 
-## Vad som byggs
-En per-block varning som visas direkt under tidslinjen när ett block har `daysPerWeek < 5` och infaller (helt eller delvis) efter barnets 1-årsdag. Varningen inkluderar en länk till 101-sidans SGI-sektion.
+## Översikt
+En stegvis "spotlight"-tutorial som highlightar nyckelområden i planeringsvyn med förklaringar om vad användaren kan göra och vilken effekt det har. Visas automatiskt vid första besöket, kan stängas och återkallas via en subtil knapp.
 
-## Förutsättningar
-- `dueDate` finns redan i PlanBuilder state — barnets 1-årsdag = `addMonths(dueDate, 12)`
-- Varningen visas bara om `dueDate` är satt
-- Blockens `startDate` jämförs med 1-årsdagen; block som slutar före 1-årsdagen visas inte
+## Arkitektur
 
-## Ändringar
+### Ny komponent: `src/components/PlanTutorial.tsx`
+En modal-liknande overlay med spotlight-effekt. Varje steg pekar på ett element via `id`-attribut och visar en tooltip-liknande ruta intill det.
 
-### 1. `src/pages/PlanBuilder.tsx` — SGI-varningsblock under tidslinjen
+**Stegen (5 st):**
 
-**Plats:** Direkt efter `<PlanTimeline ... />` och före "Lägg till block"-knapparna (rad ~1014), inuti result-vyn.
+1. **Hero-bannern** (`id="plan-hero"`) — "Här ser du en sammanfattning av er plan: hur länge pengarna räcker, snittinkomst per månad, och hur många dagar varje förälder har kvar. Du kan dela planen eller börja om."
 
-**Logik (useMemo):**
-```
-const childFirstBirthday = dueDate ? addMonths(dueDate, 12) : null;
+2. **Tidslinjen** (`id="plan-timeline"`) — "Tidslinjen visar era ledighetsblocki kronologisk ordning. Dra i kanterna för att ändra längd, eller klicka på ett block för att redigera dagar per vecka. Det påverkar direkt hur länge dagarna räcker och vad ni får i ersättning."
 
-const sgiWarningBlocks = useMemo(() => {
-  if (!childFirstBirthday) return [];
-  return validBlocks.filter(b =>
-    b.daysPerWeek < 5 &&
-    !b.isOverlap &&
-    compareDates(b.endDate, childFirstBirthday) >= 0
-  );
-}, [validBlocks, childFirstBirthday]);
-```
+3. **Justera planen** (`id="adjust-panel"`) — "Här finjusterar ni planen: ändra växlingsdatum mellan föräldrar, spara dagar som reserv, överföra dagar sinsemellan eller lägga till dubbeldagar. Varje ändring uppdaterar tidslinjen och ersättningen direkt."
 
-**Rendering:** En amber/warning-styled `div` per varningsblock, med förälderns namn och blockdatum:
-```
-{sgiWarningBlocks.map(b => (
-  <div key={b.id} className="border border-amber-300 rounded-lg p-3 bg-amber-50 text-amber-900 text-sm flex items-start gap-2">
-    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-    <p>
-      <strong>{parentName}</strong>: Du tar ut färre än 5 dagar/vecka
-      ({b.daysPerWeek} d/v) efter barnets 1-årsdag. Det kan påverka
-      din SGI negativt om du inte arbetar de resterande dagarna.
-      <Link to="/foraldraledighet-101?section=tradeoffs"
-        className="underline font-medium ml-1">Läs mer →</Link>
-    </p>
-  </div>
-))}
-```
+4. **Ersättning per förälder** (`id="benefit-panel"`) — "Här ser ni vad varje förälder får utbetalt per månad i snitt och hur mycket av lönen det täcker. Ni kan även lägga till arbetsgivarens tillägg (löneuppfyllnad) för att se den riktiga nettoskillnaden."
 
-- Importera `AlertTriangle` från lucide-react och `Link` från react-router-dom (Link redan imported via navigate)
+5. **Klart!** (centrerad, ingen spotlight) — "Nu är ni redo att planera! Ni kan alltid ta fram den här guiden igen via ❓-knappen."
 
-### 2. `src/pages/Foraldraledighet101.tsx` — Scroll till rätt sektion via query param
+**Teknik:**
+- Varje steg identifierar sitt mål-element via `document.getElementById(targetId)`
+- `getBoundingClientRect()` + scroll till elementet → rita en halvtransparent overlay med ett "hål" (CSS clip-path eller box-shadow `0 0 0 9999px rgba(0,0,0,0.5)`) runt mål-elementet
+- Tooltip-ruta positioneras under/bredvid elementet med pil
+- Navigering: "Nästa" / "Hoppa över" / steg-indikator (1/5 prickar)
+- Vid sista steget: "Klar!"-knapp
 
-**Lägg till:** useEffect som läser `?section=tradeoffs` från URL:en, och om satt:
-1. Sätter Accordion default-value till `tradeoffs`
-2. Scrollar till sektionen med `document.getElementById` + `scrollIntoView`
+**State:**
+- `localStorage` key `planTutorialSeenV1` — sätts till `true` efter avslut/skip
+- PlanBuilder kontrollerar detta vid mount: om ej sett → öppna tutorial
+- Exponerar `open`/`onClose` props
 
-Kräver:
-- `useSearchParams` import
-- Ge `AccordionItem value="tradeoffs"` ett `id="section-tradeoffs"` attribut
-- Ändra Accordion från uncontrolled till kontrollerad (`value` state) som initieras från query param
+### Ändringar i `src/pages/PlanBuilder.tsx`
+- Lägg till `id`-attribut på 4 sektioner:
+  - `id="plan-hero"` på hero-bannern (rad ~907)
+  - `id="plan-timeline"` på tidslinje-sektionen (rad ~997)
+  - `id="adjust-panel"` finns redan (rad ~1059)
+  - `id="benefit-panel"` på ersättnings-sektionen (rad ~1209)
+- Importera och rendera `<PlanTutorial>` med state (`showTutorial` / `setShowTutorial`)
+- Lägg till en ❓-knapp i hero-bannern (bredvid "Dela plan" / "Rensa") som sätter `setShowTutorial(true)`
 
-### Sammanfattning
-- **2 filer**: `PlanBuilder.tsx`, `Foraldraledighet101.tsx`
-- Ingen ändring av layout, simuleringslogik eller befintliga varningar
-- Använder befintlig amber/warning-styling som redan finns i projektet
+### Filer
+| Fil | Ändring |
+|---|---|
+| `src/components/PlanTutorial.tsx` | Ny — spotlight-tutorial-komponent |
+| `src/pages/PlanBuilder.tsx` | Lägg till id-attribut, importera tutorial, ❓-knapp |
+
+### Design
+- Overlay: `bg-black/60` med clip-path-hål runt aktuellt element
+- Tooltip-ruta: `bg-card rounded-xl shadow-lg border p-4 max-w-sm`
+- Steg-prickar: små cirklar, aktiv = `bg-primary`, inaktiv = `bg-muted`
+- ❓-knapp: `variant="ghost" size="sm"` med `HelpCircle`-ikon, placerad i hero-bannerns actions-rad
+- Smooth scroll till element vid stegbyte via `scrollIntoView({ behavior: "smooth", block: "center" })`
+
