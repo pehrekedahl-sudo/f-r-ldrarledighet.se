@@ -700,7 +700,14 @@ const OnboardingWizard = ({ onComplete }: Props) => {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-6 py-12 min-h-[80vh] flex flex-col">
+    <div className="max-w-lg mx-auto px-6 py-12 min-h-[80vh] flex flex-col items-stretch">
+      {/* Back to start */}
+      <div className="mb-4">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          ← Tillbaka till startsidan
+        </Link>
+      </div>
+
       {/* Progress */}
       <div className="text-center mb-2">
         <p className="text-sm text-muted-foreground">Steg {step} av {TOTAL_STEPS}</p>
@@ -744,7 +751,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-start pt-4">
+      <div className="flex-1 flex flex-col justify-start items-stretch pt-4">
         {stepContent()}
       </div>
 
