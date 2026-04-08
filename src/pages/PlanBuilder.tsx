@@ -35,6 +35,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { loadPlanInput, savePlanInput } from "@/lib/persistence";
 import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
 import { normalizeBlocks, applySmartChange } from "@/lib/adjustmentPolicy";
+import { resolveDeletedDoubleDays } from "@/lib/resolveDeletedDoubleDays";
 import { canonicalizeBlocks } from "@/lib/canonicalizeBlocks";
 import PlanTimeline from "@/components/PlanTimeline";
 import BlockEditDrawer from "@/components/BlockEditDrawer";
@@ -1181,15 +1182,10 @@ const PlanBuilder = () => {
                 onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
-                    const target = blocks.find(b => b.id === blockId);
-                    const groupId = target?.overlapGroupId;
-                    const updated = groupId
-                      ? blocks.filter(b => b.overlapGroupId !== groupId)
-                      : blocks.filter(b => b.id !== blockId);
-                    const normalized = normalizeBlocks(updated);
-                    setBlocks(normalized);
+                    const resolved = resolveDeletedDoubleDays(blocks, blockId);
+                    setBlocks(resolved);
                     const transfers = transferToArray(transfer);
-                    savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
+                    savePlanInput({ parents, blocks: resolved, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
               />
