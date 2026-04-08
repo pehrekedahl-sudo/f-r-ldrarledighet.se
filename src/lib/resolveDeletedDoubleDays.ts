@@ -8,13 +8,14 @@ import { addDays, compareDates, diffDaysInclusive } from "../utils/dateOnly";
  * Key insight: raw regular blocks may still span through the DD window
  * (the timeline only clips them visually). We must split those blocks
  * at the DD boundaries to produce "materialized" left/right fragments,
- * then decide which fragment fills the gap.
+ * then decide which fragment fills the gap, and trim the losing parent's
+ * blocks to avoid cross-parent overlap.
  *
- * Rules (applied per-parent first, then cross-parent):
+ * Rules:
  * 1. Same parent on both sides, same DPW → merge across gap
  * 2. Same parent on both sides, different DPW → extend shorter fragment
  * 3. Cross-parent → extend only the shortest adjacent fragment; trim the
- *    losing parent's block so it no longer covers the gap
+ *    losing parent's block so it no longer covers the gap or overlaps
  * 4. No adjacent blocks → just remove the DD pair
  */
 export function resolveDeletedDoubleDays(
@@ -55,6 +56,9 @@ export function resolveDeletedDoubleDays(
   const dayBeforeDd = addDays(ddStart, -1);
   const dayAfterDd = addDays(ddEnd, 1);
 
+  // Track which parent "won" the gap (extended into or merged across it)
+  let winnerParentId: string | null = null;
+
   // Step 2: Find left/right candidates per parent
   type Candidate = {
     parentId: string;
@@ -83,7 +87,8 @@ export function resolveDeletedDoubleDays(
         const leftBlock = result.find((b) => b.id === left.id)!;
         leftBlock.endDate = right.endDate;
         result = result.filter((b) => b.id !== right.id);
-        continue; // This parent is resolved
+        winnerParentId = pid;
+        continue;
       } else {
         // Extend shortest
         const leftDays = diffDaysInclusive(left.startDate, left.endDate);
@@ -93,7 +98,8 @@ export function resolveDeletedDoubleDays(
         } else {
           result.find((b) => b.id === right.id)!.startDate = ddStart;
         }
-        continue; // This parent is resolved
+        winnerParentId = pid;
+        continue;
       }
     }
 
@@ -117,7 +123,7 @@ export function resolveDeletedDoubleDays(
   }
 
   // Step 3: Cross-parent resolution — pick the single shortest candidate
-  if (allCandidates.length > 0) {
+  if (allCandidates.length > 0 && !winnerParentId) {
     // Sort by days ascending, then parentId for deterministic tie-break
     allCandidates.sort(
       (a, b) => a.days - b.days || a.parentId.localeCompare(b.parentId)
@@ -131,8 +137,12 @@ export function resolveDeletedDoubleDays(
         winnerBlock.startDate = ddStart;
       }
     }
-    // The losing parent's block was already split/materialized and does NOT
-    // cover the DD window, so no cross-parent overlap is created.
+    winnerParentId = winner.parentId;
+  }
+
+  // Step 4: Trim cross-parent overlaps between involved parents
+  if (winnerParentId && ddParentIds.length >= 2) {
+    result = trimCrossParentOverlaps(result, ddParentIds, winnerParentId);
   }
 
   return lightMerge(result);
@@ -153,7 +163,6 @@ function materializeAroundWindow(
   const result: Block[] = [];
 
   for (const b of blocks) {
-    // Only split regular blocks of the involved parents
     if (b.isOverlap || !parentSet.has(b.parentId)) {
       result.push(b);
       continue;
@@ -172,22 +181,87 @@ function materializeAroundWindow(
 
     // Block intersects the DD window — split it
     if (startsBeforeDd) {
-      // Left fragment: original start to ddStart-1
       result.push({
         ...b,
         endDate: addDays(ddStart, -1),
       });
     }
     if (endsAfterDd) {
-      // Right fragment: ddEnd+1 to original end
       result.push({
         ...b,
         id: generateBlockId("split"),
         startDate: addDays(ddEnd, 1),
       });
     }
-    // If the block is entirely within the DD window (neither starts before
-    // nor ends after), it's discarded — it was hidden under the DD anyway.
+    // Entirely within DD window → discarded
+  }
+
+  return result;
+}
+
+/**
+ * After gap resolution, the winning parent may have blocks that overlap with
+ * the losing parent's blocks (because the raw data had cross-parent overlap
+ * beyond the DD window). Trim the losers so no regular cross-parent overlap remains.
+ */
+function trimCrossParentOverlaps(
+  blocks: Block[],
+  involvedParentIds: string[],
+  winnerParentId: string
+): Block[] {
+  const loserPids = involvedParentIds.filter((p) => p !== winnerParentId);
+  const winnerBlocks = blocks.filter(
+    (b) => b.parentId === winnerParentId && !b.isOverlap
+  );
+
+  const result: Block[] = [];
+
+  for (const b of blocks) {
+    if (b.isOverlap || !loserPids.includes(b.parentId)) {
+      result.push(b);
+      continue;
+    }
+
+    // Check if this loser block overlaps with any winner block
+    let trimmed = { ...b };
+    let discard = false;
+
+    for (const w of winnerBlocks) {
+      const overlaps =
+        compareDates(trimmed.startDate, w.endDate) <= 0 &&
+        compareDates(trimmed.endDate, w.startDate) >= 0;
+
+      if (!overlaps) continue;
+
+      // Trim the loser block to remove the overlapping portion
+      const startsBeforeWinner = compareDates(trimmed.startDate, w.startDate) < 0;
+      const endsAfterWinner = compareDates(trimmed.endDate, w.endDate) > 0;
+
+      if (startsBeforeWinner && endsAfterWinner) {
+        // Loser spans the winner — keep only the left part, add right part separately
+        const rightPart: Block = {
+          ...trimmed,
+          id: generateBlockId("trim"),
+          startDate: addDays(w.endDate, 1),
+        };
+        trimmed.endDate = addDays(w.startDate, -1);
+        result.push(rightPart);
+      } else if (startsBeforeWinner) {
+        // Loser starts before winner — trim end
+        trimmed.endDate = addDays(w.startDate, -1);
+      } else if (endsAfterWinner) {
+        // Loser ends after winner — trim start
+        trimmed.startDate = addDays(w.endDate, 1);
+      } else {
+        // Loser is entirely within winner — discard
+        discard = true;
+        break;
+      }
+    }
+
+    if (!discard && compareDates(trimmed.endDate, trimmed.startDate) >= 0) {
+      result.push(trimmed);
+    }
   }
 
   return result;
