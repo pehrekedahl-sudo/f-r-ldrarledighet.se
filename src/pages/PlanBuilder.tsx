@@ -137,6 +137,7 @@ const PlanBuilder = () => {
   const [hasManualEdits, setHasManualEdits] = useState(false);
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
 
   // Overlap dialog state
@@ -160,6 +161,7 @@ const PlanBuilder = () => {
     const saved = loadPlanInput() as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
+      if (saved.childName) setChildName(saved.childName);
       if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
@@ -873,9 +875,8 @@ const PlanBuilder = () => {
 
         const startYear = validBlocks.length > 0 ? validBlocks.reduce((min, b) => b.startDate < min ? b.startDate : min, validBlocks[0].startDate).slice(0, 4) : "";
         const endYear = validBlocks.length > 0 ? validBlocks.reduce((max, b) => b.endDate > max ? b.endDate : max, validBlocks[0].endDate).slice(0, 4) : "";
-        const savedChildName = (loadedPlan as any)?.childName;
-        const planTitle = savedChildName
-          ? `Plan för föräldraledighet med ${savedChildName}`
+        const planTitle = childName
+          ? `Plan för föräldraledighet med ${childName}`
           : parents.length >= 2
             ? `${parents[0].name} & ${parents[1].name} – Planerad ledighet ${startYear}–${endYear}`
             : `${parents[0].name} – Planerad ledighet ${startYear}–${endYear}`;
