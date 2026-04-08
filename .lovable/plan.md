@@ -1,35 +1,65 @@
 
 
-# Balansera tvåkolumnslayouten: Justera planen ↔ Ersättning per förälder
+# SGI-varning per block i PlanBuilder
 
-## Problem
-Ersättningssektionen (höger) tar ~300 rader och renderar avsevärt mer vertikal yta än Justera planen (vänster, ~130 rader). Kolumnerna ska matcha visuellt.
+## Vad som byggs
+En per-block varning som visas direkt under tidslinjen när ett block har `daysPerWeek < 5` och infaller (helt eller delvis) efter barnets 1-årsdag. Varningen inkluderar en länk till 101-sidans SGI-sektion.
 
-## Strategi
-**Minska höger kolumn aggressivt** + **ge vänster kolumn samma visuella stil** (rounded-xl, shadow-sm, bg-card).
+## Förutsättningar
+- `dueDate` finns redan i PlanBuilder state — barnets 1-årsdag = `addMonths(dueDate, 12)`
+- Varningen visas bara om `dueDate` är satt
+- Blockens `startDate` jämförs med 1-årsdagen; block som slutar före 1-årsdagen visas inte
 
-## Ändringar i `src/pages/PlanBuilder.tsx`
+## Ändringar
 
-### 1. Visuellt synka vänster kolumn med höger
-- Ändra vänster container från `rounded-lg border border-border bg-muted/30` till `rounded-xl border border-border bg-card shadow-sm overflow-hidden` — samma som höger
-- Ge header-raden samma stil: liten ikon + rubriktext + `border-b`
+### 1. `src/pages/PlanBuilder.tsx` — SGI-varningsblock under tidslinjen
 
-### 2. Komprimera ersättnings-korten radikalt
-- **Ta bort den stora siffra-raden** (`text-lg font-bold`) — visa istället en kompakt rad: `"32 615 kr/mån i snitt · Täcker 47%"` på en enda rad, text-sm
-- **Coverage bar**: Ta bort helt — procent-talet i textraden ovan räcker
-- **Block breakdown collapsible**: Behåll men minska trigger till inline-text utan extra whitespace
-- **Top-up box**: Göm hela inputområdet bakom collapsible-triggern — visa bara `"Tillägg från arbetsgivare"` + Switch + sammanfattning (t.ex. "5 000 kr/mån, 6 mån") på en rad. Expanderar till inputs vid klick.
-- **Budget collapsible**: Behåll som den är (redan kompakt)
+**Plats:** Direkt efter `<PlanTimeline ... />` och före "Lägg till block"-knapparna (rad ~1014), inuti result-vyn.
 
-### 3. Ta bort per-förälder header-padding
-- Minska `py-2` → `py-1.5` på färgad header
-- Minska `py-3 space-y-2.5` → `py-2 space-y-1.5` på content area
+**Logik (useMemo):**
+```
+const childFirstBirthday = dueDate ? addMonths(dueDate, 12) : null;
 
-### 4. Footer
-- Flytta FK-info-texten till en tooltip istället för en footer-rad, eller gör den till en single-line `text-[10px]` med minimal padding
+const sgiWarningBlocks = useMemo(() => {
+  if (!childFirstBirthday) return [];
+  return validBlocks.filter(b =>
+    b.daysPerWeek < 5 &&
+    !b.isOverlap &&
+    compareDates(b.endDate, childFirstBirthday) >= 0
+  );
+}, [validBlocks, childFirstBirthday]);
+```
 
-### Resultat
-Varje förälder-kort blir ~4-5 rader högt (namn+lön, siffra+coverage inline, perioder-trigger, top-up-trigger, budget-trigger) istället för ~12+ rader. Totala höjden halveras ungefär och matchar Justera planen.
+**Rendering:** En amber/warning-styled `div` per varningsblock, med förälderns namn och blockdatum:
+```
+{sgiWarningBlocks.map(b => (
+  <div key={b.id} className="border border-amber-300 rounded-lg p-3 bg-amber-50 text-amber-900 text-sm flex items-start gap-2">
+    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+    <p>
+      <strong>{parentName}</strong>: Du tar ut färre än 5 dagar/vecka
+      ({b.daysPerWeek} d/v) efter barnets 1-årsdag. Det kan påverka
+      din SGI negativt om du inte arbetar de resterande dagarna.
+      <Link to="/foraldraledighet-101?section=tradeoffs"
+        className="underline font-medium ml-1">Läs mer →</Link>
+    </p>
+  </div>
+))}
+```
 
-Enda fil: **`src/pages/PlanBuilder.tsx`**
+- Importera `AlertTriangle` från lucide-react och `Link` från react-router-dom (Link redan imported via navigate)
 
+### 2. `src/pages/Foraldraledighet101.tsx` — Scroll till rätt sektion via query param
+
+**Lägg till:** useEffect som läser `?section=tradeoffs` från URL:en, och om satt:
+1. Sätter Accordion default-value till `tradeoffs`
+2. Scrollar till sektionen med `document.getElementById` + `scrollIntoView`
+
+Kräver:
+- `useSearchParams` import
+- Ge `AccordionItem value="tradeoffs"` ett `id="section-tradeoffs"` attribut
+- Ändra Accordion från uncontrolled till kontrollerad (`value` state) som initieras från query param
+
+### Sammanfattning
+- **2 filer**: `PlanBuilder.tsx`, `Foraldraledighet101.tsx`
+- Ingen ändring av layout, simuleringslogik eller befintliga varningar
+- Använder befintlig amber/warning-styling som redan finns i projektet
