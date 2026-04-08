@@ -177,9 +177,33 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
               </div>
             </div>
 
-            {/* STEPS 2..N+1: Period cards */}
+            {/* STEP 2 (conditional): Pappadagar */}
+            {hasP2 && (
+              <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
+                <div className="step-header flex items-center gap-3">
+                  <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">2</span>
+                  <span className="step-title font-bold text-sm text-foreground">Anmäl tillfällig föräldrapenning (10 dagar)</span>
+                </div>
+                <p className="text-sm text-[#2D3748] pl-10">
+                  {p2Name} har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse. Dessa dagar ligger <strong>utanför</strong> 480-dagarsbudgeten och måste tas ut inom 60 dagar från födseln. De anmäls separat hos FK under "Tillfällig föräldrapenning".
+                </p>
+                <div className="pl-10 no-print">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/tillfällig-föräldrapenning", "_blank")}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Läs mer hos FK →
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Period cards */}
             {fkSteps.map((step, i) => {
-              const stepNum = i + 2;
+              const stepNum = i + 1 + stepOffset;
               const isP1 = step.parentId === "p1";
               return (
                 <div key={`${step.startDate}-${step.parentId}-${step.level}-${i}`} className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
