@@ -91,7 +91,7 @@ const DoubleDaysDrawer = ({ open, onOpenChange, parents, maxDoubleDays = 30, onA
 
         <div className="flex-1 space-y-5 py-4 overflow-y-auto">
           <p className="text-sm text-muted-foreground">
-            Under dubbeldagar tar båda föräldrarna ut föräldrapenning samtidigt. Max 30 dagar under barnets första levnadsår.
+            Under dubbeldagar tar båda föräldrarna ut föräldrapenning samtidigt. Max 60 dubbeldagar t.o.m. barnets 15:e månad (gäller barn födda från och med 1 april 2023. För barn födda före det datum gäller max 30 dagar t.o.m. 1-årsdagen).
           </p>
 
           <div className="space-y-2">
