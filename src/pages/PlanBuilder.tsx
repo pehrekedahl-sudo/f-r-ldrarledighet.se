@@ -167,7 +167,11 @@ const PlanBuilder = () => {
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
-      if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
+      if (saved.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) {
+        const enabled: Record<string, boolean> = {};
+        saved.parents.forEach((p: any) => { if ((p.topUpMonthly ?? 0) > 0) enabled[p.id] = true; });
+        setTopUpEnabled(enabled);
+      }
       setBlocks(saved.blocks);
       setOriginalBlocks(saved.blocks);
       if (saved.transfers?.length > 0) {
@@ -198,7 +202,11 @@ const PlanBuilder = () => {
         if (decoded.months2 !== undefined) setMonths2(decoded.months2);
         if (decoded.parents) {
           setParents(decoded.parents);
-          if (decoded.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) setShowTopUp(true);
+          if (decoded.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) {
+            const enabled: Record<string, boolean> = {};
+            decoded.parents.forEach((p: any) => { if ((p.topUpMonthly ?? 0) > 0) enabled[p.id] = true; });
+            setTopUpEnabled(enabled);
+          }
         }
         setIsSharedPlan(true);
         setViewMode("result");
