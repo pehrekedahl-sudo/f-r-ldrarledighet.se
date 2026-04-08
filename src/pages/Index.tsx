@@ -157,26 +157,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Limitations */}
-      <section className="max-w-7xl mx-auto px-6 pb-16">
-        <div className="rounded-xl border-2 border-border bg-card shadow-sm p-6 space-y-3 max-w-3xl mx-auto">
-          <h2
-            className="text-lg font-medium text-foreground"
-            style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
-          >
-            Det här stöder vi inte än
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Verktyget är byggt för två föräldrar med fast anställning och ett barn. Vi jobbar på att utöka stödet – följande scenarion hanteras inte korrekt idag:
-          </p>
-          <ul className="space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>Ensamstående föräldrar</li>
-            <li>Familjer med sparade dagar från ett äldre barn</li>
-            <li>Egenföretagare och föräldrar med oregelbunden inkomst</li>
-          </ul>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-6 pb-20 text-center space-y-4">
         <h2
@@ -196,6 +176,29 @@ const Index = () => {
             Vill du förstå systemet först? →
           </Link>
         </p>
+      </section>
+
+      {/* Limitations toggle */}
+      <section className="max-w-3xl mx-auto px-6 pb-8">
+        <button
+          onClick={() => setShowLimitations(!showLimitations)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors mx-auto"
+        >
+          Det här stöder vi inte än
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showLimitations ? "rotate-180" : ""}`} />
+        </button>
+        {showLimitations && (
+          <div className="mt-3 text-xs text-muted-foreground/70 space-y-2 text-center">
+            <p>
+              Verktyget är byggt för två föräldrar med fast anställning och ett barn. Vi jobbar på att utöka stödet – följande scenarion hanteras inte korrekt idag:
+            </p>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>Ensamstående föräldrar</li>
+              <li>Familjer med sparade dagar från ett äldre barn</li>
+              <li>Egenföretagare och föräldrar med oregelbunden inkomst</li>
+            </ul>
+          </div>
+        )}
       </section>
 
       {/* Footer */}
