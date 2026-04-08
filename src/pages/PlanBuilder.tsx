@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -1011,6 +1012,33 @@ const PlanBuilder = () => {
                   }
                 }}
               />
+              {/* SGI warnings per block */}
+              {dueDate && (() => {
+                const childFirstBirthday = addMonths(dueDate, 12);
+                const sgiWarningBlocks = validBlocks.filter(b =>
+                  b.daysPerWeek < 5 &&
+                  !b.isOverlap &&
+                  compareDates(b.endDate, childFirstBirthday) >= 0
+                );
+                if (sgiWarningBlocks.length === 0) return null;
+                return (
+                  <div className="flex flex-col gap-2 mt-2">
+                    {sgiWarningBlocks.map(b => {
+                      const parent = parents.find(p => p.id === b.parentId);
+                      const parentName = parent?.name ?? "Förälder";
+                      return (
+                        <div key={`sgi-warn-${b.id}`} className="border border-amber-300 rounded-lg p-3 bg-amber-50 text-amber-900 text-sm flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <p>
+                            <strong>{parentName}</strong>: Du tar ut färre än 5 dagar/vecka ({b.daysPerWeek} d/v) efter barnets 1-årsdag. Det kan påverka din SGI negativt om du inte arbetar de resterande dagarna.{" "}
+                            <Link to="/foraldraledighet-101?section=tradeoffs" className="underline font-medium ml-1">Läs mer →</Link>
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="ghost" size="sm" className="text-[#2d7a6f] hover:text-[#1f6059] hover:bg-[#edf7f5] border border-[#4A9B8E]/30" onClick={handleAddPeriod}>
                   <CalendarPlus className="w-3.5 h-3.5" />

@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Accordion,
   AccordionContent,
@@ -63,7 +64,23 @@ const NumberCircle = ({ n }: { n: number }) => (
 );
 
 /* ─── Page ─── */
-const Foraldraledighet101 = () => (
+const Foraldraledighet101 = () => {
+  const [searchParams] = useSearchParams();
+  const sectionParam = searchParams.get("section") || "";
+  const [openItem, setOpenItem] = useState(sectionParam || "");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (sectionParam) {
+      setOpenItem(sectionParam);
+      setTimeout(() => {
+        const el = document.getElementById(`section-${sectionParam}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  }, [sectionParam]);
+
+  return (
   <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-8">
     {/* Hero */}
     <header className="flex flex-col gap-2">
