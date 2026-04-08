@@ -1,50 +1,19 @@
 
 
-# Fix: Redesign budget logic for "Maximalt uttag" and "Balanserat"
+# Add optional child name to wizard step 1 and plan title
 
-## Problem
-- **Maximalt uttag** shows 0 days consumed (cap bug may still be active or budget calc wrong)
-- **Balanserat** uses a confusing SGI_DAYS formula that produces nonsensical results
+## What changes
 
-## New strategy definitions
+1. **Wizard step 1** — Add an optional "Barnets namn / arbetsnamn" input field below the two parent name fields, with a helper text like "Valfritt – används för att namnge planen". No validation required (field can be empty).
 
-### 1. Maximalt uttag (income)
-**Budget = 480, always.** Zero days saved. The algorithm distributes all 480 days across the total weeks. If total weeks are short (e.g. 26 weeks), rate will be 7 d/v and some days simply can't be used (480 > 7×26=182) — that's fine, show "298 dagar sparas (ej nog lång ledighet för att använda alla)".
+2. **State & persistence** — Add `childName` state to `OnboardingWizard`, persist it in the draft (`WizardDraft` type in `persistence.ts`), include it in `WizardResult`, and pass through from `Wizard.tsx` into the saved plan data.
 
-### 2. Spara dagar (save) — unchanged
-Budget = 304 (saves 176 days). Already works.
+3. **Plan title in PlanBuilder** — When `childName` is present in the saved plan, change the title from `"Anna & Erik – Planerad ledighet 2025–2026"` to `"Plan för föräldraledighet med Saga"`. When empty, keep the current format.
 
-### 3. Balanserat (balanced) — new formula
-Interpolate between income (480) and save (304) based on duration:
-- Calculate a `durationRatio` from total months (clamped between ~6 and ~24 months → 0.0–1.0)
-- Longer duration → closer to "maximalt" (fewer saved days)
-- Shorter duration → closer to "spara dagar" (more saved days)
-- `saveFraction = 0.5 - 0.2 × durationRatio` → ranges 0.3–0.5 of the 176 saved days
-- `balancedSaved = Math.round(176 × saveFraction)` → ~53–88 days saved
-- `budget = 480 - balancedSaved` → ~392–427
+## Files to edit
 
-Example: 8+8 months (16 total, ratio≈0.56) → saveFraction≈0.39 → saves ~68 days → budget≈412
-
-## Changes in `src/components/OnboardingWizard.tsx`
-
-**`computeOptimalSchedule` switch block (lines 107-119):**
-
-```typescript
-case "income": budget = 480; break;
-case "save": budget = 304; break;
-case "balanced": {
-  const totalMonths = m1Val + m2Val;
-  // Clamp duration ratio: 6 months = 0, 24 months = 1
-  const durationRatio = Math.min(1, Math.max(0, (totalMonths - 6) / 18));
-  // Longer leave → save fewer days (0.3 of 176), shorter → save more (0.5 of 176)
-  const saveFraction = 0.5 - 0.2 * durationRatio;
-  const balancedSaved = Math.round(176 * saveFraction);
-  budget = 480 - balancedSaved;
-  break;
-}
-```
-
-**Also fix "income" display**: When budget exceeds capacity (7 × totalWeeks), cap the effective consumed days and show a note that the leave period is too short to use all 480 days.
-
-One file, ~10 lines changed.
+- **`src/components/OnboardingWizard.tsx`** — Add `childName` state, input field in step 1, include in draft save and `onComplete` result. Add `childName` to `WizardResult` type.
+- **`src/lib/persistence.ts`** — Add `childName: string` to `WizardDraft` type.
+- **`src/pages/Wizard.tsx`** — Pass `wr.childName` into the `finalPlan` object (e.g. as a top-level `childName` field).
+- **`src/pages/PlanBuilder.tsx`** — Read `childName` from loaded plan data; if present, use `"Plan för föräldraledighet med {childName}"` as `planTitle`.
 
