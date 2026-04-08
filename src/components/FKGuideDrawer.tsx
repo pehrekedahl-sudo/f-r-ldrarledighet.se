@@ -132,8 +132,10 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
     setTimeout(() => printWindow.print(), 300);
   };
 
-  // Total guide steps = 1 (login) + N (periods) + 1 (warnings) + 1 (PDF) 
-  const totalSteps = 1 + fkSteps.length + 1 + 1;
+  const hasP2 = parents.length >= 2;
+  const p2Name = hasP2 ? parents[1].name : "";
+  // Offset for step numbering: login=1, pappadagar=2 (if hasP2), then periods, warnings, PDF
+  const stepOffset = hasP2 ? 2 : 1;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
