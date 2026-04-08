@@ -1,38 +1,34 @@
 
 Mål
-- När ett DD-block tas bort ska perioden återgå till en giltig plan utan att båda vanliga blocken “växer in” i samma datumintervall.
+- När ett DD-par tas bort i skarven mellan föräldrarna ska exakt en sida fylla gapet; ingen vanlig cross-parent-overlap får bli kvar.
 
 Rotorsak
-- `onDeleteOverlap` i `src/pages/PlanBuilder.tsx` tar idag bara bort DD-paret och kör sedan generell `normalizeBlocks`.
-- Det räcker inte, eftersom de vanliga blocken under DD-perioden fortfarande finns kvar i datat; de är bara visuellt klippta i `PlanTimeline`.
-- När DD försvinner blir därför båda föräldrarnas underliggande block synliga igen, och normaliseringen kan dessutom slå ihop/absorbera segment på ett sätt som bryter mot den logik du vill ha.
+- `src/lib/resolveDeletedDoubleDays.ts` jobbar fortfarande på råblocken i datat, inte på de segment som faktiskt syns i tidslinjen.
+- Hjälpen letar bara efter block som exakt slutar på `ddStart-1` eller börjar på `ddEnd+1`. Om ett vanligt block fortfarande sträcker sig genom DD-fönstret upptäcks det inte som vänster/höger-segment.
+- Hjälpen muterar dessutom blockobjekt direkt innan cross-parent-logiken försöker “reverta”, så återställningen blir inte tillförlitlig.
 
 Plan
-1. Ersätt den nuvarande delete-logiken med en dedikerad helper för DD-borttagning, t.ex. `resolveDeletedDoubleDays(...)`.
-2. I hjälpen:
-   - hitta hela DD-paret via `overlapGroupId`
-   - läs DD-fönstret (`startDate`–`endDate`)
-   - ta bort båda DD-blocken
-   - materialisera vanliga block runt DD-fönstret till vänster/höger-segment för berörda föräldrar, så vi jobbar med samma “synliga” segment som användaren ser
-   - tillämpa din regel:
-     - om samma förälder har block på båda sidor och de har samma uttagstakt: slå ihop dem över DD-perioden
-     - om samma förälder har block på båda sidor men olika uttagstakt: förläng det kortaste segmentet
-     - annars: förläng den förälders angränsande segment som är kortast och låt den andra förälderns segment vara kvar som det är
-   - om inga vanliga block angränsar DD-perioden: ta bara bort DD-paret utan extra återfyllnad
-3. Kör efter detta bara en smal cleanup:
-   - ta bort ogiltiga segment
-   - slå ihop endast intilliggande identiska block
-   - undvik att direkt köra den breda “smart”-normaliseringen för just detta flöde, så att vi inte återintroducerar oönskad förlängning
-4. Koppla in hjälpen i `onDeleteOverlap` i `src/pages/PlanBuilder.tsx` och behåll befintlig save/persist-logik.
+1. Gör om `resolveDeletedDoubleDays(...)` så att den alltid startar från en deep copy och aldrig muterar originalobjekten in-place.
+2. Materialisera gapet runt det borttagna DD-fönstret för berörda föräldrar:
+   - splitta alla vanliga block som korsar DD-intervallet vid `ddStart`/`ddEnd`
+   - arbeta vidare på vänster/höger-fragmenten i stället för på dolda originalblock
+   - om andra DD finns för samma förälder, mät längd på de segment som faktiskt är synliga runt gapet
+3. Tillämpa reglerna på dessa materialiserade segment:
+   - samma förälder + samma uttagstakt => slå ihop över gapet
+   - samma förälder + olika uttagstakt => förläng kortaste segmentet
+   - cross-parent => välj exakt ett vinnande segment (kortast) och låt den andra förälderns segment förbli klippt
+   - vid lika längd: använd en deterministisk tie-breaker så utfallet alltid blir samma
+4. Bygg tillbaka blocklistan för de berörda föräldrarna från de uppdaterade fragmenten och kör bara lätt cleanup:
+   - ta bort ogiltiga intervall
+   - slå ihop endast direkt angränsande identiska block
+   - ingen bred `normalizeBlocks` i just detta delete-flöde
+5. Behåll kopplingen i `PlanBuilder` som den är (`onDeleteOverlap -> resolveDeletedDoubleDays -> savePlanInput`), men lägg regressionstester för:
+   - DD i skarven mellan P1/P2 där råblocken spänner över DD-fönstret
+   - samma förälder på båda sidor med samma DPW
+   - samma förälder på båda sidor med olika DPW
+   - inga angränsande segment
+   - cross-parent med lika långa segment och stabilt utfall
 
 Tekniska detaljer
-- Viktigt: `PlanBuilder` använder `normalizeBlocks` från `src/lib/adjustmentPolicy.ts`, inte `src/lib/normalizeBlocks.ts`. Fixen måste utgå från den faktiska körvägen.
-- “Kortast” bör jämföras på de materialiserade segmenten runt DD-gapet, inte på dolda originalblock som sträcker sig genom DD-perioden.
-- Vi ska inte förlita oss på `simulatePlan` för detta; den fångar inte affärsregeln “ingen vanlig cross-parent-overlap när DD tas bort”.
-
-Regressioner att täcka
-- DD i skarven mellan P1 och P2: bara kortaste sidan tar över perioden.
-- Samma förälder på båda sidor med samma uttagstakt: blocken slås ihop över tidigare DD.
-- Samma förälder på båda sidor med olika uttagstakt: bara kortaste segmentet förlängs.
-- DD skapad manuellt utan angränsande vanliga block: båda DD-blocken försvinner rent.
-- Ett klick på krysset tar bort hela DD-paret och lämnar ingen vanlig överlappning kvar i det borttagna intervallet.
+- Filer: främst `src/lib/resolveDeletedDoubleDays.ts`, eventuellt en liten delad helper för segmentisering i `src/lib/...`, samt nya tester i `src/test/...`.
+- Den viktiga skillnaden mot nuvarande kod är att den förlorande förälderns block måste vara splittrat/klippt redan innan vinnaren förlängs; annars ligger ursprungsblocket kvar över DD-gapet och skapar vanlig overlap så fort DD försvinner.
