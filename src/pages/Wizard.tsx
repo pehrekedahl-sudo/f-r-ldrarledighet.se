@@ -127,7 +127,6 @@ const Wizard = () => {
       transfers: [],
       constants: CONSTANTS,
       childName: wr.childName || undefined,
-      dueDate: due,
     };
 
     savePlanInput(finalPlan);
