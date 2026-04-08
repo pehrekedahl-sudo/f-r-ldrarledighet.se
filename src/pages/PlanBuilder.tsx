@@ -1181,10 +1181,15 @@ const PlanBuilder = () => {
                 onBlockResize={handleBlockResize}
                 onDeleteOverlap={(blockId) => {
                   if (window.confirm("Ta bort dubbeldagarna?")) {
-                    const updated = blocks.filter(b => b.id !== blockId);
-                    setBlocks(updated);
+                    const target = blocks.find(b => b.id === blockId);
+                    const groupId = target?.overlapGroupId;
+                    const updated = groupId
+                      ? blocks.filter(b => b.overlapGroupId !== groupId)
+                      : blocks.filter(b => b.id !== blockId);
+                    const normalized = normalizeBlocks(updated);
+                    setBlocks(normalized);
                     const transfers = transferToArray(transfer);
-                    savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
+                    savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
               />
