@@ -9,7 +9,7 @@ import {
 
 const summaryPoints = [
   "Varje barn ger 480 dagar att dela på – det är FK som betalar, inte din arbetsgivare.",
-  "Du får ut ~80\u00a0% av din lön för de flesta dagarna – men bara om du haft stabil inkomst i minst 240 dagar.",
+  "Du får ut ~80\u00a0% av din lön upp till inkomstbasbeloppet (592\u00a0000 kr/år) – tjänar du mer ersätts inte den överskjutande delen av FK.",
   "90 dagar per förälder är låsta och kan inte ges bort. Resten kan ni flytta fritt mellan er.",
   "Den viktigaste avvägningen: hur många dagar tar du nu – och hur många sparar du till senare?",
 ];

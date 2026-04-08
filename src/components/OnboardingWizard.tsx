@@ -570,7 +570,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
           {
             key: "save", emoji: "🏖️", title: "Spara dagar",
             desc: "Ni sparar en stor del av dagarna till efter ledigheten.",
-            detail: "Ersättningen per månad blir något lägre, men ni har ca 176 dagar kvar som kan användas fritt tills barnet fyller 12 – perfekt för längre semestrar, VAB-buffert eller kortare ledighetsperioder senare."
+            detail: "Ersättningen per månad blir något lägre, men ni har ca 176 dagar kvar som kan användas fritt tills barnet fyller 12 – perfekt för längre semestrar, inskolning eller kortare ledighetsperioder senare."
           },
         ];
 

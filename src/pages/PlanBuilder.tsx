@@ -1279,7 +1279,7 @@ const PlanBuilder = () => {
                       <PiggyBank className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-medium text-sm text-foreground">Sparade dagar</p>
-                        <p className="text-xs text-muted-foreground">Reserv för VAB eller oplanerad ledighet</p>
+                        <p className="text-xs text-muted-foreground">Reserv för oplanerad ledighet</p>
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right ml-3">
