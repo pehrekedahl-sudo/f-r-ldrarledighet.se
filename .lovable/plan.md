@@ -1,25 +1,35 @@
 
 
-# Komprimera ersättningssektionen
+# Balansera tvåkolumnslayouten: Justera planen ↔ Ersättning per förälder
 
 ## Problem
-Ersättning per förälder-kortet är mycket större än Justera planen-blocket. De ska matcha i storlek i tvåkolumnslayouten.
+Ersättningssektionen (höger) tar ~300 rader och renderar avsevärt mer vertikal yta än Justera planen (vänster, ~130 rader). Kolumnerna ska matcha visuellt.
+
+## Strategi
+**Minska höger kolumn aggressivt** + **ge vänster kolumn samma visuella stil** (rounded-xl, shadow-sm, bg-card).
 
 ## Ändringar i `src/pages/PlanBuilder.tsx`
 
-### 1. Komprimera visuella element
-- **Header**: Minska padding från `px-5 py-4` till `px-4 py-2.5`, gör rubrik `text-sm`
-- **Per-förälder header**: `px-5 py-3` → `px-4 py-2`
-- **Content area**: `px-5 py-4 space-y-4` → `px-4 py-3 space-y-2.5`
-- **Big number**: `text-2xl` → `text-lg`, ta bort onödig whitespace
-- **Coverage bar**: `h-2.5` → `h-2`
-- **Block breakdown**: Göm om fler än 3 block, visa bara summary-rad. Minska spacing `space-y-2` → `space-y-1`
-- **Top-up section**: Minska padding `p-3 space-y-3` → `p-2.5 space-y-2`
+### 1. Visuellt synka vänster kolumn med höger
+- Ändra vänster container från `rounded-lg border border-border bg-muted/30` till `rounded-xl border border-border bg-card shadow-sm overflow-hidden` — samma som höger
+- Ge header-raden samma stil: liten ikon + rubriktext + `border-b`
+
+### 2. Komprimera ersättnings-korten radikalt
+- **Ta bort den stora siffra-raden** (`text-lg font-bold`) — visa istället en kompakt rad: `"32 615 kr/mån i snitt · Täcker 47%"` på en enda rad, text-sm
+- **Coverage bar**: Ta bort helt — procent-talet i textraden ovan räcker
+- **Block breakdown collapsible**: Behåll men minska trigger till inline-text utan extra whitespace
+- **Top-up box**: Göm hela inputområdet bakom collapsible-triggern — visa bara `"Tillägg från arbetsgivare"` + Switch + sammanfattning (t.ex. "5 000 kr/mån, 6 mån") på en rad. Expanderar till inputs vid klick.
 - **Budget collapsible**: Behåll som den är (redan kompakt)
-- **Footer**: `px-5 py-3` → `px-4 py-2`
 
-### 2. Gör block-breakdown collapsible
-Visa bara genomsnittlig ersättning, gör "Visa perioder" som en liten expanderbar länk så block-listan inte tar plats by default.
+### 3. Ta bort per-förälder header-padding
+- Minska `py-2` → `py-1.5` på färgad header
+- Minska `py-3 space-y-2.5` → `py-2 space-y-1.5` på content area
 
-Alla ändringar i en fil: `src/pages/PlanBuilder.tsx`
+### 4. Footer
+- Flytta FK-info-texten till en tooltip istället för en footer-rad, eller gör den till en single-line `text-[10px]` med minimal padding
+
+### Resultat
+Varje förälder-kort blir ~4-5 rader högt (namn+lön, siffra+coverage inline, perioder-trigger, top-up-trigger, budget-trigger) istället för ~12+ rader. Totala höjden halveras ungefär och matchar Justera planen.
+
+Enda fil: **`src/pages/PlanBuilder.tsx`**
 
