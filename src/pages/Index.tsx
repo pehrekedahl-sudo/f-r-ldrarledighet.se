@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Lock, Calendar, Users } from "lucide-react";
+import { Lock, Calendar, Users, ChevronDown } from "lucide-react";
 
 const stats = [
   {
