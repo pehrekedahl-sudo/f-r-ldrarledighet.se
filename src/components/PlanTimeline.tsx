@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { addDays, compareDates, toEpochMs, getYear, getMonthIndex, startOfNextMonth, isoWeekdayIndex } from "@/utils/dateOnly";
 import { useTimelineDrag } from "@/hooks/useTimelineDrag";
 
