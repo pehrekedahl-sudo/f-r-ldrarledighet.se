@@ -774,7 +774,7 @@ const PlanBuilder = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-3 py-4 space-y-5 sm:px-6 sm:py-8 sm:space-y-8">
       {isSharedPlan && (
         <div className="border border-border rounded-lg p-3 bg-muted text-sm text-muted-foreground text-center">
           Du tittar på en delad plan
@@ -906,13 +906,13 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section id="plan-hero" className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-5 py-4 mt-4 space-y-3">
+            <section id="plan-hero" className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-3 py-3 sm:px-5 sm:py-4 mt-4 space-y-3">
               {/* Row 1: Title + KPIs + Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
                   <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                   <div className="flex gap-4 text-sm">
                     <div className="text-left sm:text-center">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
@@ -955,7 +955,7 @@ const PlanBuilder = () => {
                         <span className="font-medium">{pr.name}</span>
                         <span className="text-muted-foreground text-sm">{daysLeft} kvar</span>
                         {detailParts.length > 0 && (
-                          <span className="text-muted-foreground text-xs">({detailParts.join(" · ")})</span>
+                          <span className="text-muted-foreground text-xs hidden sm:inline">({detailParts.join(" · ")})</span>
                         )}
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div className={`h-full rounded-full transition-all duration-700 ease-out ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} style={{ width: `${pct}%` }} />
