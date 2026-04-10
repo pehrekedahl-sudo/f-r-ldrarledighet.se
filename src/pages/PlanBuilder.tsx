@@ -1164,6 +1164,17 @@ const PlanBuilder = () => {
                   </div>
                 )}
               </div>
+
+              {/* Scroll link */}
+              <div className="flex justify-end">
+                <a
+                  href="#cta-block"
+                  onClick={(e) => { e.preventDefault(); document.getElementById("cta-block")?.scrollIntoView({ behavior: "smooth" }); }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Spara eller exportera planen <ArrowDown className="h-3 w-3" />
+                </a>
+              </div>
             </section>
 
             {/* ── TIMELINE ── */}
