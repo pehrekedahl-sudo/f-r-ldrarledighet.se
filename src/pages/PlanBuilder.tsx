@@ -1677,25 +1677,24 @@ const PlanBuilder = () => {
               })()}
             </div>
 
-            {/* ── FK GUIDE SECTION ── */}
-            <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-center mb-2">
-                  <ClipboardList className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
-                </p>
+            {/* ── CTA BLOCK ── */}
+            <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
+                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Spara plan
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Dela med partner
+                </Button>
+                <Button variant="default" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Hämta FK-guide
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setFkGuideOpen(true)}
-              >
-                <ClipboardList className="w-4 h-4" />
-                Visa steg-för-steg guide
-              </Button>
+              <p className="text-xs text-muted-foreground">Engångsbetalning · 99 kr · Ingen prenumeration</p>
             </section>
           </>
         );
