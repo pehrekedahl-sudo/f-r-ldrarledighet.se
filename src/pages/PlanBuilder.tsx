@@ -1081,30 +1081,14 @@ const PlanBuilder = () => {
           <>
             {/* ── BANNER ── */}
             <section id="plan-hero" className="rounded-xl border-2 border-border bg-gradient-to-r from-[#edf7f5]/80 to-[#fdf0ec]/80 shadow-sm px-4 py-4 sm:px-6 sm:py-5 mt-4 space-y-3">
-              {/* Row 1: Title + Actions */}
-              <div className="flex items-start justify-between gap-3">
+              {/* Row 1: Title + help */}
+              <div className="flex items-center justify-between gap-3">
                 <h1 className="text-base font-semibold text-foreground truncate min-w-0">{planTitle}</h1>
-                <div className="flex gap-1.5 flex-shrink-0">
-                  <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
-                  <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
-                </div>
+                <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground flex-shrink-0" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
               </div>
 
-              {/* Row 2: Key metrics */}
-              <div className="flex gap-6">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Räcker till</p>
-                  <p className="text-xl font-bold text-foreground leading-tight">{formattedEnd}</p>
-                </div>
-                <div className="w-px bg-border/60 self-stretch" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Snitt/mån</p>
-                  <p className="text-xl font-bold text-foreground leading-tight">~{Math.round(computedAvg).toLocaleString()} kr</p>
-                </div>
-              </div>
-
-              {/* Row 2: Parent pills + status/actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              {/* Row 2: Parent pills (left) + KPIs (right) */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex gap-2 flex-wrap">
                   {result.parentsResult.map((pr) => {
                     const reservedLeft = Math.round(pr.remaining.sicknessReserved);
@@ -1135,6 +1119,21 @@ const PlanBuilder = () => {
                   })}
                 </div>
 
+                <div className="flex gap-6 flex-shrink-0">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Räcker till</p>
+                    <p className="text-2xl font-bold text-foreground leading-tight">{formattedEnd}</p>
+                  </div>
+                  <div className="w-px bg-border/60 self-stretch" />
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Snitt/mån</p>
+                    <p className="text-2xl font-bold text-foreground leading-tight">~{Math.round(computedAvg).toLocaleString()} kr</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Warning/status (left) + scroll link (right) */}
+              <div className="flex items-center justify-between gap-2">
                 {unfulfilled > 0 ? (
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-destructive font-medium whitespace-nowrap">
@@ -1148,31 +1147,17 @@ const PlanBuilder = () => {
                         return "Behöver justeras";
                       })()}
                     </span>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                        setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                      }}>Justera manuellt</Button>
-                    </div>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => setFitPlanOpen(true)}>Auto-justera</Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#b85240] font-medium">✓ Balanserad</span>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                      setTimeout(() => document.getElementById("adjust-panel")?.scrollIntoView({ behavior: "smooth" }), 100);
-                    }}>Justera</Button>
-                  </div>
+                  <span className="text-sm text-[#4A9B8E] font-medium">✓ Balanserad</span>
                 )}
-              </div>
-
-              {/* Scroll link */}
-              <div className="flex justify-end">
                 <a
                   href="#cta-block"
                   onClick={(e) => { e.preventDefault(); document.getElementById("cta-block")?.scrollIntoView({ behavior: "smooth" }); }}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 flex-shrink-0"
                 >
-                  Spara eller exportera planen <ArrowDown className="h-3 w-3" />
+                  Spara eller exportera ↓
                 </a>
               </div>
             </section>
