@@ -1080,30 +1080,26 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section id="plan-hero" className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-3 py-3 sm:px-5 sm:py-4 mt-4 space-y-3">
-              {/* Row 1: Title + KPIs + Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
+            <section id="plan-hero" className="rounded-xl border-2 border-border bg-gradient-to-r from-[#edf7f5]/80 to-[#fdf0ec]/80 shadow-sm px-4 py-4 sm:px-6 sm:py-5 mt-4 space-y-3">
+              {/* Row 1: Title + Actions */}
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-base font-semibold text-foreground truncate min-w-0">{planTitle}</h1>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                  <div className="flex gap-4 text-sm">
-                    <div className="text-left sm:text-center">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
-                      <p className="font-bold text-foreground">{formattedEnd}</p>
-                    </div>
-                    <div className="w-px bg-border/60" />
-                    <div className="text-left sm:text-center">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
-                      <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-border/60 hidden sm:block" />
-                  <div className="flex gap-1.5 flex-wrap">
-                    <Button variant="outline" size="sm" className="text-xs h-7 px-3 gap-1.5" onClick={sharePlan}><Share2 className="h-3.5 w-3.5" />Dela plan</Button>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
-                  </div>
+              </div>
+
+              {/* Row 2: Key metrics */}
+              <div className="flex gap-6">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Räcker till</p>
+                  <p className="text-xl font-bold text-foreground leading-tight">{formattedEnd}</p>
+                </div>
+                <div className="w-px bg-border/60 self-stretch" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Snitt/mån</p>
+                  <p className="text-xl font-bold text-foreground leading-tight">~{Math.round(computedAvg).toLocaleString()} kr</p>
                 </div>
               </div>
 
