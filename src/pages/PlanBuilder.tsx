@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
 import PlanTutorial, { usePlanTutorial } from "@/components/PlanTutorial";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1080,30 +1080,26 @@ const PlanBuilder = () => {
         return (
           <>
             {/* ── BANNER ── */}
-            <section id="plan-hero" className="rounded-xl border border-border bg-gradient-to-r from-[#edf7f5]/60 to-[#fdf0ec]/60 px-3 py-3 sm:px-5 sm:py-4 mt-4 space-y-3">
-              {/* Row 1: Title + KPIs + Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="text-base font-semibold text-foreground truncate">{planTitle}</h1>
+            <section id="plan-hero" className="rounded-xl border-2 border-border bg-gradient-to-r from-[#edf7f5]/80 to-[#fdf0ec]/80 shadow-sm px-4 py-4 sm:px-6 sm:py-5 mt-4 space-y-3">
+              {/* Row 1: Title + Actions */}
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-base font-semibold text-foreground truncate min-w-0">{planTitle}</h1>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                  <div className="flex gap-4 text-sm">
-                    <div className="text-left sm:text-center">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Räcker till</p>
-                      <p className="font-bold text-foreground">{formattedEnd}</p>
-                    </div>
-                    <div className="w-px bg-border/60" />
-                    <div className="text-left sm:text-center">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Snitt/mån</p>
-                      <p className="font-bold text-foreground">~{Math.round(computedAvg).toLocaleString()} kr</p>
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-border/60 hidden sm:block" />
-                  <div className="flex gap-1.5 flex-wrap">
-                    <Button variant="outline" size="sm" className="text-xs h-7 px-3 gap-1.5" onClick={sharePlan}><Share2 className="h-3.5 w-3.5" />Dela plan</Button>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground" onClick={handleClearPlan}>Rensa</Button>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
-                  </div>
+              </div>
+
+              {/* Row 2: Key metrics */}
+              <div className="flex gap-6">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Räcker till</p>
+                  <p className="text-xl font-bold text-foreground leading-tight">{formattedEnd}</p>
+                </div>
+                <div className="w-px bg-border/60 self-stretch" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Snitt/mån</p>
+                  <p className="text-xl font-bold text-foreground leading-tight">~{Math.round(computedAvg).toLocaleString()} kr</p>
                 </div>
               </div>
 
@@ -1167,6 +1163,17 @@ const PlanBuilder = () => {
                     }}>Justera</Button>
                   </div>
                 )}
+              </div>
+
+              {/* Scroll link */}
+              <div className="flex justify-end">
+                <a
+                  href="#cta-block"
+                  onClick={(e) => { e.preventDefault(); document.getElementById("cta-block")?.scrollIntoView({ behavior: "smooth" }); }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Spara eller exportera planen <ArrowDown className="h-3 w-3" />
+                </a>
               </div>
             </section>
 
@@ -1670,25 +1677,24 @@ const PlanBuilder = () => {
               })()}
             </div>
 
-            {/* ── FK GUIDE SECTION ── */}
-            <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-center mb-2">
-                  <ClipboardList className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <h2 className="text-base font-semibold text-foreground">Redo att registrera hos Försäkringskassan?</h2>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Logga in på Mina sidor → Föräldrapenning → Anmäl ledighet. Vi har förberett alla perioder åt dig.
-                </p>
+            {/* ── CTA BLOCK ── */}
+            <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
+                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Spara plan
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Dela med partner
+                </Button>
+                <Button variant="default" className="gap-2" onClick={() => {}}>
+                  <Lock className="h-4 w-4" />
+                  Hämta FK-guide
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setFkGuideOpen(true)}
-              >
-                <ClipboardList className="w-4 h-4" />
-                Visa steg-för-steg guide
-              </Button>
+              <p className="text-xs text-muted-foreground">Engångsbetalning · 99 kr · Ingen prenumeration</p>
             </section>
           </>
         );
