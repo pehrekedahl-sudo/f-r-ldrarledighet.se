@@ -1679,7 +1679,9 @@ const PlanBuilder = () => {
                   Hämta FK-guide
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Engångsbetalning · 99 kr · Ingen prenumeration</p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Skapa ett konto för 99 kr – en engångsbetalning. Spara planen, dela den med din partner och få ett färdigt underlag för Försäkringskassan. Du kan alltid komma tillbaka, justera och följa planen under hela ledigheten. Ingen prenumeration, inga annonser.
+              </p>
             </section>
           </>
         );
