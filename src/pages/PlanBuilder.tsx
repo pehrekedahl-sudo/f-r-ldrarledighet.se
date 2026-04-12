@@ -209,6 +209,7 @@ const PlanBuilder = () => {
   useEffect(() => {
     if (purchaseLoading) return; // wait until purchase status is known
     if (user && pendingCtaAction && authOpen === false) {
+      localStorage.removeItem("pendingCtaAction");
       if (!hasPurchased) {
         startCheckout();
       } else {
