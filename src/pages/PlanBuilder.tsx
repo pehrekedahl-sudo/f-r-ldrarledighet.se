@@ -155,8 +155,65 @@ const PlanBuilder = () => {
   const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
   const { showTutorial, setShowTutorial } = usePlanTutorial();
+  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(null);
 
-  // Overlap dialog state
+  const startCheckout = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ returnUrl: `${window.location.origin}/plan-builder?success=true` }),
+        }
+      );
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast({ title: "Fel", description: "Kunde inte starta betalningen.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Fel", description: "Något gick fel. Försök igen.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleCtaClick = useCallback((action: string) => {
+    if (!user) {
+      setPendingCtaAction(action);
+      setAuthOpen(true);
+      return;
+    }
+    if (!hasPurchased) {
+      startCheckout();
+      return;
+    }
+    // User is logged in and has paid — perform the action
+    if (action === "save") {
+      toast({ title: "Sparad!", description: "Din plan har sparats." });
+    } else if (action === "share") {
+      setShareDialogOpen(true);
+    } else if (action === "fk") {
+      setFkGuideOpen(true);
+    }
+  }, [user, hasPurchased, startCheckout, toast]);
+
+  // After auth completes, check if there's a pending action
+  useEffect(() => {
+    if (user && pendingCtaAction && authOpen === false) {
+      if (!hasPurchased) {
+        startCheckout();
+      } else {
+        handleCtaClick(pendingCtaAction);
+      }
+      setPendingCtaAction(null);
+    }
+  }, [user, authOpen, pendingCtaAction, hasPurchased, startCheckout, handleCtaClick]);
+
   const [overlapDialog, setOverlapDialog] = useState<{
     open: boolean;
     targetBlock: Block | null;
