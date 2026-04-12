@@ -295,6 +295,15 @@ const PlanBuilder = () => {
       } catch { /* ignore */ }
     }
 
+    // If URL has auth hash fragments (email verification redirect), wait for auth
+    // before deciding to redirect — the plan is still in localStorage
+    const hash = window.location.hash;
+    if (hash && (hash.includes("access_token") || hash.includes("type=signup") || hash.includes("type=recovery"))) {
+      // Supabase will process the hash; just load what we have
+      loadFromLocalStorage();
+      return;
+    }
+
     if (!loadFromLocalStorage()) {
       navigate("/wizard", { replace: true });
     }
