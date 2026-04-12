@@ -1260,13 +1260,25 @@ const PlanBuilder = () => {
                 ) : (
                   <span className="text-sm text-[#4A9B8E] font-medium">✓ Balanserad</span>
                 )}
-                <a
-                  href="#cta-block"
-                  onClick={(e) => { e.preventDefault(); document.getElementById("cta-block")?.scrollIntoView({ behavior: "smooth" }); }}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 flex-shrink-0"
-                >
-                  Spara eller exportera ↓
-                </a>
+                {hasPurchased ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => setFkGuideOpen(true)}
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    FK-guide
+                  </Button>
+                ) : (
+                  <a
+                    href="#cta-block"
+                    onClick={(e) => { e.preventDefault(); document.getElementById("cta-block")?.scrollIntoView({ behavior: "smooth" }); }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 flex-shrink-0"
+                  >
+                    Spara eller exportera ↓
+                  </a>
+                )}
               </div>
             </section>
 
@@ -1771,26 +1783,61 @@ const PlanBuilder = () => {
             </div>
 
             {/* ── CTA BLOCK ── */}
-            <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("save")}>
-                  <Lock className="h-4 w-4" />
-                  Spara plan
-                </Button>
-                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("share")}>
-                  <Lock className="h-4 w-4" />
-                  Dela med partner
-                </Button>
-                <Button variant="default" className="gap-2" onClick={() => handleCtaClick("fk")}>
-                  <Lock className="h-4 w-4" />
-                  Hämta FK-guide
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Skapa ett konto för 99 kr – en engångsbetalning. Spara planen, dela den med din partner och få ett färdigt underlag för Försäkringskassan. Du kan alltid komma tillbaka, justera och följa planen under hela ledigheten. Ingen prenumeration, inga annonser.
-              </p>
-            </section>
+            {hasPurchased ? (
+              <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-foreground">Din verktygslåda</h2>
+                  <span className="text-xs font-medium text-[#4A9B8E] bg-[#4A9B8E]/10 rounded-full px-2.5 py-0.5">Konto aktivt</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setFkGuideOpen(true)}
+                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-background p-4 hover:bg-accent transition-colors text-center"
+                  >
+                    <ClipboardList className="h-6 w-6 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Steg-för-steg-guide</span>
+                    <span className="text-xs text-muted-foreground">Anmäl till Försäkringskassan</span>
+                  </button>
+                  <button
+                    onClick={() => handleCtaClick("save")}
+                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-background p-4 hover:bg-accent transition-colors text-center"
+                  >
+                    <Wallet className="h-6 w-6 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Spara plan</span>
+                    <span className="text-xs text-muted-foreground">Sparas till ditt konto</span>
+                  </button>
+                  <button
+                    onClick={() => sharePlan()}
+                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-background p-4 hover:bg-accent transition-colors text-center"
+                  >
+                    <Share2 className="h-6 w-6 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Dela med partner</span>
+                    <span className="text-xs text-muted-foreground">Skicka en länk</span>
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
+                <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("save")}>
+                    <Lock className="h-4 w-4" />
+                    Spara plan
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("share")}>
+                    <Lock className="h-4 w-4" />
+                    Dela med partner
+                  </Button>
+                  <Button variant="default" className="gap-2" onClick={() => handleCtaClick("fk")}>
+                    <Lock className="h-4 w-4" />
+                    Hämta FK-guide
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Skapa ett konto för 99 kr – en engångsbetalning. Spara planen, dela den med din partner och få ett färdigt underlag för Försäkringskassan. Du kan alltid komma tillbaka, justera och följa planen under hela ledigheten. Ingen prenumeration, inga annonser.
+                </p>
+              </section>
+            )}
           </>
         );
       })()}
