@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useUser } from "./useUser";
+import type { User } from "@supabase/supabase-js";
 
-export function useHasPurchased() {
-  const { user, loading: userLoading } = useUser();
+/**
+ * Check if the given user has a purchase record.
+ * Accepts user + loading from the caller to avoid duplicate auth listeners.
+ */
+export function useHasPurchased(user: User | null, userLoading: boolean) {
   const [hasPurchased, setHasPurchased] = useState(false);
   const [loading, setLoading] = useState(true);
 
