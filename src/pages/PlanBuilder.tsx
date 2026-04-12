@@ -164,7 +164,7 @@ const PlanBuilder = () => {
   const startCheckout = useCallback(async () => {
     // Persist plan before navigating away so it survives the redirect
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks, transfers, constants: CONSTANTS });
+    savePlan({ parents, blocks, transfers, constants: CONSTANTS });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -364,7 +364,7 @@ const PlanBuilder = () => {
     setHistory(h => h.slice(0, -1));
     setCanUndo(history.length > 1);
     const transfers = transferToArray(prev.transfer);
-    savePlanInput({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS });
+    savePlan({ parents, blocks: prev.blocks, transfers, constants: CONSTANTS });
   };
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -441,7 +441,7 @@ const PlanBuilder = () => {
       setBlocks(newBlocks);
       const valid = newBlocks.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transferToArray(transfer);
-      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+      savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     } else {
       let replaced = blocks.map(b => b.id === updated.id ? updated : b);
       // Sync overlap pair daysPerWeek
@@ -459,7 +459,7 @@ const PlanBuilder = () => {
       setBlocks(merged);
       const valid = merged.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
       const transfers = transferToArray(transfer);
-      savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+      savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     }
   };
 
@@ -513,7 +513,7 @@ const PlanBuilder = () => {
     const remaining = blocks.filter(b => b.id !== id);
     const valid = remaining.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
   };
 
   const handleSplitBlock = (blockId: string, splitDate: string) => {
@@ -537,7 +537,7 @@ const PlanBuilder = () => {
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     toast({ description: "Blocket har delats i två." });
   };
 
@@ -570,7 +570,7 @@ const PlanBuilder = () => {
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
     toast({ description: "Blocken har slagits ihop." });
   };
 
@@ -635,7 +635,7 @@ const PlanBuilder = () => {
     setBlocks(normalized);
     const valid = normalized.filter(b => !validateBlock(b)).sort((a, b) => a.startDate.localeCompare(b.startDate));
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS });
+    savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS });
   }, [blocks, parents, transfer]);
 
   const handleBlockResize = (blockId: string, newStart: string, newEnd: string) => {
@@ -839,7 +839,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(final, "overlapCreateDD");
     setBlocks(final);
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: final, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlan({ parents, blocks: final, transfers, constants: CONSTANTS, savedDaysCount });
 
     setOverlapDialog(prev => ({ ...prev, open: false }));
     const cappedNote = proposedDays > remainingDD ? ` (begränsat från ${proposedDays})` : "";
@@ -869,7 +869,7 @@ const PlanBuilder = () => {
     assertUniqueBlockIds(final, "overlapTruncate");
     setBlocks(final);
     const transfers = transferToArray(transfer);
-    savePlanInput({ parents, blocks: final, transfers, constants: CONSTANTS, savedDaysCount });
+    savePlan({ parents, blocks: final, transfers, constants: CONSTANTS, savedDaysCount });
 
     setOverlapDialog(prev => ({ ...prev, open: false }));
     const otherName = parents.find(p => p.id === otherBlock.parentId)?.name ?? "?";
@@ -1299,7 +1299,7 @@ const PlanBuilder = () => {
                     const resolved = resolveDeletedDoubleDays(blocks, blockId);
                     setBlocks(resolved);
                     const transfers = transferToArray(transfer);
-                    savePlanInput({ parents, blocks: resolved, transfers, constants: CONSTANTS, savedDaysCount });
+                    savePlan({ parents, blocks: resolved, transfers, constants: CONSTANTS, savedDaysCount });
                   }
                 }}
               />
@@ -1611,7 +1611,7 @@ const PlanBuilder = () => {
                                         const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: 0 } : p);
                                         setParents(updated);
                                         const transfers = transferToArray(transfer);
-                                        savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                        savePlan({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                       }
                                     }}
                                   />
@@ -1639,7 +1639,7 @@ const PlanBuilder = () => {
                                               const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: amt } : p);
                                               setParents(updated);
                                               const transfers = transferToArray(transfer);
-                                              savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                              savePlan({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                             }
                                           }
                                         }}
@@ -1668,7 +1668,7 @@ const PlanBuilder = () => {
                                                 const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: val } : p);
                                                 setParents(updated);
                                                 const transfers = transferToArray(transfer);
-                                                savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                                savePlan({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                               }}
                                             />
                                             <span className="text-[11px] text-muted-foreground">kr/mån</span>
@@ -1690,7 +1690,7 @@ const PlanBuilder = () => {
                                                 const updated = parents.map(p => p.id === s.parentId ? { ...p, topUpMonthly: amt } : p);
                                                 setParents(updated);
                                                 const transfers = transferToArray(transfer);
-                                                savePlanInput({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
+                                                savePlan({ parents: updated, blocks, transfers, constants: CONSTANTS, savedDaysCount });
                                               }}
                                             />
                                             <span className="text-[11px] text-muted-foreground">%</span>
@@ -1879,7 +1879,7 @@ const PlanBuilder = () => {
           setOriginalBlocks(merged);
           setHasManualEdits(false);
           const transfers = transferToArray(transfer);
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
+          savePlan({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <FitPlanDrawer
@@ -1898,7 +1898,7 @@ const PlanBuilder = () => {
           setOriginalBlocks(normalized);
           setTransfer(newTransfer);
           const transfers = transferToArray(newTransfer);
-          savePlanInput({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
+          savePlan({ parents, blocks: normalized, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <HandoverDrawer
@@ -1914,7 +1914,7 @@ const PlanBuilder = () => {
           assertUniqueBlockIds(merged, "HandoverDrawer-apply");
           setBlocks(merged);
           const transfers = transferToArray(transfer);
-          savePlanInput({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
+          savePlan({ parents, blocks: merged, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <DoubleDaysDrawer
@@ -1955,12 +1955,12 @@ const PlanBuilder = () => {
 
             const finalBlocks = adjusted ? adjusted.blocks : withDD;
             setBlocks(finalBlocks);
-            savePlanInput({ parents, blocks: finalBlocks, transfers, constants: CONSTANTS, savedDaysCount });
+            savePlan({ parents, blocks: finalBlocks, transfers, constants: CONSTANTS, savedDaysCount });
           } else {
             const updated = canonicalizeBlocks([...blocks, ...newBlocks]);
             assertUniqueBlockIds(updated, "DoubleDaysDrawer-apply");
             setBlocks(updated);
-            savePlanInput({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
+            savePlan({ parents, blocks: updated, transfers, constants: CONSTANTS, savedDaysCount });
           }
         }}
       />
@@ -1977,7 +1977,7 @@ const PlanBuilder = () => {
           setTransferError(null);
           const transfers = transferToArray(newTransfer);
           const valid = blocks.filter(b => !blockErrors.get(b.id)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-          savePlanInput({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
+          savePlan({ parents, blocks: valid, transfers, constants: CONSTANTS, savedDaysCount });
         }}
       />
       <FKGuideDrawer
