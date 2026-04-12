@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import AuthModal from "@/components/AuthModal";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
@@ -139,6 +140,7 @@ const PlanBuilder = () => {
   const [fitPlanOpen, setFitPlanOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [doubleDaysOpen, setDoubleDaysOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
@@ -1666,15 +1668,15 @@ const PlanBuilder = () => {
             <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
               <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
               <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
                   <Lock className="h-4 w-4" />
                   Spara plan
                 </Button>
-                <Button variant="outline" className="gap-2" onClick={() => {}}>
+                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
                   <Lock className="h-4 w-4" />
                   Dela med partner
                 </Button>
-                <Button variant="default" className="gap-2" onClick={() => {}}>
+                <Button variant="default" className="gap-2" onClick={() => setAuthOpen(true)}>
                   <Lock className="h-4 w-4" />
                   Hämta FK-guide
                 </Button>
@@ -1895,6 +1897,7 @@ const PlanBuilder = () => {
         </DialogContent>
       </Dialog>
       <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
     </div>
   );
 };
