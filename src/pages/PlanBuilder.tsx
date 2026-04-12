@@ -175,7 +175,24 @@ const PlanBuilder = () => {
       );
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url;
+        if (window.top === window.self) {
+          window.location.href = data.url;
+          return;
+        }
+
+        try {
+          if (window.top) {
+            window.top.location.href = data.url;
+            return;
+          }
+        } catch {
+          // Fallback below when top-level navigation is blocked.
+        }
+
+        const opened = window.open(data.url, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          window.location.href = data.url;
+        }
       } else {
         toast({ title: "Fel", description: "Kunde inte starta betalningen.", variant: "destructive" });
       }
