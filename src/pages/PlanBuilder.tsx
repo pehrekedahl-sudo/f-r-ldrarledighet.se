@@ -205,15 +205,15 @@ const PlanBuilder = () => {
     }
   }, [toast, parents, blocks, transfer]);
 
-  const handleCtaClick = useCallback((action: string) => {
-    if (!user) {
+  const handleCtaClick = useCallback(async (action: string) => {
+    if (!user || !hasPurchased) {
+      // Sign out unpaid users so they go through the full auth → checkout flow
+      if (user && !hasPurchased) {
+        await supabase.auth.signOut();
+      }
       localStorage.setItem("pendingCtaAction", action);
       setPendingCtaAction(action);
       setAuthOpen(true);
-      return;
-    }
-    if (!hasPurchased) {
-      startCheckout();
       return;
     }
     // User is logged in and has paid — perform the action
