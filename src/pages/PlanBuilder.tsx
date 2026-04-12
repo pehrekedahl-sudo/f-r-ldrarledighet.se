@@ -119,9 +119,9 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const { toast } = useToast();
-  const { user } = useUser();
-  const { hasPurchased, loading: purchaseLoading } = useHasPurchased();
-  const { savePlan, loadPlan, loadingPlan, dbPlan } = useSavedPlan(user);
+  const { user, loading: userLoading } = useUser();
+  const { hasPurchased, loading: purchaseLoading } = useHasPurchased(user, userLoading);
+  const { savePlan, loadPlan, loadingPlan, dbPlan } = useSavedPlan(user, userLoading);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
@@ -164,7 +164,7 @@ const PlanBuilder = () => {
   const startCheckout = useCallback(async () => {
     // Persist plan before navigating away so it survives the redirect
     const transfers = transferToArray(transfer);
-    savePlan({ parents, blocks, transfers, constants: CONSTANTS });
+    await savePlan({ parents, blocks, transfers, constants: CONSTANTS });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -298,8 +298,8 @@ const PlanBuilder = () => {
 
   // Load plan from URL param, DB, or localStorage
   useEffect(() => {
-    // Wait for DB plan to finish loading before deciding
-    if (loadingPlan) return;
+    // Wait for both auth and DB plan to finish loading before deciding
+    if (userLoading || loadingPlan) return;
 
     const planParam = searchParams.get("plan");
     if (planParam) {
@@ -337,7 +337,7 @@ const PlanBuilder = () => {
     if (!loadFromAnySource()) {
       navigate("/wizard", { replace: true });
     }
-  }, [loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadSaved = () => {
     if (!loadFromAnySource()) {

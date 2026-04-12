@@ -14,8 +14,8 @@ const links = [
 
 const TopNav = () => {
   const [open, setOpen] = useState(false);
-  const { user } = useUser();
-  const { hasPurchased } = useHasPurchased();
+  const { user, loading: userLoading } = useUser();
+  const { hasPurchased } = useHasPurchased(user, userLoading);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

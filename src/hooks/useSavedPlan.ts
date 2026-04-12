@@ -6,14 +6,21 @@ import type { User } from "@supabase/supabase-js";
 /**
  * Hook that persists plan data to the database for authenticated users,
  * with localStorage as cache/fallback.
+ *
+ * IMPORTANT: `userLoading` controls whether we keep `loading=true` while
+ * auth is still hydrating. This prevents the PlanBuilder from redirecting
+ * to the wizard before we know if there's a logged-in user with a saved plan.
  */
-export function useSavedPlan(user: User | null) {
+export function useSavedPlan(user: User | null, userLoading = false) {
   const [dbPlan, setDbPlan] = useState<unknown | null>(null);
   const [loading, setLoading] = useState(true);
   const savingRef = useRef(false);
 
   // Load plan from DB on mount / user change
   useEffect(() => {
+    // While auth is still loading, keep our loading=true so consumers wait
+    if (userLoading) return;
+
     if (!user) {
       setDbPlan(null);
       setLoading(false);
@@ -39,14 +46,14 @@ export function useSavedPlan(user: User | null) {
     })();
 
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, userLoading]);
 
   /**
    * Save plan to both localStorage and database (upsert).
-   * Returns immediately — DB write is fire-and-forget with dedup.
+   * Returns a Promise so callers can await critical saves (e.g. before checkout).
    */
   const savePlan = useCallback(
-    (planData: unknown) => {
+    async (planData: unknown) => {
       // Always save to localStorage
       saveToLocal(planData);
 
@@ -56,22 +63,22 @@ export function useSavedPlan(user: User | null) {
       if (savingRef.current) return;
       savingRef.current = true;
 
-      (async () => {
-        try {
-          await supabase.from("saved_plans").upsert(
-            {
-              user_id: user.id,
-              plan_data: planData as any,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "user_id" }
-          );
-        } catch {
-          // silent — localStorage is the fallback
-        } finally {
-          savingRef.current = false;
-        }
-      })();
+      try {
+        await supabase.from("saved_plans").upsert(
+          {
+            user_id: user.id,
+            plan_data: planData as any,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+        // Update local state so loadPlan returns fresh data immediately
+        setDbPlan(planData);
+      } catch {
+        // silent — localStorage is the fallback
+      } finally {
+        savingRef.current = false;
+      }
     },
     [user?.id]
   );
