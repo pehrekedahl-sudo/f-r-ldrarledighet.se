@@ -1,5 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import AuthModal from "@/components/AuthModal";
+import { useUser } from "@/hooks/useUser";
+import { useHasPurchased } from "@/hooks/useHasPurchased";
+import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
@@ -115,6 +118,8 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const { toast } = useToast();
+  const { user } = useUser();
+  const { hasPurchased } = useHasPurchased();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
@@ -150,8 +155,65 @@ const PlanBuilder = () => {
   const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
   const { showTutorial, setShowTutorial } = usePlanTutorial();
+  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(null);
 
-  // Overlap dialog state
+  const startCheckout = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ returnUrl: `${window.location.origin}/plan-builder?success=true` }),
+        }
+      );
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast({ title: "Fel", description: "Kunde inte starta betalningen.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Fel", description: "Något gick fel. Försök igen.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleCtaClick = useCallback((action: string) => {
+    if (!user) {
+      setPendingCtaAction(action);
+      setAuthOpen(true);
+      return;
+    }
+    if (!hasPurchased) {
+      startCheckout();
+      return;
+    }
+    // User is logged in and has paid — perform the action
+    if (action === "save") {
+      toast({ title: "Sparad!", description: "Din plan har sparats." });
+    } else if (action === "share") {
+      setShareDialogOpen(true);
+    } else if (action === "fk") {
+      setFkGuideOpen(true);
+    }
+  }, [user, hasPurchased, startCheckout, toast]);
+
+  // After auth completes, check if there's a pending action
+  useEffect(() => {
+    if (user && pendingCtaAction && authOpen === false) {
+      if (!hasPurchased) {
+        startCheckout();
+      } else {
+        handleCtaClick(pendingCtaAction);
+      }
+      setPendingCtaAction(null);
+    }
+  }, [user, authOpen, pendingCtaAction, hasPurchased, startCheckout, handleCtaClick]);
+
   const [overlapDialog, setOverlapDialog] = useState<{
     open: boolean;
     targetBlock: Block | null;
@@ -196,6 +258,15 @@ const PlanBuilder = () => {
     }
     return false;
   }, []);
+
+  // Handle Stripe success redirect
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      toast({ title: "Betalning genomförd!", description: "Tack! Du har nu full tillgång." });
+      searchParams.delete("success");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   // Load plan from URL param or localStorage
   useEffect(() => {
@@ -1668,15 +1739,15 @@ const PlanBuilder = () => {
             <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
               <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
               <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("save")}>
                   <Lock className="h-4 w-4" />
                   Spara plan
                 </Button>
-                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("share")}>
                   <Lock className="h-4 w-4" />
                   Dela med partner
                 </Button>
-                <Button variant="default" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="default" className="gap-2" onClick={() => handleCtaClick("fk")}>
                   <Lock className="h-4 w-4" />
                   Hämta FK-guide
                 </Button>
