@@ -119,7 +119,7 @@ function validateBlock(b: Block): string | null {
 const PlanBuilder = () => {
   const { toast } = useToast();
   const { user } = useUser();
-  const { hasPurchased } = useHasPurchased();
+  const { hasPurchased, loading: purchaseLoading } = useHasPurchased();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
