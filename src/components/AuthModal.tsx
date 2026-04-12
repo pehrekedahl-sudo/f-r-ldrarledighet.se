@@ -36,7 +36,11 @@ export default function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   const handleSignup = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/plan-builder` },
+    });
     setLoading(false);
     if (error) {
       toast({ variant: "destructive", title: "Registrering misslyckades", description: error.message });
