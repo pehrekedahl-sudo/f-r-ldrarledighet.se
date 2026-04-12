@@ -119,9 +119,9 @@ function validateBlock(b: Block): string | null {
 
 const PlanBuilder = () => {
   const { toast } = useToast();
-  const { user } = useUser();
-  const { hasPurchased, loading: purchaseLoading } = useHasPurchased();
-  const { savePlan, loadPlan, loadingPlan, dbPlan } = useSavedPlan(user);
+  const { user, loading: userLoading } = useUser();
+  const { hasPurchased, loading: purchaseLoading } = useHasPurchased(user, userLoading);
+  const { savePlan, loadPlan, loadingPlan, dbPlan } = useSavedPlan(user, userLoading);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
