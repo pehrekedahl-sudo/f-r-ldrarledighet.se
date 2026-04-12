@@ -328,17 +328,17 @@ const PlanBuilder = () => {
     const hash = window.location.hash;
     if (hash && (hash.includes("access_token") || hash.includes("type=signup") || hash.includes("type=recovery"))) {
       // Supabase will process the hash; just load what we have
-      loadFromLocalStorage();
+      loadFromAnySource();
       return;
     }
 
-    if (!loadFromLocalStorage()) {
+    if (!loadFromAnySource()) {
       navigate("/wizard", { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadSaved = () => {
-    if (!loadFromLocalStorage()) {
+    if (!loadFromAnySource()) {
       setNoSavedPlan(true);
     }
   };
