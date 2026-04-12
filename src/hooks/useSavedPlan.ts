@@ -18,10 +18,20 @@ export function useSavedPlan(user: User | null, userLoading = false) {
 
   // Load plan from DB on mount / user change
   useEffect(() => {
+    console.log("[useSavedPlan] load effect", {
+      userId: user?.id ?? null,
+      userEmail: user?.email ?? null,
+      userLoading,
+    });
+
     // While auth is still loading, keep our loading=true so consumers wait
-    if (userLoading) return;
+    if (userLoading) {
+      console.log("[useSavedPlan] waiting for auth hydration before loading saved plan");
+      return;
+    }
 
     if (!user) {
+      console.log("[useSavedPlan] no authenticated user, clearing dbPlan and using local fallback only");
       setDbPlan(null);
       setLoading(false);
       return;
@@ -29,6 +39,9 @@ export function useSavedPlan(user: User | null, userLoading = false) {
 
     let cancelled = false;
     setLoading(true);
+    console.log("[useSavedPlan] fetching saved plan from database", {
+      userId: user.id,
+    });
 
     (async () => {
       const { data, error } = await supabase
@@ -37,7 +50,19 @@ export function useSavedPlan(user: User | null, userLoading = false) {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (cancelled) return;
+      if (cancelled) {
+        console.log("[useSavedPlan] fetch completed after cancellation", {
+          userId: user.id,
+        });
+        return;
+      }
+
+      console.log("[useSavedPlan] fetch result", {
+        userId: user.id,
+        hasPlan: Boolean(data?.plan_data),
+        error: error?.message ?? null,
+        planData: data?.plan_data ?? null,
+      });
 
       if (!error && data?.plan_data) {
         setDbPlan(data.plan_data);
@@ -45,7 +70,12 @@ export function useSavedPlan(user: User | null, userLoading = false) {
       setLoading(false);
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      console.log("[useSavedPlan] cancelling in-flight saved plan load", {
+        userId: user.id,
+      });
+    };
   }, [user?.id, userLoading]);
 
   /**
@@ -54,17 +84,34 @@ export function useSavedPlan(user: User | null, userLoading = false) {
    */
   const savePlan = useCallback(
     async (planData: unknown) => {
+      console.log("[useSavedPlan] save requested", {
+        userId: user?.id ?? null,
+        userEmail: user?.email ?? null,
+        hasUser: Boolean(user),
+        savingInFlight: savingRef.current,
+        planData,
+      });
+
       // Always save to localStorage
       saveToLocal(planData);
+      console.log("[useSavedPlan] local cache updated");
 
-      if (!user) return;
+      if (!user) {
+        console.log("[useSavedPlan] skipping database save because no authenticated user is available");
+        return;
+      }
 
       // Debounced DB save — skip if already saving
-      if (savingRef.current) return;
+      if (savingRef.current) {
+        console.log("[useSavedPlan] skipping database save because another save is already in progress", {
+          userId: user.id,
+        });
+        return;
+      }
       savingRef.current = true;
 
       try {
-        await supabase.from("saved_plans").upsert(
+        const { error } = await supabase.from("saved_plans").upsert(
           {
             user_id: user.id,
             plan_data: planData as any,
@@ -72,9 +119,25 @@ export function useSavedPlan(user: User | null, userLoading = false) {
           },
           { onConflict: "user_id" }
         );
+
+        if (error) {
+          console.log("[useSavedPlan] database save returned error", {
+            userId: user.id,
+            error: error.message,
+          });
+          return;
+        }
+
         // Update local state so loadPlan returns fresh data immediately
         setDbPlan(planData);
-      } catch {
+        console.log("[useSavedPlan] database save completed", {
+          userId: user.id,
+        });
+      } catch (error) {
+        console.log("[useSavedPlan] database save threw", {
+          userId: user.id,
+          error,
+        });
         // silent — localStorage is the fallback
       } finally {
         savingRef.current = false;
