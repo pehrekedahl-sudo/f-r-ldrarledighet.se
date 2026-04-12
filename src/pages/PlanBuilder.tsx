@@ -1673,15 +1673,15 @@ const PlanBuilder = () => {
             <section id="cta-block" className="rounded-xl border border-border bg-card shadow-sm p-6 text-center space-y-4">
               <h2 className="text-lg font-semibold text-foreground">Redo att gå vidare?</h2>
               <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("save")}>
                   <Lock className="h-4 w-4" />
                   Spara plan
                 </Button>
-                <Button variant="outline" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="outline" className="gap-2" onClick={() => handleCtaClick("share")}>
                   <Lock className="h-4 w-4" />
                   Dela med partner
                 </Button>
-                <Button variant="default" className="gap-2" onClick={() => setAuthOpen(true)}>
+                <Button variant="default" className="gap-2" onClick={() => handleCtaClick("fk")}>
                   <Lock className="h-4 w-4" />
                   Hämta FK-guide
                 </Button>
