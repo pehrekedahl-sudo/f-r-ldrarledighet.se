@@ -1,5 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import AuthModal from "@/components/AuthModal";
+import { useUser } from "@/hooks/useUser";
+import { useHasPurchased } from "@/hooks/useHasPurchased";
+import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
 import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
