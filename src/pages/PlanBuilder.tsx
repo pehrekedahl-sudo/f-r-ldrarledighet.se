@@ -1897,6 +1897,7 @@ const PlanBuilder = () => {
         </DialogContent>
       </Dialog>
       <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
     </div>
   );
 };
