@@ -1,34 +1,67 @@
 
 
-## Plan: Rabattkoder för Stripe Checkout
+## Problem
 
-### Steg 1 — Skapa kuponger i Stripe
-Jag skapar två kuponger direkt via Stripe:
+Planer lagras bara i `localStorage`. När användaren går genom Stripe Checkout och kommer tillbaka (eller besöker sidan senare) kan localStorage vara tomt — och då redirectas man till wizarden. Det finns ingen serverlagring av planer alls.
 
-1. **Lansering 50%** — 50% rabatt, engångs
-2. **100% gratis** — 100% rabatt, engångs (för test och vänner)
+## Lösning: Spara planer i databasen för inloggade användare
 
-### Steg 2 — Skapa kampanjkoder (promotion codes)
-Kupongerna i sig syns inte för kunden — man behöver koppla *promotion codes* (rabattkoder) till dem. Jag skapar koder som t.ex.:
-- `LANSERING50` → 50% rabatt
-- `GRATIS100` → 100% rabatt
+### Steg 1 — Skapa tabell `saved_plans`
 
-### Steg 3 — Aktivera rabattkodsfältet i checkout
-Uppdatera edge-funktionen `create-checkout-session` så att Stripe Checkout visar ett fält där kunden kan skriva in rabattkod. Det görs genom att lägga till:
+```sql
+CREATE TABLE public.saved_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_data jsonb NOT NULL,
+  name text DEFAULT '',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id) -- en plan per användare tills vidare
+);
 
-```typescript
-allow_promotion_codes: true
+ALTER TABLE public.saved_plans ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own plans"
+  ON public.saved_plans FOR SELECT
+  TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own plans"
+  ON public.saved_plans FOR INSERT
+  TO authenticated WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own plans"
+  ON public.saved_plans FOR UPDATE
+  TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own plans"
+  ON public.saved_plans FOR DELETE
+  TO authenticated USING (auth.uid() = user_id);
 ```
 
-i `stripe.checkout.sessions.create()`.
+### Steg 2 — Skapa hook `useSavedPlan`
+
+En ny hook som:
+- Vid inloggning hämtar användarens plan från `saved_plans`
+- Exponerar `savePlan(data)` som gör upsert till databasen
+- Faller tillbaka på localStorage för utloggade användare
+
+### Steg 3 — Uppdatera PlanBuilder
+
+1. **Vid laddning**: Om användaren är inloggad, försök ladda från databasen först, sedan localStorage som fallback.
+2. **Vid sparning** (CTA "Spara"): Skriv till databasen (upsert) utöver localStorage.
+3. **Före checkout**: Spara planen till databasen (inte bara localStorage) så att den överlever Stripe-redirecten.
+4. **Efter Stripe-retur** (`success=true`): Polla `purchases`-tabellen (max 10 försök, 2s intervall) innan man visar "Betalning genomförd". Ladda planen från databasen.
+
+### Steg 4 — Uppdatera `savePlanInput` / `loadPlanInput`
+
+Behåll localStorage som cache, men lägg till parallell databaslagring via den nya hooken för inloggade användare.
 
 ### Tekniska ändringar
 
-| Vad | Hur |
-|-----|-----|
-| Stripe-kuponger | Skapas via Stripe-verktyg (2 st) |
-| Promotion codes | Skapas via Stripe API (2 st) |
-| `supabase/functions/create-checkout-session/index.ts` | Lägg till `allow_promotion_codes: true` |
-
-Inga ändringar i frontend — rabattkodsfältet visas automatiskt av Stripe i checkout-vyn.
+| Fil | Ändring |
+|-----|---------|
+| Migration (ny) | Skapa `saved_plans` med RLS |
+| `src/hooks/useSavedPlan.ts` (ny) | Hook för databas-read/write av plan |
+| `src/pages/PlanBuilder.tsx` | Ladda från DB, spara till DB, polla efter betalning |
+| `src/lib/persistence.ts` | Eventuellt liten refactor för att separera local/remote |
 
