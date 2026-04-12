@@ -191,6 +191,7 @@ const PlanBuilder = () => {
 
   const handleCtaClick = useCallback((action: string) => {
     if (!user) {
+      localStorage.setItem("pendingCtaAction", action);
       setPendingCtaAction(action);
       setAuthOpen(true);
       return;
