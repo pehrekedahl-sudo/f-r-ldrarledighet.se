@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -13,17 +13,27 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     );
 
-    const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
 
-    if (!user) {
-      throw new Error("Not authenticated");
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
@@ -31,12 +41,13 @@ serve(async (req) => {
     });
 
     const { returnUrl } = await req.json();
+    const origin = req.headers.get("origin") || "https://planeraforaldraledighet.lovable.app";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: "price_1TLTo0ELaDuVlblyEEYi1mv1", quantity: 1 }],
-      success_url: returnUrl || `${req.headers.get("origin")}/plan-builder?success=true`,
-      cancel_url: `${req.headers.get("origin")}/plan-builder`,
+      success_url: returnUrl || `${origin}/plan-builder?success=true`,
+      cancel_url: `${origin}/plan-builder`,
       customer_email: user.email,
       client_reference_id: user.id,
       metadata: { user_id: user.id },
