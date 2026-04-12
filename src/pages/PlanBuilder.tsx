@@ -161,10 +161,41 @@ const PlanBuilder = () => {
     () => localStorage.getItem("pendingCtaAction")
   );
 
+  useEffect(() => {
+    console.log("[PlanBuilder] mount", {
+      userId: user?.id ?? null,
+      userEmail: user?.email ?? null,
+      userLoading,
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+    });
+  }, []);
+
+  useEffect(() => {
+    const currentPlan = loadPlan() as any;
+    const hasPlan = Boolean(
+      currentPlan?.parents && currentPlan?.blocks && currentPlan.blocks.length > 0
+    );
+
+    console.log("[PlanBuilder] useSavedPlan state", {
+      loadingPlan,
+      dbPlan,
+      hasPlan,
+      currentPlan,
+    });
+  }, [loadingPlan, dbPlan, loadPlan]);
+
   const startCheckout = useCallback(async () => {
     // Persist plan before navigating away so it survives the redirect
     const transfers = transferToArray(transfer);
+    console.log("[PlanBuilder] startCheckout: calling savePlan before Stripe redirect", {
+      blocksCount: blocks.length,
+      transfersCount: transfers.length,
+      parentsCount: parents.length,
+    });
     await savePlan({ parents, blocks, transfers, constants: CONSTANTS });
+    console.log("[PlanBuilder] startCheckout: savePlan resolved before Stripe redirect");
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -298,11 +329,30 @@ const PlanBuilder = () => {
 
   // Load plan from URL param, DB, or localStorage
   useEffect(() => {
+    console.log("[PlanBuilder] redirect check", {
+      userId: user?.id ?? null,
+      userEmail: user?.email ?? null,
+      userLoading,
+      loadingPlan,
+      success: searchParams.get("success"),
+      hasPlanParam: Boolean(searchParams.get("plan")),
+      hash: window.location.hash,
+    });
+
     // Wait for both auth and DB plan to finish loading before deciding
-    if (userLoading || loadingPlan) return;
+    if (userLoading || loadingPlan) {
+      console.log("[PlanBuilder] redirect decision", {
+        decision: "wait",
+        reason: userLoading ? "userLoading" : "loadingPlan",
+      });
+      return;
+    }
 
     const planParam = searchParams.get("plan");
     if (planParam) {
+      console.log("[PlanBuilder] redirect decision", {
+        decision: "load-plan-from-url-param",
+      });
       try {
         const decoded = JSON.parse(atob(planParam));
         if (decoded.blocks) setBlocks(decoded.blocks);
@@ -323,18 +373,33 @@ const PlanBuilder = () => {
         setViewMode("result");
         setLoaded(true);
         return;
-      } catch { /* ignore */ }
+      } catch (error) {
+        console.log("[PlanBuilder] redirect decision", {
+          decision: "plan-param-invalid",
+          error,
+        });
+      }
     }
 
     // If URL has auth hash fragments (email verification redirect), wait for auth
     // before deciding to redirect — the plan is still in localStorage
     const hash = window.location.hash;
     if (hash && (hash.includes("access_token") || hash.includes("type=signup") || hash.includes("type=recovery"))) {
-      loadFromAnySource();
+      const restoredFromHash = loadFromAnySource();
+      console.log("[PlanBuilder] redirect decision", {
+        decision: restoredFromHash ? "restored-from-auth-hash" : "auth-hash-no-plan-found",
+        restored: restoredFromHash,
+      });
       return;
     }
 
-    if (!loadFromAnySource()) {
+    const restored = loadFromAnySource();
+    console.log("[PlanBuilder] redirect decision", {
+      decision: restored ? "stay-on-plan-builder" : "navigate-to-wizard",
+      restored,
+    });
+
+    if (!restored) {
       navigate("/wizard", { replace: true });
     }
   }, [userLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
