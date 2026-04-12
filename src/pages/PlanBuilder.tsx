@@ -224,7 +224,7 @@ const PlanBuilder = () => {
     } else if (action === "fk") {
       setFkGuideOpen(true);
     }
-  }, [user, hasPurchased, startCheckout, toast]);
+  }, [user, hasPurchased, toast]);
 
   // After auth completes, check if there's a pending action
   useEffect(() => {
