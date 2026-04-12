@@ -1,34 +1,34 @@
 
 
-## Plan: Inloggat läge — tydlig upplevelse för betalande användare
+## Plan: Rabattkoder för Stripe Checkout
 
-### Nuläge
-CTA-blocket längst ner visar alltid samma tre knappar med Lock-ikoner och säljtext, oavsett om användaren har betalat eller inte. Det finns ingen visuell feedback i navbaren eller på sidan som visar att man är inloggad.
+### Steg 1 — Skapa kuponger i Stripe
+Jag skapar två kuponger direkt via Stripe:
 
-### Designförslag
+1. **Lansering 50%** — 50% rabatt, engångs
+2. **100% gratis** — 100% rabatt, engångs (för test och vänner)
 
-**1. TopNav — inloggningsindikator**
-- Lägg till en användarsektion till höger i navbaren (desktop + mobil)
-- Betalande användare: visa e-post/namn + "Logga ut"-knapp
-- Ej inloggade: inget extra (eller en diskret "Logga in"-länk om önskat)
+### Steg 2 — Skapa kampanjkoder (promotion codes)
+Kupongerna i sig syns inte för kunden — man behöver koppla *promotion codes* (rabattkoder) till dem. Jag skapar koder som t.ex.:
+- `LANSERING50` → 50% rabatt
+- `GRATIS100` → 100% rabatt
 
-**2. CTA-blocket — två helt olika vyer**
+### Steg 3 — Aktivera rabattkodsfältet i checkout
+Uppdatera edge-funktionen `create-checkout-session` så att Stripe Checkout visar ett fält där kunden kan skriva in rabattkod. Det görs genom att lägga till:
 
-*Ej betalat (nuvarande):* Behåll som det är med Lock-ikoner och säljtext.
+```typescript
+allow_promotion_codes: true
+```
 
-*Betalat:* Ersätt hela blocket med en "verktygslåda" som känns som att man äger produkten:
-- **FK-guiden** — prominent knapp/kort, alltid synlig, t.ex. med ClipboardList-ikon och text som "Öppna steg-för-steg-guiden"
-- **Spara plan** — CTA-knapp (utan Lock), sparar planen till databasen
-- **Dela med partner** — CTA-knapp (utan Lock), öppnar delnings-dialogen
-- Ingen säljtext, istället en kort bekräftelse som "Ditt konto är aktivt"
-
-**3. FK-guiden lättillgänglig**
-- Lägg även till en liten "FK-guide"-knapp i hero-bannern eller vid tidslinjens verktygsfält, så betalande användare snabbt kan nå den utan att scrolla ner.
+i `stripe.checkout.sessions.create()`.
 
 ### Tekniska ändringar
 
-| Fil | Ändring |
-|-----|---------|
-| `src/components/TopNav.tsx` | Importera `useUser`, `useHasPurchased`. Visa användarinfo + logga ut-knapp för betalande användare. |
-| `src/pages/PlanBuilder.tsx` | Villkora CTA-blocket: `hasPurchased` → verktygslåda utan Lock, annars nuvarande säljblock. Lägg till FK-guide-genväg högre upp på sidan. |
+| Vad | Hur |
+|-----|-----|
+| Stripe-kuponger | Skapas via Stripe-verktyg (2 st) |
+| Promotion codes | Skapas via Stripe API (2 st) |
+| `supabase/functions/create-checkout-session/index.ts` | Lägg till `allow_promotion_codes: true` |
+
+Inga ändringar i frontend — rabattkodsfältet visas automatiskt av Stripe i checkout-vyn.
 
