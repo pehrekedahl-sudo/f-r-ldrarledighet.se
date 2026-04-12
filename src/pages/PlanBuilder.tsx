@@ -212,6 +212,7 @@ const PlanBuilder = () => {
 
   // After auth completes, check if there's a pending action
   useEffect(() => {
+    if (purchaseLoading) return; // wait until purchase status is known
     if (user && pendingCtaAction && authOpen === false) {
       if (!hasPurchased) {
         startCheckout();
@@ -220,7 +221,7 @@ const PlanBuilder = () => {
       }
       setPendingCtaAction(null);
     }
-  }, [user, authOpen, pendingCtaAction, hasPurchased, startCheckout, handleCtaClick]);
+  }, [user, authOpen, pendingCtaAction, hasPurchased, purchaseLoading, startCheckout, handleCtaClick]);
 
   const [overlapDialog, setOverlapDialog] = useState<{
     open: boolean;
