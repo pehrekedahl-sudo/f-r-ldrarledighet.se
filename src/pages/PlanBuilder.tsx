@@ -119,7 +119,7 @@ function validateBlock(b: Block): string | null {
 const PlanBuilder = () => {
   const { toast } = useToast();
   const { user } = useUser();
-  const { hasPurchased } = useHasPurchased();
+  const { hasPurchased, loading: purchaseLoading } = useHasPurchased();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
@@ -155,7 +155,14 @@ const PlanBuilder = () => {
   const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
   const { showTutorial, setShowTutorial } = usePlanTutorial();
-  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(null);
+  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(() => {
+    const saved = localStorage.getItem("pendingCtaAction");
+    if (saved) {
+      localStorage.removeItem("pendingCtaAction");
+      return saved;
+    }
+    return null;
+  });
 
   const startCheckout = useCallback(async () => {
     try {
@@ -184,6 +191,7 @@ const PlanBuilder = () => {
 
   const handleCtaClick = useCallback((action: string) => {
     if (!user) {
+      localStorage.setItem("pendingCtaAction", action);
       setPendingCtaAction(action);
       setAuthOpen(true);
       return;
@@ -204,6 +212,7 @@ const PlanBuilder = () => {
 
   // After auth completes, check if there's a pending action
   useEffect(() => {
+    if (purchaseLoading) return; // wait until purchase status is known
     if (user && pendingCtaAction && authOpen === false) {
       if (!hasPurchased) {
         startCheckout();
@@ -212,7 +221,7 @@ const PlanBuilder = () => {
       }
       setPendingCtaAction(null);
     }
-  }, [user, authOpen, pendingCtaAction, hasPurchased, startCheckout, handleCtaClick]);
+  }, [user, authOpen, pendingCtaAction, hasPurchased, purchaseLoading, startCheckout, handleCtaClick]);
 
   const [overlapDialog, setOverlapDialog] = useState<{
     open: boolean;
