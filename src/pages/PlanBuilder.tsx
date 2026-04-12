@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { loadPlanInput, savePlanInput } from "@/lib/persistence";
+import { loadPlanInput } from "@/lib/persistence";
 import { useSavedPlan } from "@/hooks/useSavedPlan";
 import { assertUniqueBlockIds } from "@/lib/blockIdUtils";
 import { normalizeBlocks, applySmartChange } from "@/lib/adjustmentPolicy";
