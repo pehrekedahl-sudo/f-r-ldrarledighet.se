@@ -261,8 +261,9 @@ const PlanBuilder = () => {
     source: "resize",
   });
 
-  const loadFromLocalStorage = useCallback(() => {
-    const saved = loadPlanInput() as any;
+  const loadFromAnySource = useCallback(() => {
+    // Try DB first (via hook), then localStorage
+    const saved = (loadPlan() ?? loadPlanInput()) as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
@@ -278,14 +279,13 @@ const PlanBuilder = () => {
       } else {
         setTransfer(null);
       }
-      // savedDaysCount is derived — no need to restore
       setViewMode("result");
       setLoaded(true);
       setNoSavedPlan(false);
       return true;
     }
     return false;
-  }, []);
+  }, [loadPlan]);
 
   // Handle Stripe success redirect
   useEffect(() => {
