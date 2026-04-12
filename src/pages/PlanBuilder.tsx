@@ -259,6 +259,15 @@ const PlanBuilder = () => {
     return false;
   }, []);
 
+  // Handle Stripe success redirect
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      toast({ title: "Betalning genomförd!", description: "Tack! Du har nu full tillgång." });
+      searchParams.delete("success");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
+
   // Load plan from URL param or localStorage
   useEffect(() => {
     const planParam = searchParams.get("plan");
