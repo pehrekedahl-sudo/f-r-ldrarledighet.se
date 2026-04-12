@@ -121,6 +121,7 @@ const PlanBuilder = () => {
   const { toast } = useToast();
   const { user } = useUser();
   const { hasPurchased, loading: purchaseLoading } = useHasPurchased();
+  const { savePlan, loadPlan, loadingPlan, dbPlan } = useSavedPlan(user);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [parents, setParents] = useState(DEFAULT_PARENTS);
