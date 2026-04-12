@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useUser } from "@/hooks/useUser";
+import { useHasPurchased } from "@/hooks/useHasPurchased";
+import { supabase } from "@/integrations/supabase/client";
 
 const links = [
   { to: "/", label: "Start" },
@@ -11,6 +14,13 @@ const links = [
 
 const TopNav = () => {
   const [open, setOpen] = useState(false);
+  const { user } = useUser();
+  const { hasPurchased } = useHasPurchased();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
@@ -33,6 +43,20 @@ const TopNav = () => {
               {l.label}
             </NavLink>
           ))}
+          {user && hasPurchased && (
+            <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border">
+              <span className="text-sm text-muted-foreground truncate max-w-[160px]">
+                {user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Logga ut"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </nav>
 
         {/* Mobile hamburger */}
@@ -60,6 +84,20 @@ const TopNav = () => {
               {l.label}
             </NavLink>
           ))}
+          {user && hasPurchased && (
+            <div className="pt-2 mt-2 border-t border-border space-y-2">
+              <span className="block text-sm text-muted-foreground truncate">
+                {user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
+                <LogOut className="h-4 w-4" />
+                Logga ut
+              </button>
+            </div>
+          )}
         </nav>
       )}
     </header>
