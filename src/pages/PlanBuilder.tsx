@@ -160,6 +160,10 @@ const PlanBuilder = () => {
   );
 
   const startCheckout = useCallback(async () => {
+    // Persist plan before navigating away so it survives the redirect
+    const transfers = transferToArray(transfer);
+    savePlanInput({ parents, blocks, transfers, constants: CONSTANTS });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
@@ -199,7 +203,7 @@ const PlanBuilder = () => {
     } catch {
       toast({ title: "Fel", description: "Något gick fel. Försök igen.", variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, parents, blocks, transfer]);
 
   const handleCtaClick = useCallback((action: string) => {
     if (!user) {
