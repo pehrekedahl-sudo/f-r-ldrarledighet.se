@@ -296,8 +296,11 @@ const PlanBuilder = () => {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  // Load plan from URL param or localStorage
+  // Load plan from URL param, DB, or localStorage
   useEffect(() => {
+    // Wait for DB plan to finish loading before deciding
+    if (loadingPlan) return;
+
     const planParam = searchParams.get("plan");
     if (planParam) {
       try {
@@ -327,7 +330,6 @@ const PlanBuilder = () => {
     // before deciding to redirect — the plan is still in localStorage
     const hash = window.location.hash;
     if (hash && (hash.includes("access_token") || hash.includes("type=signup") || hash.includes("type=recovery"))) {
-      // Supabase will process the hash; just load what we have
       loadFromAnySource();
       return;
     }
@@ -335,7 +337,7 @@ const PlanBuilder = () => {
     if (!loadFromAnySource()) {
       navigate("/wizard", { replace: true });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadSaved = () => {
     if (!loadFromAnySource()) {
