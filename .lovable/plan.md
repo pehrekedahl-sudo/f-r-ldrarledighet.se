@@ -1,23 +1,26 @@
 
 
-# Ny sektion: "Det här stöder vi inte än"
+## Problem
 
-## Vad
-En enkel, ärlig sektion på startsidan som listar begränsningar. Placeras mellan tidslinjeförhandsgranskningen (rad 156) och CTA:n (rad 158).
+When the user clicks a CTA button and creates an account, the flow is:
 
-## Innehåll
-Rubrik: **"Det här stöder vi inte än"**
+1. `pendingCtaAction` is saved to `localStorage`
+2. AuthModal opens, user signs up
+3. Modal closes with "check your email" message
+4. **On this same page load**, the state initializer reads `pendingCtaAction` from `localStorage` AND immediately deletes it
+5. But `user` is still `null` (email not verified), so the useEffect that triggers checkout never fires
+6. User goes to email, clicks verify link, returns to `/plan-builder`
+7. `pendingCtaAction` is gone from `localStorage` — nothing happens
 
-Inledande text: *"Verktyget är byggt för två föräldrar med fast anställning och ett barn. Vi jobbar på att utöka stödet – följande scenarion hanteras inte korrekt idag:"*
+The root cause: `localStorage.removeItem("pendingCtaAction")` happens too early (on component mount) instead of when the action is actually consumed.
 
-Punktlista:
-- Ensamstående föräldrar
-- Familjer med sparade dagar från ett äldre barn
-- Egenföretagare och föräldrar med oregelbunden inkomst
+## Fix
 
-## Design
-Samma stil som övriga sektioner: `max-w-3xl mx-auto`, `rounded-xl border-2 border-border bg-card shadow-sm p-6`. Enkel lista med muted bullet points, ingen kolumnlayout.
+In `src/pages/PlanBuilder.tsx`:
 
-## Ändring
-Enbart `src/pages/Index.tsx` – ny `<section>` mellan rad 156 och 158.
+1. **Stop clearing `pendingCtaAction` from localStorage in the state initializer** — just read it, don't remove it
+2. **Clear it in the useEffect** only after checkout is actually started or the action is performed
+3. Also clear it when checkout starts in `startCheckout` to prevent double-triggers
+
+This is a ~5-line change in one file.
 
