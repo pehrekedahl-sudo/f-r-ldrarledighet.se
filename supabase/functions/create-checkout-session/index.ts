@@ -51,6 +51,7 @@ serve(async (req) => {
       customer_email: user.email,
       client_reference_id: user.id,
       metadata: { user_id: user.id },
+      allow_promotion_codes: true,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
