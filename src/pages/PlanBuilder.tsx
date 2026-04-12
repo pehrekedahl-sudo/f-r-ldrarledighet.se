@@ -155,14 +155,9 @@ const PlanBuilder = () => {
   const [childName, setChildName] = useState("");
   const [topUpMonths, setTopUpMonths] = useState<Record<string, number>>({ p1: 3, p2: 3 });
   const { showTutorial, setShowTutorial } = usePlanTutorial();
-  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(() => {
-    const saved = localStorage.getItem("pendingCtaAction");
-    if (saved) {
-      localStorage.removeItem("pendingCtaAction");
-      return saved;
-    }
-    return null;
-  });
+  const [pendingCtaAction, setPendingCtaAction] = useState<string | null>(
+    () => localStorage.getItem("pendingCtaAction")
+  );
 
   const startCheckout = useCallback(async () => {
     try {
