@@ -1,26 +1,34 @@
 
 
-## Problem
+## Plan: Inloggat läge — tydlig upplevelse för betalande användare
 
-When the user clicks a CTA button and creates an account, the flow is:
+### Nuläge
+CTA-blocket längst ner visar alltid samma tre knappar med Lock-ikoner och säljtext, oavsett om användaren har betalat eller inte. Det finns ingen visuell feedback i navbaren eller på sidan som visar att man är inloggad.
 
-1. `pendingCtaAction` is saved to `localStorage`
-2. AuthModal opens, user signs up
-3. Modal closes with "check your email" message
-4. **On this same page load**, the state initializer reads `pendingCtaAction` from `localStorage` AND immediately deletes it
-5. But `user` is still `null` (email not verified), so the useEffect that triggers checkout never fires
-6. User goes to email, clicks verify link, returns to `/plan-builder`
-7. `pendingCtaAction` is gone from `localStorage` — nothing happens
+### Designförslag
 
-The root cause: `localStorage.removeItem("pendingCtaAction")` happens too early (on component mount) instead of when the action is actually consumed.
+**1. TopNav — inloggningsindikator**
+- Lägg till en användarsektion till höger i navbaren (desktop + mobil)
+- Betalande användare: visa e-post/namn + "Logga ut"-knapp
+- Ej inloggade: inget extra (eller en diskret "Logga in"-länk om önskat)
 
-## Fix
+**2. CTA-blocket — två helt olika vyer**
 
-In `src/pages/PlanBuilder.tsx`:
+*Ej betalat (nuvarande):* Behåll som det är med Lock-ikoner och säljtext.
 
-1. **Stop clearing `pendingCtaAction` from localStorage in the state initializer** — just read it, don't remove it
-2. **Clear it in the useEffect** only after checkout is actually started or the action is performed
-3. Also clear it when checkout starts in `startCheckout` to prevent double-triggers
+*Betalat:* Ersätt hela blocket med en "verktygslåda" som känns som att man äger produkten:
+- **FK-guiden** — prominent knapp/kort, alltid synlig, t.ex. med ClipboardList-ikon och text som "Öppna steg-för-steg-guiden"
+- **Spara plan** — CTA-knapp (utan Lock), sparar planen till databasen
+- **Dela med partner** — CTA-knapp (utan Lock), öppnar delnings-dialogen
+- Ingen säljtext, istället en kort bekräftelse som "Ditt konto är aktivt"
 
-This is a ~5-line change in one file.
+**3. FK-guiden lättillgänglig**
+- Lägg även till en liten "FK-guide"-knapp i hero-bannern eller vid tidslinjens verktygsfält, så betalande användare snabbt kan nå den utan att scrolla ner.
+
+### Tekniska ändringar
+
+| Fil | Ändring |
+|-----|---------|
+| `src/components/TopNav.tsx` | Importera `useUser`, `useHasPurchased`. Visa användarinfo + logga ut-knapp för betalande användare. |
+| `src/pages/PlanBuilder.tsx` | Villkora CTA-blocket: `hasPurchased` → verktygslåda utan Lock, annars nuvarande säljblock. Lägg till FK-guide-genväg högre upp på sidan. |
 
