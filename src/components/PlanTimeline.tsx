@@ -372,20 +372,19 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
               </div>
             )}
 
-            {parentRows.map((row) => (
-              <div key={row.id} className="relative" style={{ height: rowHeight }}>
-                {row.blocks.map((b) => {
+            {/* Parent 1 row */}
+            {parentRows[0] && (
+              <div className="relative" style={{ height: rowHeight }}>
+                {parentRows[0].blocks.map((b) => {
                   const blockId = b._originalId ?? b.id;
                   const isBeingDragged = dragState?.blockId === blockId;
                   
-                  // If dragging this block, adjust the preview position
                   let bStartMs = toEpochMs(b.startDate);
                   let bEndMs = toEpochMs(b.endDate);
                   if (isBeingDragged && dragPreviewDate) {
                     const previewMs = toEpochMs(dragPreviewDate);
                     if (dragState.edge === "start") bStartMs = previewMs;
                     if (dragState.edge === "end") bEndMs = previewMs;
-                    // Don't let start > end visually
                     if (bStartMs > bEndMs) {
                       if (dragState.edge === "start") bStartMs = bEndMs;
                       else bEndMs = bStartMs;
@@ -410,17 +409,13 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                         if (!isDragging && !justDraggedRef.current) onBlockClick?.(blockId);
                       }}
                     >
-                      {/* Left grip handle */}
                       {canResize && (
                         <div
                           className="absolute left-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
                           onPointerDown={(e) => handlePointerDown(e, blockId, "start", b.startDate)}
                         />
                       )}
-                      
                       <span className="truncate px-1.5">{b.daysPerWeek}d/v</span>
-                      
-                      {/* Right grip handle */}
                       {canResize && (
                         <div
                           className="absolute right-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
@@ -431,9 +426,9 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                   );
                 })}
               </div>
-            ))}
+            )}
 
-            {/* Overlap row */}
+            {/* Overlap row – between parents */}
             {hasOverlapRow && (
               <div className="relative border-t border-border/40 bg-purple-50/20" style={{ height: overlapRowHeight }}>
                 {validOverlaps.map((b) => {
@@ -467,6 +462,62 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
                         >
                           ✕
                         </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Parent 2 row */}
+            {parentRows[1] && (
+              <div className="relative" style={{ height: rowHeight }}>
+                {parentRows[1].blocks.map((b) => {
+                  const blockId = b._originalId ?? b.id;
+                  const isBeingDragged = dragState?.blockId === blockId;
+                  
+                  let bStartMs = toEpochMs(b.startDate);
+                  let bEndMs = toEpochMs(b.endDate);
+                  if (isBeingDragged && dragPreviewDate) {
+                    const previewMs = toEpochMs(dragPreviewDate);
+                    if (dragState.edge === "start") bStartMs = previewMs;
+                    if (dragState.edge === "end") bEndMs = previewMs;
+                    if (bStartMs > bEndMs) {
+                      if (dragState.edge === "start") bStartMs = bEndMs;
+                      else bEndMs = bStartMs;
+                    }
+                  }
+                  
+                  const left = ((bStartMs - timelineStartMs) / totalMs) * 100;
+                  const width = Math.max(((bEndMs - bStartMs) / totalMs) * 100, 1.5);
+                  const workDays = countWorkingDays(b.startDate, b.endDate);
+                  const tooltipText = `${b.startDate} → ${b.endDate}\n${b.daysPerWeek} d/v · ${workDays} arbetsdagar`;
+                  const canResize = onBlockResize && !b.isOverlap;
+                  
+                  return (
+                    <div
+                      key={b.id}
+                      data-block-id={b.id}
+                      data-parent-id={b.parentId}
+                      title={isDragging ? undefined : tooltipText}
+                      className={`absolute top-2 bottom-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center overflow-hidden shadow-md ${getIntensityClass(b.parentId, b.daysPerWeek)} ${onBlockClick && !isDragging ? "cursor-pointer hover:ring-2 hover:ring-ring/50 hover:shadow-lg transition-all" : ""} ${isBeingDragged ? "ring-2 ring-primary/50 opacity-80" : ""}`}
+                      style={{ left: `${left}%`, width: `${width}%`, minWidth: 24 }}
+                      onClick={() => {
+                        if (!isDragging && !justDraggedRef.current) onBlockClick?.(blockId);
+                      }}
+                    >
+                      {canResize && (
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          onPointerDown={(e) => handlePointerDown(e, blockId, "start", b.startDate)}
+                        />
+                      )}
+                      <span className="truncate px-1.5">{b.daysPerWeek}d/v</span>
+                      {canResize && (
+                        <div
+                          className="absolute right-0 top-0 bottom-0 w-3 sm:w-2 cursor-col-resize z-10 hover:bg-white/20 transition-colors"
+                          onPointerDown={(e) => handlePointerDown(e, blockId, "end", b.endDate)}
+                        />
                       )}
                     </div>
                   );
