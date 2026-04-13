@@ -316,7 +316,7 @@ const PlanBuilder = () => {
       return true;
     }
     return false;
-  }, [loadPlan]);
+  }, [loadPlan, user]);
 
   // Handle Stripe success redirect
   useEffect(() => {
