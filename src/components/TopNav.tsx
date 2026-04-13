@@ -29,7 +29,7 @@ const TopNav = () => {
           <img src="/logo-icon.svg" alt="" className="h-7 w-auto" />
           <div className="flex flex-col" style={{ gap: '1px', lineHeight: 1.1 }}>
             <span className="font-bold text-sm tracking-tight" style={{ color: '#12201A' }}>Planera</span>
-            <span className="font-light text-sm tracking-tight" style={{ color: '#9BA8A2' }}>föräldraledighet</span>
+            <span className="font-bold text-sm tracking-tight" style={{ color: '#9BA8A2' }}>föräldraledighet</span>
           </div>
         </Link>
 
