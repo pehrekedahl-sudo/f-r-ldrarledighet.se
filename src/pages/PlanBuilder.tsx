@@ -2170,7 +2170,7 @@ const PlanBuilder = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Dela din plan</DialogTitle>
-            <DialogDescription>Skicka länken till din partner eller spara den som bokmärke.</DialogDescription>
+            <DialogDescription>Kopiera länken och skicka den till din partner.</DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
             <Input readOnly value={shareUrl} className="text-xs" onClick={(e) => (e.target as HTMLInputElement).select()} />
@@ -2178,24 +2178,18 @@ const PlanBuilder = () => {
               {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex flex-col gap-2">
-            {typeof navigator !== "undefined" && navigator.share && (
-              <Button className="w-full gap-2" onClick={nativeShare}>
-                <ExternalLink className="h-4 w-4" />Dela via app…
-              </Button>
-            )}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant={navigator.share ? "outline" : "default"} className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
-                <Copy className="h-4 w-4" />Kopiera länk
-              </Button>
-              <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
-                <Mail className="h-4 w-4" />E-post
-              </Button>
-              <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
-                <MessageSquare className="h-4 w-4" />SMS
-              </Button>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
+              <Copy className="h-4 w-4" />Kopiera länk
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={copyForEmail}>
+              <Mail className="h-4 w-4" />Kopiera för e-post
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={copyForSms}>
+              <MessageSquare className="h-4 w-4" />Kopiera för SMS
+            </Button>
           </div>
+          <p className="text-xs text-muted-foreground text-center">Alla med länken kan se din plan.</p>
         </DialogContent>
       </Dialog>
       <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
