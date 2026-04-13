@@ -400,7 +400,6 @@ const PlanBuilder = () => {
         reason: "no authenticated user",
       });
       setNoSavedPlan(true);
-      setLoading_gate(false);
       return;
     }
 
