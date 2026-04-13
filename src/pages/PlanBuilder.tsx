@@ -483,6 +483,17 @@ const PlanBuilder = () => {
     }
   }, [shareUrl, toast]);
 
+  const smsShareUrl = useCallback(() => {
+    const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
+    if (body.length > 1600) {
+      navigator.clipboard.writeText(shareUrl);
+      toast({ description: "Länken har kopierats till urklipp – klistra in den i SMS:et!" });
+      window.location.href = `sms:?body=${encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.")}`;
+    } else {
+      window.location.href = `sms:?body=${body}`;
+    }
+  }, [shareUrl, toast]);
+
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const addDoubleDays = () => {
     const groupId = `overlap-${nextId}`;
