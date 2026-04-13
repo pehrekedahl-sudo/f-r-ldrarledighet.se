@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+const REMEMBERED_EMAIL_KEY = "auth_remembered_email";
 
 interface AuthModalProps {
   open: boolean;
@@ -19,7 +21,14 @@ export default function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const reset = () => { setEmail(""); setPassword(""); };
+  useEffect(() => {
+    if (open) {
+      const saved = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+      if (saved) setEmail(saved);
+    }
+  }, [open]);
+
+  const reset = () => { setPassword(""); };
 
   const handleLogin = async () => {
     setLoading(true);
