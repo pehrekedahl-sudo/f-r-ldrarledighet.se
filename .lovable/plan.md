@@ -1,35 +1,33 @@
 
 
-## Plan: Endast inloggade användare kan se sin plan
+## Plan: Fixa Stripe-webhook + lägg in testpost
 
-### Nuvarande beteende
-`loadFromAnySource()` laddar plan från DB **eller** localStorage. En ej inloggad användare med en gammal plan i localStorage hamnar direkt i PlanBuilder utan att logga in.
+### Problem
+1. **Webhook kraschar**: `constructEvent()` är synkron och fungerar inte i Deno/Edge Functions. Felmeddelande: *"SubtleCryptoProvider cannot be used in a synchronous context"*.
+2. **Ingen testdata**: `purchases`-tabellen är tom, så det inloggade betalläget kan inte verifieras.
 
-### Nytt beteende
+### Åtgärder
 
-| Situation | Resultat |
-|---|---|
-| Ej inloggad, trycker "Min Plan" | Gate-vy: "Logga in" eller "Skapa ny plan" |
-| Inloggad + DB-plan finns | Ladda plan |
-| Inloggad + ingen DB-plan | Redirect till /wizard |
+**1. Lägg in testpost i `purchases`** (direkt via insert-verktyg)
 
-localStorage används **bara** som temporär cache under wizard-flödet och som mellanlagring innan inloggning sker — men PlanBuilder ska **inte** ladda en plan från localStorage om användaren inte är inloggad.
+Skapar en rad för `user_id = 74b003e2-5a3c-4ecd-8527-4b32b9b03fb3` (pehr.ekedahl@gmail.com) så att du omedelbart ser det betalda UI:t.
 
-### Ändringar
+**2. Fixa `supabase/functions/stripe-webhook/index.ts`**
 
-**`src/pages/PlanBuilder.tsx`** — Load-effekten (rad 331–405):
+Ändra:
+```typescript
+// Nuvarande (kraschar)
+event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+```
+Till:
+```typescript
+// Fixat (async, fungerar i Deno)
+event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+```
 
-1. Om `!user` efter att auth laddat klart: sätt `noSavedPlan = true` och visa gate-vy (logga in / skapa ny plan). Ingen redirect till wizard, ingen laddning från localStorage.
-2. Om `user` finns: kör `loadFromAnySource()` som idag (DB först, localStorage som fallback). Redirect till `/wizard` bara om ingen plan hittas.
-3. Gate-vyn: rubrik + två knappar ("Logga in" → AuthModal, "Skapa ny plan" → navigate("/wizard")).
-4. Efter lyckad inloggning via gate: kör om load-logiken automatiskt.
+Det är den enda kodändringen som behövs. Resten av webhook-logiken (insert i purchases etc.) är korrekt.
 
-**`src/pages/PlanBuilder.tsx`** — `loadFromAnySource` (rad 295):
-
-Ändra så att localStorage-fallbacken (`loadPlanInput()`) bara används om `user` finns — dvs localStorage fungerar som cache åt DB-sparningen, inte som en fristående källa för ej inloggade.
-
-### Vad som inte ändras
-- Wizard-flödet (sparar till localStorage som vanligt under skapandet)
-- Delad plan via URL-param (fungerar oavsett auth)
-- Auth-hash-hantering (email-verifiering)
+### Resultat
+- Du ser omedelbart det betalda läget (verktygslåda, FK-guide-genväg, e-post i nav)
+- Framtida Stripe-köp registreras korrekt i databasen
 
