@@ -25,9 +25,12 @@ const TopNav = () => {
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
       <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-1.5">
-          <span className="font-bold text-lg tracking-tight text-foreground">Planera</span>
-          <span className="font-normal text-lg tracking-tight text-muted-foreground">föräldraledighet</span>
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/logo-icon.svg" alt="" className="h-7 w-auto" />
+          <div className="flex flex-col leading-tight">
+            <span className="font-bold text-sm tracking-tight" style={{ color: '#12201A' }}>Planera</span>
+            <span className="font-light text-[11px] tracking-tight" style={{ color: '#9BA8A2' }}>föräldraledighet</span>
+          </div>
         </Link>
 
         {/* Desktop nav */}
