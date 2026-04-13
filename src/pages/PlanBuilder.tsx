@@ -253,7 +253,7 @@ const PlanBuilder = () => {
     if (action === "save") {
       toast({ title: "Sparad!", description: "Din plan har sparats." });
     } else if (action === "share") {
-      setShareDialogOpen(true);
+      sharePlan();
     } else if (action === "fk") {
       setFkGuideOpen(true);
     }
