@@ -116,7 +116,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
     for (const step of fkSteps) {
       items.push({ id: step.key, label: `${step.parentName}: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}`, type: "period", parentId: step.parentId });
     }
-    items.push({ id: "warnings", label: "Läs igenom viktigt att tänka på", type: "action" });
     return items;
   }, [fkSteps, hasP2]);
 
@@ -360,19 +359,9 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
             })}
 
             {/* Warnings */}
-            <div className={stepCardClass("warnings")}>
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={checked.has("warnings")}
-                  onCheckedChange={() => toggle("warnings")}
-                  className="mt-0.5 no-print"
-                />
-                <div className="checkbox-print" style={{ display: "none" }} />
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-foreground">Viktigt att tänka på</span>
-                    {isNext("warnings") && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
-                  </div>
+            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2">
+              <div className="space-y-2">
+                <span className="font-bold text-sm text-foreground">Viktigt att tänka på</span>
                   <ul className="space-y-2 text-sm text-[#2D3748]">
                     <li className="flex items-start gap-2">
                       <span className="shrink-0">⚠️</span>
@@ -383,7 +372,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                       <span>Du kan ändra eller avboka en period fram till 1 dag innan den börjar</span>
                     </li>
                   </ul>
-                </div>
               </div>
             </div>
           </div>
