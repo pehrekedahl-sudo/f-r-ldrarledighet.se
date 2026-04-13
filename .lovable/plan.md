@@ -1,39 +1,27 @@
 
 
-## Plan: Fixa blockerad e-post (mailto i iframe)
+## Plan: Förbättra konvertering från startsidan till wizarden
 
-### Problem
-`window.open("mailto:...", "_blank")` blockeras av webbläsaren i iframe/preview-miljön (skärmbilden visar "mail.google.com har blockerats / ERR_BLOCKED_BY_RESPONSE"). SMS fungerar redan.
+Enbart ändringar i `src/pages/Index.tsx`.
 
-### Lösning
-Byt till `window.top?.location.href` för att bryta ut ur iframe-kontexten. Detta är samma teknik som redan används för Stripe Checkout i projektet. Om `window.top` inte är tillgängligt (cross-origin), falla tillbaka på att kopiera den färdiga e-posttexten till urklipp med en toast.
+### Ändringar
 
-### Teknisk ändring
+**A. Skarpare hero-copy**
+- Undertext: korta ner, fokusera på utfall — *"Svara på fem frågor — få en komplett plan med datum, belopp och hur ni maximerar era dagar."*
+- CTA-knapp: **"Skapa er plan — tar 5 min"**
+- Liten text under: *"Gratis. Inget konto krävs."*
 
-**`src/pages/PlanBuilder.tsx` — `sendViaEmail`-funktionen (rad 536-543):**
+**B. Tidslinje-mockupen blir klickbar**
+- Wrappa i `<Link to="/wizard">` med hover-effekt (`group-hover:shadow-lg`)
+- Rubrik: **"Så kan er plan se ut — klicka för att börja"**
 
-```typescript
-const sendViaEmail = useCallback(() => {
-  const subject = encodeURIComponent("Vår föräldraledighetsplan");
-  const body = encodeURIComponent(`Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`);
-  const mailtoUrl = `mailto:${shareRecipient}?subject=${subject}&body=${body}`;
-  try {
-    if (window.top) {
-      window.top.location.href = mailtoUrl;
-    } else {
-      window.location.href = mailtoUrl;
-    }
-  } catch {
-    // Cross-origin — kan inte nå window.top, kopiera istället
-    const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
-    navigator.clipboard.writeText(text).catch(() => {});
-    toast({ description: "Kunde inte öppna e-postklienten. Texten har kopierats — klistra in den i ett mail!" });
-  }
-  setShareDialogOpen(false);
-  setShareStep('main');
-  setShareRecipient('');
-}, [shareUrl, shareRecipient, toast]);
-```
+**C. Testimonial-citat**
+- Ersätt social proof-raden med ett citat, t.ex.:
+  > *"Vi hade ingen aning om hur vi skulle fördela dagarna. På fem minuter hade vi en plan som funkade för oss båda."* — Lisa & Erik
 
-En enda ändring i en funktion — resten av dialogen och SMS-flödet behålls som det är.
+**D. Sticky mobilknapp**
+- `fixed bottom-0` CTA på mobil (`md:hidden`): "Skapa er plan — tar 5 min"
+
+**E. Ta bort redundant CTA-sektion ("Redo att planera?")**
+- Ersätts av klickbar tidslinje + sticky-knapp
 
