@@ -430,7 +430,7 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
 
             {/* Overlap row – between parents */}
             {hasOverlapRow && (
-              <div className="relative border-t border-border/40 bg-purple-50/20" style={{ height: overlapRowHeight }}>
+              <div className="relative border-y border-border/40 bg-purple-50/20" style={{ height: overlapRowHeight }}>
                 {validOverlaps.map((b) => {
                   const bStartMs = toEpochMs(b.startDate);
                   const bEndMs = toEpochMs(b.endDate);
