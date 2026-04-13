@@ -422,14 +422,15 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                               <DiffBadge status="removed" />
                               {isNext(itemId) && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
                             </div>
-                            <div className="rounded-lg bg-white border border-border p-3 text-sm font-mono space-y-1 border-l-[3px]" style={{ borderLeftColor: color }}>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground font-sans">Uttag</span>
-                                <span className="font-semibold font-sans line-through">{d.step.daysPerWeek} dagar/vecka</span>
+                            <div className="rounded-lg bg-white border border-border px-3 py-2 text-sm border-l-[3px] flex items-center gap-4" style={{ borderLeftColor: color }}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground text-xs">Uttag</span>
+                                <span className="font-semibold line-through">{d.step.daysPerWeek} d/v</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground font-sans">Nivå</span>
-                                <span className="font-semibold font-sans line-through">{d.step.level}</span>
+                              <span className="text-border">·</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground text-xs">Nivå</span>
+                                <span className="font-semibold line-through">{d.step.level}</span>
                               </div>
                             </div>
                             <p className="text-xs text-red-700 mt-1">Denna period finns inte längre i planen och behöver avbokas hos Försäkringskassan.</p>
