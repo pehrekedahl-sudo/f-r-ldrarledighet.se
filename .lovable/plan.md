@@ -1,58 +1,28 @@
 
 
-## Plan: Ändringsmedveten FK-guide
+## Plan: PDF som speglar guiden visuellt
 
-### Koncept
+### Problem
+Nuvarande PDF-export bygger en helt separat HTML-sträng med egna stilar som inte matchar guiden. Resultatet ser annorlunda ut.
 
-Guiden får ett nytt lager: en **"registrerad plan"** (baseline) som representerar vad som faktiskt är anmält hos FK. När planen ändras jämförs nuvarande steg mot baseline och guiden visar bara det som behöver uppdateras — men med ett klick kan användaren expandera till hela listan.
+### Lösning
+Istället för att bygga egen HTML, klona det faktiska innehållet i `printRef` och öppna det i ett nytt fönster med Tailwind-liknande stilar. Dessutom:
+- Dölja interaktiva element (checkboxar, knappar, "Nästa"-badges) via `no-print`-klassen
+- Visa print-checkrutor (den dolda `checkbox-print`-diven) istället
+- Behålla samma färger, avstånd, border-left-styling och badge-design
 
-### Användarflöde
+### Teknisk ändring
 
-```text
-┌─────────────────────────────────────────────┐
-│  Anmäl till Försäkringskassan               │
-│                                             │
-│  ℹ️ Planen har ändrats sedan senaste        │
-│     registreringen. 2 ändringar nedan.      │
-│                                             │
-│  [Visa bara ändringar ✓]  [Visa alla]       │
-│                                             │
-│  ── Ändringar att anmäla ──                 │
-│  🔴 AVBOKA: Anna 2026-03-01 – 2026-04-30   │
-│  🟢 NY:     Anna 2026-03-01 – 2026-05-31   │
-│                                             │
-│  ── Redan registrerat (dolt) ──             │
-│                                             │
-│  [Markera som registrerat hos FK]           │
-│  [Ladda ner PDF]  [Stäng]                   │
-└─────────────────────────────────────────────┘
-```
+**`src/components/FKGuideDrawer.tsx`** — omskriven `handlePrint`:
 
-### Mekanik
+1. Klona `printRef.current.innerHTML` som bas-HTML
+2. Injicera en `<style>`-block som:
+   - Döljer `.no-print` (checkboxar, knappar, "Nästa"-badges)
+   - Visar `.checkbox-print` som synliga rutor
+   - Kopierar de viktigaste Tailwind-klasserna som används i guiden (rounded-lg, font-bold, bg-färger, border-left, flex, gap, badges med bakgrundsfärger)
+   - Lägger till sammanfattningstabellen överst (som idag)
+   - Sätter typsnitt till DM Sans / system-ui
+3. Behålla befintlig `window.open` + `print()`-mekanism
 
-1. **Spara baseline**: När användaren bockat av alla steg (eller trycker "Markera som registrerat") sparas en kopia av nuvarande `fkSteps` i `localStorage` under nyckeln `fk_baseline_{planHash}`. Denna baseline representerar "det som FK vet om".
-
-2. **Diffberäkning**: Vid öppning jämförs nuvarande `fkSteps` mot baseline. Varje steg klassificeras som:
-   - **Oförändrad** — finns i båda med samma datum/dagar/nivå
-   - **Ändrad** — finns i båda men med ändrad egenskap (datum, dagar, nivå)
-   - **Ny** — finns bara i nuvarande plan
-   - **Borttagen** — finns bara i baseline (behöver avbokas hos FK)
-
-3. **Standardvy = bara ändringar**: Om en baseline finns och det finns diff-steg visas dessa som default. En toggle ("Visa alla" / "Visa bara ändringar") byter vy. Utan baseline eller utan ändringar visas den vanliga fullständiga listan.
-
-4. **Visuell differentiering**:
-   - Oförändrade steg: grå/dämpad stil med ✓-ikon
-   - Nya steg: grön vänsterram + "NY"-badge
-   - Ändrade steg: orange vänsterram + "ÄNDRAD"-badge + kort diff-text ("5→3 d/v")
-   - Borttagna steg: röd vänsterram + "AVBOKA"-badge + genomstruken text
-
-5. **"Markera som registrerat"**: Knapp i footern som sparar nuvarande steg som ny baseline och nollställer checklistan. Visas bara när alla steg är avbockade eller när användaren aktivt vill bekräfta.
-
-### Tekniska ändringar
-
-| Fil | Ändring |
-|-----|---------|
-| `src/components/FKGuideDrawer.tsx` | Lägg till baseline-hantering (spara/ladda från localStorage), diff-logik mellan baseline och nuvarande steg, toggle-vy (ändringar/alla), visuell diff-styling, "Markera som registrerat"-knapp. |
-
-Ingen ny fil, inga DB-ändringar, inga nya beroenden. All persistens via `localStorage` (samma mönster som befintlig checklist-persistens).
+Ingen ny fil, inga nya beroenden. Enbart en omskrivning av `handlePrint` (rad 250–292) samt utökning av print-specifika CSS-klasser i den injicerade style-taggen.
 
