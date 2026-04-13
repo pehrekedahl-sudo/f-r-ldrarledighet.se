@@ -1038,6 +1038,27 @@ const PlanBuilder = () => {
     toast({ description: "Plan kopierad" });
   }, [result, blocks, blockErrors, toast]);
 
+  // Gate: unauthenticated user with no plan → offer login or create new
+  if (noSavedPlan && !user) {
+    return (
+      <div className="max-w-md mx-auto px-6 py-24 space-y-6 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Välkommen till Min Plan</h1>
+        <p className="text-muted-foreground">
+          Logga in för att hämta din sparade plan, eller skapa en helt ny.
+        </p>
+        <div className="flex flex-col gap-3">
+          <Button size="lg" onClick={() => setAuthOpen(true)}>
+            Logga in
+          </Button>
+          <Button size="lg" variant="outline" onClick={() => navigate("/wizard")}>
+            Skapa ny plan
+          </Button>
+        </div>
+        <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      </div>
+    );
+  }
+
   // Show loading until plan is loaded
   if (!loaded) {
     return (
