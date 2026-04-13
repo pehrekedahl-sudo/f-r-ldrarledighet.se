@@ -1980,9 +1980,10 @@ const PlanBuilder = () => {
                   </button>
                   <button
                     onClick={() => sharePlan()}
-                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-background p-4 hover:bg-accent transition-colors text-center"
+                    disabled={shareLoading}
+                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-background p-4 hover:bg-accent transition-colors text-center disabled:opacity-50"
                   >
-                    <Share2 className="h-6 w-6 text-primary" />
+                    {shareLoading ? <Loader2 className="h-6 w-6 text-primary animate-spin" /> : <Share2 className="h-6 w-6 text-primary" />}
                     <span className="text-sm font-medium text-foreground">Dela med partner</span>
                     <span className="text-xs text-muted-foreground">Skicka en länk</span>
                   </button>
