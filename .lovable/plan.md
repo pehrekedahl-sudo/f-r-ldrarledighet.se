@@ -1,54 +1,58 @@
 
 
-## Plan: Produktifiera FK-guiden
+## Plan: Ändringsmedveten FK-guide
 
-Guiden idag är en statisk lista med steg. Nedan fyra förbättringar som gör den mer interaktiv och användbar utan att ändra sidans arkitektur.
+### Koncept
 
-### 1. Checklistvy med progress
+Guiden får ett nytt lager: en **"registrerad plan"** (baseline) som representerar vad som faktiskt är anmält hos FK. När planen ändras jämförs nuvarande steg mot baseline och guiden visar bara det som behöver uppdateras — men med ett klick kan användaren expandera till hela listan.
 
-Varje steg blir avbockningsbart. En progressindikator ("3 av 7 klara") visas överst. Status sparas i `localStorage` (nyckel per plan-hash) så användaren kan komma tillbaka och se vad som återstår.
-
-```text
-┌─────────────────────────────────┐
-│  Anmäl till FK    3 / 7 klara   │
-│  ████████░░░░░░░░  43 %         │
-├─────────────────────────────────┤
-│ ☑ 1. Logga in på Mina sidor    │
-│ ☑ 2. Anmäl pappadagar          │
-│ ☐ 3. Anmäl Annas period (sjp)  │
-│   ...                           │
-└─────────────────────────────────┘
-```
-
-### 2. Tidsordnad checklista per förälder
-
-Gruppera stegen per förälder istället för en lång flat lista. Varje förälder får en rubrik med sin färg, och stegen under den visas i kronologisk ordning. Det gör det tydligt vem som behöver göra vad.
+### Användarflöde
 
 ```text
-Anna (grön)
-  ☐ 2025-08-01 – 2026-01-31  5 d/v  Sjukpenningnivå
-  ☐ 2026-02-01 – 2026-06-30  3 d/v  Lägstanivå
-
-Erik (röd)
-  ☐ 2025-08-01 – 2025-08-14  5 d/v  Sjukpenningnivå (dubbeldag)
-  ☐ 2026-02-01 – 2026-07-31  5 d/v  Sjukpenningnivå
+┌─────────────────────────────────────────────┐
+│  Anmäl till Försäkringskassan               │
+│                                             │
+│  ℹ️ Planen har ändrats sedan senaste        │
+│     registreringen. 2 ändringar nedan.      │
+│                                             │
+│  [Visa bara ändringar ✓]  [Visa alla]       │
+│                                             │
+│  ── Ändringar att anmäla ──                 │
+│  🔴 AVBOKA: Anna 2026-03-01 – 2026-04-30   │
+│  🟢 NY:     Anna 2026-03-01 – 2026-05-31   │
+│                                             │
+│  ── Redan registrerat (dolt) ──             │
+│                                             │
+│  [Markera som registrerat hos FK]           │
+│  [Ladda ner PDF]  [Stäng]                   │
+└─────────────────────────────────────────────┘
 ```
 
-### 3. "Nästa att göra"-highlight
+### Mekanik
 
-Det översta ej avbockade steget får visuell tonvikt (starkare bakgrund, "Gör detta nu"-etikett) så användaren direkt ser vad som ska göras härnäst.
+1. **Spara baseline**: När användaren bockat av alla steg (eller trycker "Markera som registrerat") sparas en kopia av nuvarande `fkSteps` i `localStorage` under nyckeln `fk_baseline_{planHash}`. Denna baseline representerar "det som FK vet om".
 
-### 4. Bättre PDF med sammanfattning
+2. **Diffberäkning**: Vid öppning jämförs nuvarande `fkSteps` mot baseline. Varje steg klassificeras som:
+   - **Oförändrad** — finns i båda med samma datum/dagar/nivå
+   - **Ändrad** — finns i båda men med ändrad egenskap (datum, dagar, nivå)
+   - **Ny** — finns bara i nuvarande plan
+   - **Borttagen** — finns bara i baseline (behöver avbokas hos FK)
 
-PDF-exporten inkluderar en sammanfattningstabell överst (förälder, total ledighet, antal perioder) och tydliga checkrutor som kan fyllas i för hand.
+3. **Standardvy = bara ändringar**: Om en baseline finns och det finns diff-steg visas dessa som default. En toggle ("Visa alla" / "Visa bara ändringar") byter vy. Utan baseline eller utan ändringar visas den vanliga fullständiga listan.
 
----
+4. **Visuell differentiering**:
+   - Oförändrade steg: grå/dämpad stil med ✓-ikon
+   - Nya steg: grön vänsterram + "NY"-badge
+   - Ändrade steg: orange vänsterram + "ÄNDRAD"-badge + kort diff-text ("5→3 d/v")
+   - Borttagna steg: röd vänsterram + "AVBOKA"-badge + genomstruken text
+
+5. **"Markera som registrerat"**: Knapp i footern som sparar nuvarande steg som ny baseline och nollställer checklistan. Visas bara när alla steg är avbockade eller när användaren aktivt vill bekräfta.
 
 ### Tekniska ändringar
 
 | Fil | Ändring |
 |-----|---------|
-| `src/components/FKGuideDrawer.tsx` | Refaktorera till checklistvy med `Checkbox`-komponent, progress-bar, localStorage-persistens, per-förälder-gruppering, "nästa"-highlight. Uppdatera print-HTML med sammanfattningstabell och checkrutor. |
+| `src/components/FKGuideDrawer.tsx` | Lägg till baseline-hantering (spara/ladda från localStorage), diff-logik mellan baseline och nuvarande steg, toggle-vy (ändringar/alla), visuell diff-styling, "Markera som registrerat"-knapp. |
 
-Inga nya filer, inga DB-ändringar, inga nya beroenden.
+Ingen ny fil, inga DB-ändringar, inga nya beroenden. All persistens via `localStorage` (samma mönster som befintlig checklist-persistens).
 
