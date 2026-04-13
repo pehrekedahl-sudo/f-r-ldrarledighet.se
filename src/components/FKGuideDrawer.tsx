@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+
 
 type Block = {
   id: string;
@@ -88,7 +88,6 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
 }
 
 export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: FKGuideDrawerProps) {
-  const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const fkSteps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
 
