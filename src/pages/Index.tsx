@@ -143,7 +143,7 @@ const Index = () => {
 
                   {/* F1 row */}
                   <div className="relative" style={{ height: 52 }}>
-                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]" style={{ left: "4%", width: "58%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]" style={{ left: "4%", width: "42%" }} />
                   </div>
 
                   {/* Separator line above double days */}
