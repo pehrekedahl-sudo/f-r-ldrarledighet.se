@@ -467,9 +467,21 @@ const PlanBuilder = () => {
 
   const emailShareUrl = useCallback(() => {
     const subject = encodeURIComponent("Min föräldraledighetsplan");
-    const body = encodeURIComponent(`Kolla in vår plan:\n${shareUrl}`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
-  }, [shareUrl]);
+    const mailtoLimit = 1800;
+    const fullBody = encodeURIComponent(`Kolla in vår plan:\n${shareUrl}`);
+    const fullMailto = `mailto:?subject=${subject}&body=${fullBody}`;
+
+    if (fullMailto.length > mailtoLimit) {
+      navigator.clipboard.writeText(shareUrl);
+      const shortBody = encodeURIComponent(
+        "Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den här."
+      );
+      toast({ description: "Länken är för lång för e-post – den har kopierats till urklipp. Klistra in den i mailet!" });
+      window.location.href = `mailto:?subject=${subject}&body=${shortBody}`;
+    } else {
+      window.location.href = fullMailto;
+    }
+  }, [shareUrl, toast]);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const addDoubleDays = () => {
