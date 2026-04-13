@@ -373,7 +373,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                       <span>Du kan ändra eller avboka en period fram till 1 dag innan den börjar</span>
                     </li>
                   </ul>
-                </div>
               </div>
             </div>
           </div>
