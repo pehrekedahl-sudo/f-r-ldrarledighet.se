@@ -180,7 +180,7 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
           <SheetTitle>Justera växlingsdatum</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-5 py-4 overflow-y-auto">
+        <div className="flex-1 space-y-5 py-4 px-1 overflow-y-auto">
           <p className="text-sm text-muted-foreground">
             Flytta datumet när {parent1.name} slutar och {parent2.name} tar över.
           </p>
