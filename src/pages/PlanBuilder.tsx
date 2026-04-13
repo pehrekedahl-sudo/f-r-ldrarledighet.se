@@ -348,6 +348,39 @@ const PlanBuilder = () => {
       return;
     }
 
+    // Load from ?share= slug (short link)
+    const shareSlug = searchParams.get("share");
+    if (shareSlug) {
+      console.log("[PlanBuilder] redirect decision", { decision: "load-plan-from-share-slug" });
+      (async () => {
+        const { data, error } = await supabase.rpc("get_shared_plan_by_slug", { slug: shareSlug });
+        if (error || !data) {
+          toast({ title: "Fel", description: "Kunde inte ladda den delade planen.", variant: "destructive" });
+          return;
+        }
+        const decoded = data as any;
+        if (decoded.blocks) setBlocks(decoded.blocks);
+        if (decoded.blocks) setOriginalBlocks(decoded.blocks);
+        if (decoded.transfer) setTransfer(decoded.transfer);
+        if (decoded.dueDate) setDueDate(decoded.dueDate);
+        if (decoded.months1 !== undefined) setMonths1(decoded.months1);
+        if (decoded.months2 !== undefined) setMonths2(decoded.months2);
+        if (decoded.parents) {
+          setParents(decoded.parents);
+          if (decoded.parents.some((p: any) => (p.topUpMonthly ?? 0) > 0)) {
+            const enabled: Record<string, boolean> = {};
+            decoded.parents.forEach((p: any) => { if ((p.topUpMonthly ?? 0) > 0) enabled[p.id] = true; });
+            setTopUpEnabled(enabled);
+          }
+        }
+        setIsSharedPlan(true);
+        setViewMode("result");
+        setLoaded(true);
+      })();
+      return;
+    }
+
+    // Load from ?plan= (legacy Base64)
     const planParam = searchParams.get("plan");
     if (planParam) {
       console.log("[PlanBuilder] redirect decision", {
