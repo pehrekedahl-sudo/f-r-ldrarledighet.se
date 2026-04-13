@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Lock, Calendar, Users, ChevronDown } from "lucide-react";
+import { Lock, Calendar, Users, ChevronDown, Quote } from "lucide-react";
 
 const stats = [
   {
@@ -39,20 +39,30 @@ const Index = () => {
           Planera er föräldraledighet utan&nbsp;Excel‑kaos
         </h1>
         <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-          480 dagar. SGI-tak, lägstanivådagar, reserverade dagar, 
-          fyraårsregel och en ansökan till arbetsgivaren som helst ska in två månader innan. 
-          Ingen normal människa håller koll på allt det där — så vi byggde ett verktyg som gör det åt er.
+          Svara på fem frågor — få en komplett plan med datum, belopp och hur ni maximerar era dagar.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1">
+        <div className="flex flex-col items-center gap-2 pt-1">
           <Button size="lg" asChild>
-            <Link to="/wizard">Skapa er plan</Link>
+            <Link to="/wizard">Skapa er plan — tar 5 min</Link>
           </Button>
+          <p className="text-xs text-muted-foreground">Gratis. Inget konto krävs.</p>
           <Link
             to="/foraldraledighet-101"
-            className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors mt-1"
           >
             Hur funkar föräldradagar egentligen? →
           </Link>
+        </div>
+      </section>
+
+      {/* Testimonial */}
+      <section className="max-w-3xl mx-auto px-6 pb-10">
+        <div className="flex flex-col items-center text-center gap-2">
+          <Quote className="w-5 h-5 text-primary/40" />
+          <blockquote className="text-sm md:text-base italic text-muted-foreground max-w-md leading-relaxed">
+            "Vi hade ingen aning om hur vi skulle fördela dagarna. På fem minuter hade vi en plan som funkade för oss båda."
+          </blockquote>
+          <cite className="text-xs text-muted-foreground/70 not-italic">— Lisa & Erik</cite>
         </div>
       </section>
 
@@ -82,125 +92,85 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Timeline mockup – styled to match the real PlanTimeline */}
+      {/* Clickable timeline mockup */}
       <section className="max-w-7xl mx-auto px-6 pb-16">
-        <div className="rounded-xl border border-border bg-white shadow-sm max-w-3xl mx-auto overflow-hidden">
-          {/* Header */}
-          <div className="px-5 pt-4 pb-2">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-              Så kan en plan se ut
-            </p>
-          </div>
-
-          <div className="flex w-full">
-            {/* Label column */}
-            <div className="flex-shrink-0 bg-muted/20" style={{ width: 100 }}>
-              {/* Month header spacer */}
-              <div className="h-8" />
-              {/* F1 label */}
-              <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
-                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#4A9B8E]" />
-                <span className="text-xs font-semibold text-[#4A9B8E]">Förälder 1</span>
-              </div>
-              {/* Overlap label */}
-              <div className="flex items-center gap-2 px-3" style={{ height: 40 }}>
-                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#2D7A6F]" />
-                <span className="text-xs font-semibold text-[#2D7A6F]">Dubbeldagar</span>
-              </div>
-              {/* F2 label */}
-              <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
-                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
-                <span className="text-xs font-semibold text-[#E8735A]">Förälder 2</span>
-              </div>
+        <Link to="/wizard" className="block group max-w-3xl mx-auto">
+          <div className="rounded-xl border border-border bg-white shadow-sm overflow-hidden transition-shadow group-hover:shadow-lg">
+            {/* Header */}
+            <div className="px-5 pt-4 pb-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                Så kan er plan se ut — klicka för att börja
+              </p>
             </div>
 
-            {/* Timeline area */}
-            <div className="flex-1 relative" style={{ minWidth: 0 }}>
-              {/* Month labels header */}
-              <div className="relative h-8 border-b border-border/60">
-                {timelineMonths.map((m, i) => (
-                  <div
-                    key={m}
-                    className="absolute top-0 bottom-0"
-                    style={{ left: `${(i / 12) * 100}%` }}
-                  >
-                    <div className="absolute top-4 bottom-0 w-px bg-border/60" />
-                    <span className="absolute top-3.5 text-[9px] text-muted-foreground/80 whitespace-nowrap" style={{ left: 2 }}>
-                      {m.toLowerCase()}
-                    </span>
+            <div className="flex w-full">
+              {/* Label column */}
+              <div className="flex-shrink-0 bg-muted/20" style={{ width: 100 }}>
+                <div className="h-8" />
+                <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
+                  <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#4A9B8E]" />
+                  <span className="text-xs font-semibold text-[#4A9B8E]">Förälder 1</span>
+                </div>
+                <div className="flex items-center gap-2 px-3" style={{ height: 40 }}>
+                  <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#2D7A6F]" />
+                  <span className="text-xs font-semibold text-[#2D7A6F]">Dubbeldagar</span>
+                </div>
+                <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
+                  <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
+                  <span className="text-xs font-semibold text-[#E8735A]">Förälder 2</span>
+                </div>
+              </div>
+
+              {/* Timeline area */}
+              <div className="flex-1 relative" style={{ minWidth: 0 }}>
+                <div className="relative h-8 border-b border-border/60">
+                  {timelineMonths.map((m, i) => (
+                    <div key={m} className="absolute top-0 bottom-0" style={{ left: `${(i / 12) * 100}%` }}>
+                      <div className="absolute top-4 bottom-0 w-px bg-border/60" />
+                      <span className="absolute top-3.5 text-[9px] text-muted-foreground/80 whitespace-nowrap" style={{ left: 2 }}>
+                        {m.toLowerCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  {timelineMonths.map((_, i) =>
+                    i > 0 ? (
+                      <div key={`line-${i}`} className="absolute top-0 w-px bg-border/20 z-0" style={{ left: `${(i / 12) * 100}%`, height: 144 }} />
+                    ) : null
+                  )}
+
+                  {/* F1 row */}
+                  <div className="relative" style={{ height: 52 }}>
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]" style={{ left: "4%", width: "54%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]/50" style={{ left: "67%", width: "16%" }} />
                   </div>
-                ))}
-              </div>
 
-              {/* Grid lines */}
-              <div className="relative">
-                {timelineMonths.map((m, i) =>
-                  i > 0 ? (
-                    <div
-                      key={`line-${i}`}
-                      className="absolute top-0 w-px bg-border/20 z-0"
-                      style={{ left: `${(i / 12) * 100}%`, height: 144 }}
-                    />
-                  ) : null
-                )}
+                  {/* Separator line above double days */}
+                  <div className="w-full h-px bg-border/30" />
 
-                {/* F1 row */}
-                <div className="relative" style={{ height: 52 }}>
-                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]"
-                    style={{ left: "4%", width: "54%" }}
-                  />
-                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]/50"
-                    style={{ left: "67%", width: "16%" }}
-                  />
-                </div>
+                  {/* Overlap row */}
+                  <div className="relative" style={{ height: 40 }}>
+                    <div className="absolute top-1.5 bottom-1.5 rounded-xl shadow-md bg-[#2D7A6F]" style={{ left: "54%", width: "13%" }} />
+                  </div>
 
-                {/* Overlap row */}
-                <div className="relative" style={{ height: 40 }}>
-                  <div className="absolute top-1.5 bottom-1.5 rounded-xl shadow-md bg-[#2D7A6F]"
-                    style={{ left: "54%", width: "13%" }}
-                  />
-                </div>
+                  {/* Separator line below double days */}
+                  <div className="w-full h-px bg-border/30" />
 
-                {/* F2 row */}
-                <div className="relative" style={{ height: 52 }}>
-                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/40"
-                    style={{ left: "17%", width: "17%" }}
-                  />
-                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]"
-                    style={{ left: "34%", width: "33%" }}
-                  />
-                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/50"
-                    style={{ left: "75%", width: "20%" }}
-                  />
+                  {/* F2 row */}
+                  <div className="relative" style={{ height: 52 }}>
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/40" style={{ left: "17%", width: "17%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]" style={{ left: "34%", width: "33%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/50" style={{ left: "75%", width: "20%" }} />
+                  </div>
                 </div>
               </div>
             </div>
+
+            <div className="h-3" />
           </div>
-
-          {/* Bottom padding */}
-          <div className="h-3" />
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="max-w-7xl mx-auto px-6 pb-20 text-center space-y-4">
-        <h2
-          className="text-2xl font-normal text-foreground"
-          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
-        >
-          Redo att planera?
-        </h2>
-        <Button size="lg" asChild>
-          <Link to="/wizard">Skapa er plan</Link>
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          <Link
-            to="/foraldraledighet-101"
-            className="hover:text-foreground underline underline-offset-4 transition-colors"
-          >
-            Vill du förstå systemet först? →
-          </Link>
-        </p>
+        </Link>
       </section>
 
       {/* Limitations toggle */}
@@ -232,6 +202,13 @@ const Index = () => {
           Simulering — kontrollera alltid mot Försäkringskassan
         </p>
       </footer>
+
+      {/* Sticky mobile CTA */}
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-background/95 backdrop-blur border-t border-border md:hidden z-50">
+        <Button asChild size="lg" className="w-full">
+          <Link to="/wizard">Skapa er plan — tar 5 min</Link>
+        </Button>
+      </div>
     </div>
   );
 };
