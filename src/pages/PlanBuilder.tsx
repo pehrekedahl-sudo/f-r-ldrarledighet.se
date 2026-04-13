@@ -481,6 +481,8 @@ const PlanBuilder = () => {
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [shareStep, setShareStep] = useState<'main' | 'email' | 'sms'>('main');
+  const [shareRecipient, setShareRecipient] = useState("");
 
   const PUBLISHED_ORIGIN = "https://planeraforaldraledighet.lovable.app";
 
