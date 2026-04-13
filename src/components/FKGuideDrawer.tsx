@@ -9,8 +9,8 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Copy } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Download, ExternalLink } from "lucide-react";
+
 
 type Block = {
   id: string;
@@ -88,15 +88,9 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
 }
 
 export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: FKGuideDrawerProps) {
-  const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const fkSteps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
 
-  const copyPeriod = (step: FKStep) => {
-    const text = `Förälder: ${step.parentName}\nPeriod: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}\nUttag: ${step.daysPerWeek} dagar/vecka · ${step.level}`;
-    navigator.clipboard.writeText(text);
-    toast({ description: "Period kopierad" });
-  };
 
   const handlePrint = () => {
     const content = printRef.current;
@@ -237,17 +231,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                         <p>Dubbeldagar anmäls som två separata perioder på Mina sidor – en per förälder. Varje förälder loggar in på sitt eget konto och anmäler perioden med samma startdatum, slutdatum och uttag. Det ser ut som överlappande perioder, men det är korrekt – Försäkringskassan kopplar ihop dem automatiskt.</p>
                       </div>
                     )}
-                    <div className="mt-2 no-print">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-xs text-muted-foreground"
-                        onClick={() => copyPeriod(step)}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        Kopiera period
-                      </Button>
-                    </div>
                   </div>
                 </div>
               );
@@ -262,15 +245,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
               <ul className="pl-10 space-y-2 text-sm text-[#2D3748]">
                 <li className="flex items-start gap-2">
                   <span className="shrink-0">⚠️</span>
-                  <span>Anmäl senast 2 månader innan ledigheten börjar</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0">⚠️</span>
                   <span>Du kan bara anmäla en period i taget – kom ihåg att anmäla {parents.length >= 2 ? `${parents[1].name}s` : "varje"} period separat</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0">⚠️</span>
-                  <span>Föräldrapenning betalas inte ut automatiskt – varje ny period måste anmälas</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="shrink-0">⚠️</span>
