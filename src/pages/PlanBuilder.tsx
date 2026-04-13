@@ -2183,16 +2183,23 @@ const PlanBuilder = () => {
               {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
-              <Copy className="h-4 w-4" />Kopiera länk
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
-              <Mail className="h-4 w-4" />E-post
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
-              <MessageSquare className="h-4 w-4" />SMS
-            </Button>
+          <div className="flex flex-col gap-2">
+            {typeof navigator !== "undefined" && navigator.share && (
+              <Button className="w-full gap-2" onClick={nativeShare}>
+                <ExternalLink className="h-4 w-4" />Dela via app…
+              </Button>
+            )}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant={navigator.share ? "outline" : "default"} className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
+                <Copy className="h-4 w-4" />Kopiera länk
+              </Button>
+              <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
+                <Mail className="h-4 w-4" />E-post
+              </Button>
+              <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
+                <MessageSquare className="h-4 w-4" />SMS
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
