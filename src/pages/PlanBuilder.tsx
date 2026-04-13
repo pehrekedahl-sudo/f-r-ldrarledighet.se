@@ -465,6 +465,22 @@ const PlanBuilder = () => {
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl, toast]);
 
+  const nativeShare = useCallback(async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Min föräldraledighetsplan",
+          text: "Kolla in vår föräldraledighetsplan!",
+          url: shareUrl,
+        });
+        return;
+      } catch (e) {
+        // User cancelled or share failed — fall through
+      }
+    }
+    copyShareUrl();
+  }, [shareUrl, copyShareUrl]);
+
   const emailShareUrl = useCallback(() => {
     const subject = encodeURIComponent("Min föräldraledighetsplan");
     const mailtoLimit = 1800;
@@ -472,25 +488,30 @@ const PlanBuilder = () => {
     const fullMailto = `mailto:?subject=${subject}&body=${fullBody}`;
 
     if (fullMailto.length > mailtoLimit) {
-      navigator.clipboard.writeText(shareUrl);
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
       const shortBody = encodeURIComponent(
         "Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den här."
       );
       toast({ description: "Länken är för lång för e-post – den har kopierats till urklipp. Klistra in den i mailet!" });
-      window.location.href = `mailto:?subject=${subject}&body=${shortBody}`;
+      window.open(`mailto:?subject=${subject}&body=${shortBody}`, "_blank");
     } else {
-      window.location.href = fullMailto;
+      window.open(fullMailto, "_blank");
     }
   }, [shareUrl, toast]);
 
   const smsShareUrl = useCallback(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const separator = isIOS ? "&" : "?";
     const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
-    if (body.length > 1600) {
-      navigator.clipboard.writeText(shareUrl);
+    const fullSms = `sms:${separator}body=${body}`;
+
+    if (fullSms.length > 1600) {
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
       toast({ description: "Länken har kopierats till urklipp – klistra in den i SMS:et!" });
-      window.location.href = `sms:?body=${encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.")}`;
+      const shortBody = encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.");
+      window.open(`sms:${separator}body=${shortBody}`, "_blank");
     } else {
-      window.location.href = `sms:?body=${body}`;
+      window.open(fullSms, "_blank");
     }
   }, [shareUrl, toast]);
 
