@@ -1561,7 +1561,7 @@ const PlanBuilder = () => {
                 };
                 const parentColors: Record<string, { bg: string; border: string; dot: string }> = {
                   p1: { bg: "bg-[hsl(172,37%,95%)]", border: "border-l-[hsl(172,37%,44%)]", dot: "bg-[hsl(172,37%,44%)]" },
-                  p2: { bg: "bg-[hsl(14,75%,88%)]", border: "border-l-[hsl(14,75%,63%)]", dot: "bg-[hsl(14,75%,63%)]" },
+                  p2: { bg: "bg-[hsl(22,70%,93%)]", border: "border-l-[hsl(22,55%,65%)]", dot: "bg-[hsl(22,55%,65%)]" },
                 };
                 return (
                   <section id="benefit-panel" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
