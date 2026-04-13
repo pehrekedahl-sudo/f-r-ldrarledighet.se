@@ -143,7 +143,7 @@ const Index = () => {
 
                   {/* F1 row */}
                   <div className="relative" style={{ height: 52 }}>
-                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]" style={{ left: "4%", width: "54%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]" style={{ left: "4%", width: "70%" }} />
                   </div>
 
                   {/* Separator line above double days */}
@@ -151,7 +151,7 @@ const Index = () => {
 
                   {/* Overlap row */}
                   <div className="relative" style={{ height: 40 }}>
-                    <div className="absolute top-1.5 bottom-1.5 rounded-xl shadow-md bg-[#2D7A6F]" style={{ left: "54%", width: "13%" }} />
+                    <div className="absolute top-1.5 bottom-1.5 rounded-xl shadow-md bg-[#2D7A6F]" style={{ left: "50%", width: "18%" }} />
                   </div>
 
                   {/* Separator line below double days */}
@@ -159,7 +159,7 @@ const Index = () => {
 
                   {/* F2 row */}
                   <div className="relative" style={{ height: 52 }}>
-                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]" style={{ left: "34%", width: "33%" }} />
+                    <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]" style={{ left: "26%", width: "70%" }} />
                   </div>
                 </div>
               </div>
