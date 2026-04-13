@@ -1,28 +1,21 @@
 
 
-## Plan: PDF som speglar guiden visuellt
+## Plan: Fixa e-postdelning av plan
 
 ### Problem
-Nuvarande PDF-export bygger en helt separat HTML-sträng med egna stilar som inte matchar guiden. Resultatet ser annorlunda ut.
+`mailto:`-länken fungerar inte pålitligt av två anledningar:
+1. Plan-URL:en är extremt lång (1000+ tecken Base64-data) vilket överskrider `mailto:`-gränsen i många webbläsare och e-postklienter
+2. `window.open("mailto:...", "_self")` beter sig oförutsägbart i olika miljöer
 
 ### Lösning
-Istället för att bygga egen HTML, klona det faktiska innehållet i `printRef` och öppna det i ett nytt fönster med Tailwind-liknande stilar. Dessutom:
-- Dölja interaktiva element (checkboxar, knappar, "Nästa"-badges) via `no-print`-klassen
-- Visa print-checkrutor (den dolda `checkbox-print`-diven) istället
-- Behålla samma färger, avstånd, border-left-styling och badge-design
+Byt från `window.open` till `window.location.href = mailto:...` (mer pålitligt). Dessutom korta ned URL:en genom att använda `encodeURIComponent` korrekt och se till att hela `mailto:`-strängen inte bryter.
+
+Som en extra robusthetslösning: om URL:en är för lång (>1500 tecken), kopiera länken till urklipp automatiskt och informera användaren att klistra in den i ett e-postmeddelande istället, alternativt visa ett inputfält med länken i e-postdialogen.
 
 ### Teknisk ändring
 
-**`src/components/FKGuideDrawer.tsx`** — omskriven `handlePrint`:
-
-1. Klona `printRef.current.innerHTML` som bas-HTML
-2. Injicera en `<style>`-block som:
-   - Döljer `.no-print` (checkboxar, knappar, "Nästa"-badges)
-   - Visar `.checkbox-print` som synliga rutor
-   - Kopierar de viktigaste Tailwind-klasserna som används i guiden (rounded-lg, font-bold, bg-färger, border-left, flex, gap, badges med bakgrundsfärger)
-   - Lägger till sammanfattningstabellen överst (som idag)
-   - Sätter typsnitt till DM Sans / system-ui
-3. Behålla befintlig `window.open` + `print()`-mekanism
-
-Ingen ny fil, inga nya beroenden. Enbart en omskrivning av `handlePrint` (rad 250–292) samt utökning av print-specifika CSS-klasser i den injicerade style-taggen.
+**`src/pages/PlanBuilder.tsx`**:
+- Ändra `emailShareUrl` från `window.open(\`mailto:...\`, "_self")` till `window.location.href = \`mailto:...\``
+- Lägg till fallback: om `shareUrl` är längre än ~1800 tecken, använd en kortare brödtext som säger "Jag har delat en föräldraledighetsplan med dig. Öppna länken nedan:" utan att bädda in hela URL:en i mailto-bodyn. Kopiera istället URL:en till urklipp och visa en toast som säger "Länken har kopierats – klistra in den i mailet!"
+- Behåll nuvarande kopiera-knapp och dialog som backup
 
