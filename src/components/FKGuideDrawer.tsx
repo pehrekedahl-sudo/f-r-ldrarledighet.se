@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -9,8 +9,9 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { Download, ExternalLink } from "lucide-react";
-
 
 type Block = {
   id: string;
@@ -28,6 +29,7 @@ type Parent = {
 };
 
 type FKStep = {
+  key: string;
   parentId: string;
   parentName: string;
   startDate: string;
@@ -63,6 +65,7 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
 
     if (sicknessDays > 0) {
       steps.push({
+        key: `${block.startDate}-${block.parentId}-sjp`,
         parentId: block.parentId,
         parentName,
         startDate: block.startDate,
@@ -74,6 +77,7 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
     }
     if (lowestDays > 0) {
       steps.push({
+        key: `${block.startDate}-${block.parentId}-lag`,
         parentId: block.parentId,
         parentName,
         startDate: block.startDate,
@@ -87,16 +91,88 @@ function buildFKSteps(blocks: Block[], parents: Parent[]): FKStep[] {
   return steps;
 }
 
+/** Generate a simple hash from block data to scope localStorage */
+function planHash(blocks: Block[]): string {
+  const raw = blocks.map(b => `${b.parentId}${b.startDate}${b.endDate}${b.daysPerWeek}`).join("|");
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) {
+    h = ((h << 5) - h + raw.charCodeAt(i)) | 0;
+  }
+  return "fk_" + Math.abs(h).toString(36);
+}
+
+type ChecklistItem = { id: string; label: string; type: "action" | "period"; parentId?: string };
+
 export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: FKGuideDrawerProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const fkSteps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
+  const hasP2 = parents.length >= 2;
+  const p2Name = hasP2 ? parents[1].name : "";
 
+  // Build a flat checklist of all items
+  const allItems = useMemo<ChecklistItem[]>(() => {
+    const items: ChecklistItem[] = [{ id: "login", label: "Logga in på Mina sidor", type: "action" }];
+    if (hasP2) items.push({ id: "pappadagar", label: "Anmäl tillfällig föräldrapenning (10 dagar)", type: "action" });
+    for (const step of fkSteps) {
+      items.push({ id: step.key, label: `${step.parentName}: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}`, type: "period", parentId: step.parentId });
+    }
+    items.push({ id: "warnings", label: "Läs igenom viktigt att tänka på", type: "action" });
+    return items;
+  }, [fkSteps, hasP2]);
+
+  // Persist checked state per plan
+  const storageKey = useMemo(() => planHash(blocks), [blocks]);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) setChecked(new Set(JSON.parse(saved)));
+      else setChecked(new Set());
+    } catch { setChecked(new Set()); }
+  }, [storageKey]);
+
+  const toggle = useCallback((id: string) => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      localStorage.setItem(storageKey, JSON.stringify([...next]));
+      return next;
+    });
+  }, [storageKey]);
+
+  const doneCount = allItems.filter(i => checked.has(i.id)).length;
+  const totalCount = allItems.length;
+  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  // Find first unchecked item id for "next" highlight
+  const nextItemId = allItems.find(i => !checked.has(i.id))?.id ?? null;
+
+  // Group period steps by parent
+  const stepsByParent = useMemo(() => {
+    const map = new Map<string, FKStep[]>();
+    for (const s of fkSteps) {
+      if (!map.has(s.parentId)) map.set(s.parentId, []);
+      map.get(s.parentId)!.push(s);
+    }
+    return map;
+  }, [fkSteps]);
 
   const handlePrint = () => {
     const content = printRef.current;
     if (!content) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+
+    // Build summary table HTML
+    const summaryRows = parents.map(p => {
+      const pSteps = fkSteps.filter(s => s.parentId === p.id);
+      const periods = pSteps.length;
+      const startD = pSteps.length ? pSteps[0].startDate : "–";
+      const endD = pSteps.length ? pSteps[pSteps.length - 1].endDate : "–";
+      return `<tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:600">${p.name}</td><td style="padding:6px 12px;border:1px solid #ddd">${periods} perioder</td><td style="padding:6px 12px;border:1px solid #ddd">${startD} – ${endD}</td></tr>`;
+    }).join("");
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -106,20 +182,25 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; color: #1a1a1a; }
           h1 { font-size: 20px; margin-bottom: 4px; }
-          .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
-          .step-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; page-break-inside: avoid; }
-          .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-          .step-num { width: 28px; height: 28px; border-radius: 50%; background: #4A9B8E; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
-          .step-title { font-weight: 700; font-size: 14px; }
-          .field { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-          .field-label { color: #666; }
-          .field-value { font-weight: 600; font-family: monospace; }
-          .warning { margin-top: 16px; padding: 12px; background: #FFF8F0; border-radius: 6px; font-size: 12px; }
-          .warning li { margin-bottom: 6px; }
-          @media print { body { padding: 16px; } .step-card { break-inside: avoid; } .no-print { display: none !important; } }
+          .subtitle { font-size: 13px; color: #666; margin-bottom: 16px; }
+          table { border-collapse: collapse; margin-bottom: 24px; width: 100%; }
+          th { text-align: left; padding: 6px 12px; border: 1px solid #ddd; background: #f5f5f5; font-size: 13px; }
+          .checklist-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid #eee; }
+          .checkbox-print { width: 16px; height: 16px; border: 2px solid #999; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+          .parent-header { font-weight: 700; font-size: 15px; margin-top: 20px; margin-bottom: 8px; padding-left: 4px; }
+          .parent-header-p1 { border-left: 3px solid #4A9B8E; padding-left: 8px; }
+          .parent-header-p2 { border-left: 3px solid #E8735A; padding-left: 8px; }
+          .period-detail { color: #555; font-family: monospace; font-size: 12px; }
+          @media print { body { padding: 16px; } }
         </style>
       </head>
       <body>
+        <h1>Försäkringskassan-guide – Föräldrapenning</h1>
+        <p class="subtitle">Checklista för anmälan på forsakringskassan.se</p>
+        <table>
+          <thead><tr><th>Förälder</th><th>Perioder</th><th>Tidsram</th></tr></thead>
+          <tbody>${summaryRows}</tbody>
+        </table>
         ${content.innerHTML}
       </body>
       </html>
@@ -129,157 +210,196 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
     setTimeout(() => printWindow.print(), 300);
   };
 
-  const hasP2 = parents.length >= 2;
-  const p2Name = hasP2 ? parents[1].name : "";
-  // Offset for step numbering: login=1, pappadagar=2 (if hasP2), then periods, warnings, PDF
-  const stepOffset = hasP2 ? 2 : 1;
+  const isNext = (id: string) => id === nextItemId;
+
+  const stepCardClass = (id: string) =>
+    `rounded-lg p-4 space-y-2 step-card transition-colors ${
+      checked.has(id) ? "bg-[#F5EDD8]/60 opacity-75" : isNext(id) ? "bg-[#E8F5E9] ring-2 ring-[#4A9B8E]/40" : "bg-[#F5EDD8]"
+    }`;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[92vh] max-w-2xl mx-auto">
-        <DrawerHeader className="text-left">
+        <DrawerHeader className="text-left space-y-3">
           <DrawerTitle className="text-xl" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
-            Så här anmäler du till Försäkringskassan – steg för steg
+            Anmäl till Försäkringskassan
           </DrawerTitle>
           <DrawerDescription>
-            Ingen API-koppling finns – du anmäler manuellt på Mina sidor. Vi har förberett all information åt dig.
+            Bocka av varje steg allt&nbsp;eftersom du anmäler på Mina sidor.
           </DrawerDescription>
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{doneCount} av {totalCount} klara</span>
+              <span>{progressPct} %</span>
+            </div>
+            <Progress value={progressPct} className="h-2" />
+          </div>
         </DrawerHeader>
 
         <div className="overflow-y-auto px-4 pb-2 flex-1">
           <div ref={printRef} className="space-y-3">
-            {/* Hidden print title */}
-            <h1 style={{ display: "none" }}>Försäkringskassan-guide – Föräldrapenning</h1>
-            <p className="subtitle" style={{ display: "none" }}>Anmälningar att registrera på forsakringskassan.se</p>
 
-            {/* STEP 1: Login */}
-            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
-              <div className="step-header flex items-center gap-3">
-                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">1</span>
-                <span className="step-title font-bold text-sm text-foreground">Logga in på Mina sidor</span>
-              </div>
-              <p className="text-sm text-[#2D3748] pl-10">
-                Gå till Försäkringskassan → Mina sidor → Föräldrapenning → Anmäl ledighet.
-              </p>
-              <div className="pl-10 no-print">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning", "_blank")}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Öppna Försäkringskassan →
-                </Button>
+            {/* STEP: Login */}
+            <div className={stepCardClass("login")}>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={checked.has("login")}
+                  onCheckedChange={() => toggle("login")}
+                  className="mt-0.5 no-print"
+                />
+                <div className="checkbox-print" style={{ display: "none" }} />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-foreground">Logga in på Mina sidor</span>
+                    {isNext("login") && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
+                  </div>
+                  <p className="text-sm text-[#2D3748]">
+                    Gå till Försäkringskassan → Mina sidor → Föräldrapenning → Anmäl ledighet.
+                  </p>
+                  <div className="no-print">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning", "_blank")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Öppna Försäkringskassan →
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* STEP 2 (conditional): Pappadagar */}
+            {/* STEP: Pappadagar */}
             {hasP2 && (
-              <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
-                <div className="step-header flex items-center gap-3">
-                  <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">2</span>
-                  <span className="step-title font-bold text-sm text-foreground">Anmäl tillfällig föräldrapenning (10 dagar)</span>
-                </div>
-                <p className="text-sm text-[#2D3748] pl-10">
-                  {p2Name} har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse. Dessa dagar ligger <strong>utanför</strong> 480-dagarsbudgeten och måste tas ut inom 60 dagar från födseln. De anmäls separat hos Försäkringskassan under "Tillfällig föräldrapenning".
-                </p>
-                <div className="pl-10 no-print">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/tillfällig-föräldrapenning", "_blank")}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Läs mer hos Försäkringskassan →
-                  </Button>
+              <div className={stepCardClass("pappadagar")}>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={checked.has("pappadagar")}
+                    onCheckedChange={() => toggle("pappadagar")}
+                    className="mt-0.5 no-print"
+                  />
+                  <div className="checkbox-print" style={{ display: "none" }} />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">Anmäl tillfällig föräldrapenning (10 dagar)</span>
+                      {isNext("pappadagar") && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
+                    </div>
+                    <p className="text-sm text-[#2D3748]">
+                      {p2Name} har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse. Dessa dagar ligger <strong>utanför</strong> 480-dagarsbudgeten och måste tas ut inom 60 dagar från födseln.
+                    </p>
+                    <div className="no-print">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/tillfällig-föräldrapenning", "_blank")}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Läs mer hos Försäkringskassan →
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Period cards */}
-            {fkSteps.map((step, i) => {
-              const stepNum = i + 1 + stepOffset;
-              const isP1 = step.parentId === "p1";
+            {/* Period steps grouped by parent */}
+            {parents.map(parent => {
+              const pSteps = stepsByParent.get(parent.id);
+              if (!pSteps || pSteps.length === 0) return null;
+              const isP1 = parent.id === "p1";
+              const color = isP1 ? "#4A9B8E" : "#E8735A";
               return (
-                <div key={`${step.startDate}-${step.parentId}-${step.level}-${i}`} className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
-                  <div className="step-header flex items-center gap-3">
-                    <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{stepNum}</span>
-                    <span className="step-title font-bold text-sm text-foreground">
-                      Anmäl {step.parentName}s period{fkSteps.filter(s => s.parentId === step.parentId).length > 1 ? ` (${step.level.toLowerCase()})` : ""}
-                    </span>
+                <div key={parent.id} className="space-y-2">
+                  <div className={`flex items-center gap-2 pt-2`}>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                    <h3 className="font-bold text-sm text-foreground">{parent.name}s perioder</h3>
+                    <span className="text-xs text-muted-foreground">({pSteps.filter(s => checked.has(s.key)).length}/{pSteps.length})</span>
                   </div>
-                  <div className="pl-10">
-                    <div className={`rounded-lg bg-white border border-border p-3 text-sm font-mono space-y-1 border-l-[3px] ${isP1 ? "border-l-[#4A9B8E]" : "border-l-[#E8735A]"}`}>
-                      <div className="field flex justify-between">
-                        <span className="field-label text-muted-foreground font-sans">Förälder</span>
-                        <span className="field-value font-semibold font-sans">{step.parentName}</span>
-                      </div>
-                      <div className="field flex justify-between">
-                        <span className="field-label text-muted-foreground font-sans">Period</span>
-                        <span className="field-value font-semibold">{formatDate(step.startDate)} – {formatDate(step.endDate)}</span>
-                      </div>
-                      <div className="field flex justify-between">
-                        <span className="field-label text-muted-foreground font-sans">Uttag</span>
-                        <span className="field-value font-semibold font-sans">{step.daysPerWeek} dagar/vecka · <span className={isP1 ? "text-[#4A9B8E]" : "text-[#E8735A]"}>{step.level}</span></span>
+                  {pSteps.map(step => (
+                    <div key={step.key} className={stepCardClass(step.key)}>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={checked.has(step.key)}
+                          onCheckedChange={() => toggle(step.key)}
+                          className="mt-0.5 no-print"
+                        />
+                        <div className="checkbox-print" style={{ display: "none" }} />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-foreground">
+                              {formatDate(step.startDate)} – {formatDate(step.endDate)}
+                            </span>
+                            {isNext(step.key) && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
+                          </div>
+                          <div className={`rounded-lg bg-white border border-border p-3 text-sm font-mono space-y-1 border-l-[3px]`} style={{ borderLeftColor: color }}>
+                            <div className="field flex justify-between">
+                              <span className="field-label text-muted-foreground font-sans">Uttag</span>
+                              <span className="field-value font-semibold font-sans">{step.daysPerWeek} dagar/vecka</span>
+                            </div>
+                            <div className="field flex justify-between">
+                              <span className="field-label text-muted-foreground font-sans">Nivå</span>
+                              <span className="field-value font-semibold font-sans" style={{ color }}>{step.level}</span>
+                            </div>
+                          </div>
+                          {step.isOverlap && (
+                            <div className="mt-1 rounded-md bg-white/70 border border-[#E8B89A] p-2.5 text-xs text-[#2D3748] space-y-1">
+                              <p className="font-semibold">🔄 Dubbeldag – båda föräldrarna anmäler samma period var för sig</p>
+                              <p>Varje förälder loggar in på sitt eget konto och anmäler perioden med samma start-/slutdatum och uttag.</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    {step.isOverlap && (
-                      <div className="mt-2 rounded-md bg-white/70 border border-[#E8B89A] p-2.5 text-xs text-[#2D3748] space-y-1">
-                        <p className="font-semibold">🔄 Dubbeldag – båda föräldrarna anmäler samma period var för sig</p>
-                        <p>Dubbeldagar anmäls som två separata perioder på Mina sidor – en per förälder. Varje förälder loggar in på sitt eget konto och anmäler perioden med samma startdatum, slutdatum och uttag. Det ser ut som överlappande perioder, men det är korrekt – Försäkringskassan kopplar ihop dem automatiskt.</p>
-                      </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
               );
             })}
 
-            {/* STEP N+2: Warnings */}
-            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
-              <div className="step-header flex items-center gap-3">
-                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 1 + stepOffset}</span>
-                <span className="step-title font-bold text-sm text-foreground">Viktigt att tänka på</span>
-              </div>
-              <ul className="pl-10 space-y-2 text-sm text-[#2D3748]">
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0">⚠️</span>
-                  <span>Du kan bara anmäla en period i taget – kom ihåg att anmäla {parents.length >= 2 ? `${parents[1].name}s` : "varje"} period separat</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="shrink-0">⚠️</span>
-                  <span>Du kan ändra eller avboka en period fram till 1 dag innan den börjar</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* STEP N+3: PDF */}
-            <div className="rounded-lg bg-[#F5EDD8] p-4 space-y-2 step-card">
-              <div className="step-header flex items-center gap-3">
-                <span className="step-num w-7 h-7 rounded-full bg-[#4A9B8E] text-white text-sm flex items-center justify-center font-semibold shrink-0">{fkSteps.length + 2 + stepOffset}</span>
-                <span className="step-title font-bold text-sm text-foreground">Ladda ner som PDF</span>
-              </div>
-              <p className="text-sm text-[#2D3748] pl-10">
-                Spara din plan som PDF att ha till hands när du anmäler.
-              </p>
-              <div className="pl-10 no-print">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={handlePrint}
-                  disabled={fkSteps.length === 0}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Ladda ner PDF
-                </Button>
+            {/* Warnings */}
+            <div className={stepCardClass("warnings")}>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={checked.has("warnings")}
+                  onCheckedChange={() => toggle("warnings")}
+                  className="mt-0.5 no-print"
+                />
+                <div className="checkbox-print" style={{ display: "none" }} />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-foreground">Viktigt att tänka på</span>
+                    {isNext("warnings") && <span className="text-[10px] font-semibold bg-[#4A9B8E] text-white px-1.5 py-0.5 rounded no-print">Nästa</span>}
+                  </div>
+                  <ul className="space-y-2 text-sm text-[#2D3748]">
+                    <li className="flex items-start gap-2">
+                      <span className="shrink-0">⚠️</span>
+                      <span>Du kan bara anmäla en period i taget – kom ihåg att anmäla {hasP2 ? `${p2Name}s` : "varje"} period separat</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="shrink-0">⚠️</span>
+                      <span>Du kan ändra eller avboka en period fram till 1 dag innan den börjar</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <DrawerFooter>
+        <DrawerFooter className="flex-row gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={handlePrint}
+            disabled={fkSteps.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Ladda ner PDF
+          </Button>
           <DrawerClose asChild>
             <Button variant="ghost" size="sm">Stäng</Button>
           </DrawerClose>
