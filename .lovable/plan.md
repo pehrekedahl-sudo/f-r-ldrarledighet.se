@@ -1,38 +1,40 @@
 
-Plan: gör delningen kort, begriplig och stabil
 
-Problemet nu:
-- `mailto:`/`sms:` beter sig dåligt i preview/iframe, därför får du blockerad Gmail-flik.
-- Nuvarande `?plan=<base64>` gör länken för lång och ful, så SMS-fallbacken tappar själva länken.
-- “Dela via app…” är otydlig och ska bort.
+## Plan: E-post och SMS-delning med mottagarinmatning
 
-Det jag vill bygga:
-1. Byta från Base64-delning i URL till en kort delningslänk via backend, t.ex. `.../plan-builder?share=abc123xyz`.
-2. Ta bort knappen “Dela via app…”.
-3. Göra delningsdialogen copy-first:
-   - `Kopiera länk` som primär knapp
-   - `Kopiera för e-post`
-   - `Kopiera för SMS`
-   Dessa kopierar färdig text med den korta länken i stället för att försöka öppna Gmail/Messages direkt.
-4. Låta `PlanBuilder` läsa `share`-parametern från backend, men behålla stöd för gamla `plan=`-länkar så tidigare delningar fortsätter fungera.
-5. Visa en tydlig rad i dialogen om att alla med länken kan se den delade planen.
+### Problem
+Knapparna "Kopiera för e-post" och "Kopiera för SMS" kopierar bara text till urklipp — ingen skillnad mot "Kopiera länk". Användaren förväntar sig att kunna mata in en e-postadress eller ett telefonnummer och att det sedan skickas/öppnas med färdig text.
 
-Tekniska detaljer:
-- Ny separat tabell för delningar, inte i `saved_plans`, så privata sparade planer inte behöver öppnas publikt.
-- Tabellen innehåller ungefär: `owner_user_id`, `share_slug`, `plan_data`, `is_active`, timestamps.
-- Ägaren får skapa/uppdatera sin egen delningspost via RLS.
-- Publik läsning sker via en liten säker backendfunktion som hämtar exakt en plan via slug, så vi inte öppnar upp listning av alla delade planer.
-- `sharePlan()` i `src/pages/PlanBuilder.tsx` blir asynkron och skapar/uppdaterar en snapshot i backend i stället för att skriva Base64 till adressfältet.
-- Nuvarande `setSearchParams({ plan: ... })` tas bort så URL:en inte blir förstörd bara för att man öppnar delningsdialogen.
-- Delningslänken byggs mot den publika app-URL:en när appen körs i preview, så man inte råkar skicka en editor-/preview-länk.
+### Lösning
 
-Berörda delar:
-- `src/pages/PlanBuilder.tsx` — ny share-flow, ny dialog-UI, laddning av `share`-param, bort med “Dela via app…”
-- ny migration för delningstabell + policies + säker läsfunktion
-- ev. liten helper för publik base URL
+Ersätt de tre knapparna med ett flöde i två steg inne i samma dialog:
 
-Förväntat resultat:
-- inga blockerade Gmail-flikar
-- inga SMS som bara säger att länken är kopierad
-- kortare och begripligare länk
-- enklare och tydligare delningsdialog
+**Steg 1 (nuvarande vy):** Visa kort delningslänk + tre knappar:
+- **Kopiera länk** — som idag
+- **Skicka via e-post** — tar användaren till steg 2a
+- **Skicka via SMS** — tar användaren till steg 2b
+
+**Steg 2a (E-post):**
+- Visa ett inputfält för mottagarens e-postadress
+- En "Skicka"-knapp som öppnar `mailto:<inmatad-email>?subject=...&body=...` via `window.open` (alternativt `window.location.href`)
+- Brödtexten är kort och innehåller den korta delningslänken (som nu ryms i mailto)
+- Tillbaka-knapp för att gå tillbaka till steg 1
+
+**Steg 2b (SMS):**
+- Visa ett inputfält för telefonnummer
+- En "Skicka"-knapp som öppnar `sms:<nummer>?body=...` (med iOS-detection för `&body=`)
+- Brödtexten är kort: "Kolla in vår föräldraledighetsplan: [kort länk]"
+- Tillbaka-knapp
+
+Eftersom den nya slug-baserade delningslänken är kort (~60 tecken) ryms den fint i både mailto och sms-URI:er utan att bryta.
+
+### Tekniska ändringar
+
+**`src/pages/PlanBuilder.tsx`:**
+1. Lägg till state `shareStep: 'main' | 'email' | 'sms'` och `shareRecipient: string`
+2. Byt ut dialogen till att visa olika innehåll baserat på `shareStep`
+3. E-post: `window.open(\`mailto:${email}?subject=...&body=...\`, "_blank")`
+4. SMS: `window.open(\`sms:${number}?body=...\`, "_blank")` med iOS-anpassning
+5. Återställ `shareStep` till `'main'` när dialogen stängs
+6. Ta bort `copyForEmail` och `copyForSms` callbacks
+
