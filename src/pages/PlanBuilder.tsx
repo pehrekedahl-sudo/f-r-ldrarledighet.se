@@ -536,11 +536,22 @@ const PlanBuilder = () => {
   const sendViaEmail = useCallback(() => {
     const subject = encodeURIComponent("Vår föräldraledighetsplan");
     const body = encodeURIComponent(`Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`);
-    window.open(`mailto:${shareRecipient}?subject=${subject}&body=${body}`, "_blank");
+    const mailtoUrl = `mailto:${shareRecipient}?subject=${subject}&body=${body}`;
+    try {
+      if (window.top) {
+        window.top.location.href = mailtoUrl;
+      } else {
+        window.location.href = mailtoUrl;
+      }
+    } catch {
+      const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
+      navigator.clipboard.writeText(text).catch(() => {});
+      toast({ description: "Kunde inte öppna e-postklienten. Texten har kopierats — klistra in den i ett mail!" });
+    }
     setShareDialogOpen(false);
     setShareStep('main');
     setShareRecipient('');
-  }, [shareUrl, shareRecipient]);
+  }, [shareUrl, shareRecipient, toast]);
 
   const sendViaSms = useCallback(() => {
     const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
