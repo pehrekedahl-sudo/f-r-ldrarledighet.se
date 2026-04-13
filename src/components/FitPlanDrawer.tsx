@@ -142,7 +142,7 @@ const FitPlanDrawer = ({ open, onOpenChange, blocks, parents, constants, transfe
           <SheetTitle>Auto-justera så planen går ihop</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-6 py-4 overflow-y-auto">
+        <div className="flex-1 space-y-6 py-4 px-1 overflow-y-auto">
           {/* A) Summary — all numbers from proposal.meta */}
           {computing ? (
             <p className="text-sm text-muted-foreground italic animate-pulse">Beräknar…</p>

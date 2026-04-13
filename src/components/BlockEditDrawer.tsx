@@ -231,7 +231,7 @@ const BlockEditDrawer = ({ mode, block, parents, allBlocks, open, onOpenChange, 
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-5 py-4 overflow-y-auto">
+        <div className="flex-1 space-y-5 py-4 px-1 overflow-y-auto">
           {!isCreate && (
             <p className="text-[10px] font-mono text-muted-foreground/50 truncate">
               {block

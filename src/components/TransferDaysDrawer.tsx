@@ -179,7 +179,7 @@ const TransferDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, tr
           </p>
         </SheetHeader>
 
-        <div className="flex-1 space-y-6 py-4 overflow-y-auto">
+        <div className="flex-1 space-y-6 py-4 px-1 overflow-y-auto">
           {/* Current quotas */}
           <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-2">
             <p className="text-sm font-medium">Nuvarande kvoter</p>
