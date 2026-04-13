@@ -509,14 +509,15 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                             {ds?.changeDescription && (
                               <p className="text-xs text-amber-700 font-medium">Ändring: {ds.changeDescription}</p>
                             )}
-                            <div className="rounded-lg bg-white border border-border p-3 text-sm font-mono space-y-1 border-l-[3px]" style={{ borderLeftColor: color }}>
-                              <div className="field flex justify-between">
-                                <span className="field-label text-muted-foreground font-sans">Uttag</span>
-                                <span className="field-value font-semibold font-sans">{step.daysPerWeek} dagar/vecka</span>
+                            <div className="rounded-lg bg-white border border-border px-3 py-2 text-sm border-l-[3px] flex items-center gap-4" style={{ borderLeftColor: color }}>
+                              <div className="field flex items-center gap-1.5">
+                                <span className="field-label text-muted-foreground text-xs">Uttag</span>
+                                <span className="field-value font-semibold">{step.daysPerWeek} d/v</span>
                               </div>
-                              <div className="field flex justify-between">
-                                <span className="field-label text-muted-foreground font-sans">Nivå</span>
-                                <span className="field-value font-semibold font-sans" style={{ color }}>{step.level}</span>
+                              <span className="text-border">·</span>
+                              <div className="field flex items-center gap-1.5">
+                                <span className="field-label text-muted-foreground text-xs">Nivå</span>
+                                <span className="field-value font-semibold" style={{ color }}>{step.level}</span>
                               </div>
                             </div>
                             {step.isOverlap && (
