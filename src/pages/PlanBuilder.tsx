@@ -293,8 +293,8 @@ const PlanBuilder = () => {
   });
 
   const loadFromAnySource = useCallback(() => {
-    // Try DB first (via hook), then localStorage
-    const saved = (loadPlan() ?? loadPlanInput()) as any;
+    // DB first; localStorage only as cache for authenticated users
+    const saved = (loadPlan() ?? (user ? loadPlanInput() : null)) as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
@@ -316,7 +316,7 @@ const PlanBuilder = () => {
       return true;
     }
     return false;
-  }, [loadPlan]);
+  }, [loadPlan, user]);
 
   // Handle Stripe success redirect
   useEffect(() => {
@@ -393,6 +393,16 @@ const PlanBuilder = () => {
       return;
     }
 
+    // Not logged in → show gate (login / create new)
+    if (!user) {
+      console.log("[PlanBuilder] redirect decision", {
+        decision: "show-auth-gate",
+        reason: "no authenticated user",
+      });
+      setNoSavedPlan(true);
+      return;
+    }
+
     const restored = loadFromAnySource();
     console.log("[PlanBuilder] redirect decision", {
       decision: restored ? "stay-on-plan-builder" : "navigate-to-wizard",
@@ -402,7 +412,7 @@ const PlanBuilder = () => {
     if (!restored) {
       navigate("/wizard", { replace: true });
     }
-  }, [userLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userLoading, loadingPlan, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadSaved = () => {
     if (!loadFromAnySource()) {
@@ -1027,6 +1037,27 @@ const PlanBuilder = () => {
     navigator.clipboard.writeText(lines.join("\n"));
     toast({ description: "Plan kopierad" });
   }, [result, blocks, blockErrors, toast]);
+
+  // Gate: unauthenticated user with no plan → offer login or create new
+  if (noSavedPlan && !user) {
+    return (
+      <div className="max-w-md mx-auto px-6 py-24 space-y-6 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Välkommen till Min Plan</h1>
+        <p className="text-muted-foreground">
+          Logga in för att hämta din sparade plan, eller skapa en helt ny.
+        </p>
+        <div className="flex flex-col gap-3">
+          <Button size="lg" onClick={() => setAuthOpen(true)}>
+            Logga in
+          </Button>
+          <Button size="lg" variant="outline" onClick={() => navigate("/wizard")}>
+            Skapa ny plan
+          </Button>
+        </div>
+        <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      </div>
+    );
+  }
 
   // Show loading until plan is loaded
   if (!loaded) {
