@@ -1,21 +1,24 @@
 
 
-## Plan: Fixa e-postdelning av plan
+## Plan: Fixa e-post- och SMS-delning
 
 ### Problem
-`mailto:`-länken fungerar inte pålitligt av två anledningar:
-1. Plan-URL:en är extremt lång (1000+ tecken Base64-data) vilket överskrider `mailto:`-gränsen i många webbläsare och e-postklienter
-2. `window.open("mailto:...", "_self")` beter sig oförutsägbart i olika miljöer
+1. **E-post**: `window.location.href = "mailto:..."` navigerar bort från appen i preview-miljön, och Gmail avvisar anslutningen (skärmbilden visar "mail.google.com avvisade anslutningen").
+2. **SMS**: URL:en är alltid för lång, så fallback-texten visas utan den faktiska länken — användaren får bara "Länken har kopierats till urklipp" men urklipp fungerar inte alltid pålitligt.
 
 ### Lösning
-Byt från `window.open` till `window.location.href = mailto:...` (mer pålitligt). Dessutom korta ned URL:en genom att använda `encodeURIComponent` korrekt och se till att hela `mailto:`-strängen inte bryter.
 
-Som en extra robusthetslösning: om URL:en är för lång (>1500 tecken), kopiera länken till urklipp automatiskt och informera användaren att klistra in den i ett e-postmeddelande istället, alternativt visa ett inputfält med länken i e-postdialogen.
+Byt strategi helt — använd **Web Share API** som primär delningsmetod (fungerar nativt på mobil med e-post, SMS, WhatsApp etc.), med `window.open(mailto, "_blank")` som fallback på desktop.
 
-### Teknisk ändring
+### Tekniska ändringar
 
 **`src/pages/PlanBuilder.tsx`**:
-- Ändra `emailShareUrl` från `window.open(\`mailto:...\`, "_self")` till `window.location.href = \`mailto:...\``
-- Lägg till fallback: om `shareUrl` är längre än ~1800 tecken, använd en kortare brödtext som säger "Jag har delat en föräldraledighetsplan med dig. Öppna länken nedan:" utan att bädda in hela URL:en i mailto-bodyn. Kopiera istället URL:en till urklipp och visa en toast som säger "Länken har kopierats – klistra in den i mailet!"
-- Behåll nuvarande kopiera-knapp och dialog som backup
+
+1. **Lägg till en primär "Dela"-knapp** som använder `navigator.share()` om tillgängligt (mobil). Delar `shareUrl` som URL + titel.
+
+2. **E-post-fallback**: Byt `window.location.href` → `window.open(mailtoUrl, "_blank")` så appen inte navigeras bort. Behåll clipboard-fallback för långa URL:er.
+
+3. **SMS-fallback**: Samma fix — `window.open(smsUrl, "_blank")`. Hantera plattformsskillnader i SMS-URI (`sms:?body=` för Android, `sms:&body=` för iOS).
+
+4. **UI**: Visa "Dela" (native share) som primärknapp om `navigator.share` finns. Visa E-post/SMS som sekundära alternativ.
 
