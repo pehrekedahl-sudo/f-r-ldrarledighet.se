@@ -293,8 +293,8 @@ const PlanBuilder = () => {
   });
 
   const loadFromAnySource = useCallback(() => {
-    // Try DB first (via hook), then localStorage
-    const saved = (loadPlan() ?? loadPlanInput()) as any;
+    // DB first; localStorage only as cache for authenticated users
+    const saved = (loadPlan() ?? (user ? loadPlanInput() : null)) as any;
     if (saved && saved.parents && saved.blocks && saved.blocks.length > 0) {
       setParents(saved.parents);
       if (saved.childName) setChildName(saved.childName);
@@ -393,6 +393,17 @@ const PlanBuilder = () => {
       return;
     }
 
+    // Not logged in → show gate (login / create new)
+    if (!user) {
+      console.log("[PlanBuilder] redirect decision", {
+        decision: "show-auth-gate",
+        reason: "no authenticated user",
+      });
+      setNoSavedPlan(true);
+      setLoading_gate(false);
+      return;
+    }
+
     const restored = loadFromAnySource();
     console.log("[PlanBuilder] redirect decision", {
       decision: restored ? "stay-on-plan-builder" : "navigate-to-wizard",
@@ -402,7 +413,7 @@ const PlanBuilder = () => {
     if (!restored) {
       navigate("/wizard", { replace: true });
     }
-  }, [userLoading, loadingPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userLoading, loadingPlan, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadSaved = () => {
     if (!loadFromAnySource()) {
