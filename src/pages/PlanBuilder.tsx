@@ -5,7 +5,7 @@ import { useHasPurchased } from "@/hooks/useHasPurchased";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, MessageSquare, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, MessageSquare, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown, ExternalLink } from "lucide-react";
 import PlanTutorial, { usePlanTutorial } from "@/components/PlanTutorial";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -465,6 +465,22 @@ const PlanBuilder = () => {
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl, toast]);
 
+  const nativeShare = useCallback(async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Min föräldraledighetsplan",
+          text: "Kolla in vår föräldraledighetsplan!",
+          url: shareUrl,
+        });
+        return;
+      } catch (e) {
+        // User cancelled or share failed — fall through
+      }
+    }
+    copyShareUrl();
+  }, [shareUrl, copyShareUrl]);
+
   const emailShareUrl = useCallback(() => {
     const subject = encodeURIComponent("Min föräldraledighetsplan");
     const mailtoLimit = 1800;
@@ -472,25 +488,30 @@ const PlanBuilder = () => {
     const fullMailto = `mailto:?subject=${subject}&body=${fullBody}`;
 
     if (fullMailto.length > mailtoLimit) {
-      navigator.clipboard.writeText(shareUrl);
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
       const shortBody = encodeURIComponent(
         "Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den här."
       );
       toast({ description: "Länken är för lång för e-post – den har kopierats till urklipp. Klistra in den i mailet!" });
-      window.location.href = `mailto:?subject=${subject}&body=${shortBody}`;
+      window.open(`mailto:?subject=${subject}&body=${shortBody}`, "_blank");
     } else {
-      window.location.href = fullMailto;
+      window.open(fullMailto, "_blank");
     }
   }, [shareUrl, toast]);
 
   const smsShareUrl = useCallback(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const separator = isIOS ? "&" : "?";
     const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
-    if (body.length > 1600) {
-      navigator.clipboard.writeText(shareUrl);
+    const fullSms = `sms:${separator}body=${body}`;
+
+    if (fullSms.length > 1600) {
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
       toast({ description: "Länken har kopierats till urklipp – klistra in den i SMS:et!" });
-      window.location.href = `sms:?body=${encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.")}`;
+      const shortBody = encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.");
+      window.open(`sms:${separator}body=${shortBody}`, "_blank");
     } else {
-      window.location.href = `sms:?body=${body}`;
+      window.open(fullSms, "_blank");
     }
   }, [shareUrl, toast]);
 
@@ -2162,16 +2183,23 @@ const PlanBuilder = () => {
               {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
-              <Copy className="h-4 w-4" />Kopiera länk
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
-              <Mail className="h-4 w-4" />E-post
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
-              <MessageSquare className="h-4 w-4" />SMS
-            </Button>
+          <div className="flex flex-col gap-2">
+            {typeof navigator !== "undefined" && navigator.share && (
+              <Button className="w-full gap-2" onClick={nativeShare}>
+                <ExternalLink className="h-4 w-4" />Dela via app…
+              </Button>
+            )}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant={navigator.share ? "outline" : "default"} className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
+                <Copy className="h-4 w-4" />Kopiera länk
+              </Button>
+              <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
+                <Mail className="h-4 w-4" />E-post
+              </Button>
+              <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
+                <MessageSquare className="h-4 w-4" />SMS
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
