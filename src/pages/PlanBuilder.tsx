@@ -1337,7 +1337,7 @@ const PlanBuilder = () => {
                     onClick={() => setFkGuideOpen(true)}
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
-                    FK-guide
+                    Försäkringskassan-guide
                   </Button>
                 ) : (
                   <a
@@ -1899,7 +1899,7 @@ const PlanBuilder = () => {
                   </Button>
                   <Button variant="default" className="gap-2" onClick={() => handleCtaClick("fk")}>
                     <Lock className="h-4 w-4" />
-                    Hämta FK-guide
+                    Hämta Försäkringskassan-guide
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">

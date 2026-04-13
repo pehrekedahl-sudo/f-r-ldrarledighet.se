@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/accordion";
 
 const summaryPoints = [
-  "Varje barn ger 480 dagar att dela på – det är FK som betalar, inte din arbetsgivare.",
-  "Du får ut ~80\u00a0% av din lön upp till inkomstbasbeloppet (592\u00a0000 kr/år) – tjänar du mer ersätts inte den överskjutande delen av FK.",
+  "Varje barn ger 480 dagar att dela på – det är Försäkringskassan som betalar, inte din arbetsgivare.",
+  "Du får ut ~80\u00a0% av din lön upp till inkomstbasbeloppet (592\u00a0000 kr/år) – tjänar du mer ersätts inte den överskjutande delen av Försäkringskassan.",
   "90 dagar per förälder är låsta och kan inte ges bort. Resten kan ni flytta fritt mellan er.",
   "Den viktigaste avvägningen: hur många dagar tar du nu – och hur många sparar du till senare?",
 ];
@@ -156,7 +156,7 @@ const Foraldraledighet101 = () => {
           </p>
 
           <InfoBox>
-            Alla 90 lägstanivådagar och de 300 övriga SGI-dagarna kan fritt fördelas om mellan er via en ansökan till FK.
+            Alla 90 lägstanivådagar och de 300 övriga SGI-dagarna kan fritt fördelas om mellan er via en ansökan till Försäkringskassan.
           </InfoBox>
 
           <InfoBox>
@@ -164,7 +164,7 @@ const Foraldraledighet101 = () => {
             <br />
             Den andra föräldern har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse.
             Dessa dagar ligger <em>utanför</em> 480-dagarsbudgeten och måste tas ut inom 60 dagar.
-            De anmäls separat hos FK under "Tillfällig föräldrapenning" – inte som vanlig föräldrapenning.
+            De anmäls separat hos Försäkringskassan under "Tillfällig föräldrapenning" – inte som vanlig föräldrapenning.
           </InfoBox>
         </AccordionContent>
       </AccordionItem>
@@ -228,7 +228,7 @@ const Foraldraledighet101 = () => {
         </AccordionTrigger>
         <AccordionContent className="px-5 pb-5 flex flex-col gap-3 text-sm">
           <p>
-            FK räknar ut din ersättning baserat på din SGI – sjukpenninggrundande inkomst. Det är din försäkrade inkomst hos FK,
+            Försäkringskassan räknar ut din ersättning baserat på din SGI – sjukpenninggrundande inkomst. Det är din försäkrade inkomst hos Försäkringskassan,
             inte nödvändigtvis din aktuella lön.
           </p>
 
@@ -285,7 +285,7 @@ const Foraldraledighet101 = () => {
               </p>
               <WarnBox className="mt-2">
                 <strong>SGI-varning efter 1-årsdagen:</strong> Från barnets 1-årsdag måste du ta ut minst 5 hela föräldradagar
-                i veckan om du är hemma och inte jobbar – annars räknar FK om din SGI till din faktiska (lägre) inkomst.
+                i veckan om du är hemma och inte jobbar – annars räknar Försäkringskassan om din SGI till din faktiska (lägre) inkomst.
                 Det slår mot vad du får vid sjukdom och framtida föräldraledigheter. Jobbar du deltid och tar ut föräldradagar
                 för resterande tid är du skyddad.
               </WarnBox>
@@ -320,7 +320,7 @@ const Foraldraledighet101 = () => {
             <Dot color="#E8735A" />
             <span>
               <span className="block text-sm font-medium">Vanliga misstag</span>
-              <span className="block text-xs text-muted-foreground">Det FK inte påminner dig om</span>
+              <span className="block text-xs text-muted-foreground">Det Försäkringskassan inte påminner dig om</span>
             </span>
           </span>
         </AccordionTrigger>
