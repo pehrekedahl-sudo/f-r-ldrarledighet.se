@@ -65,12 +65,42 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_plans: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          owner_user_id: string
+          plan_data: Json
+          share_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          owner_user_id: string
+          plan_data: Json
+          share_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          owner_user_id?: string
+          plan_data?: Json
+          share_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_shared_plan_by_slug: { Args: { slug: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
