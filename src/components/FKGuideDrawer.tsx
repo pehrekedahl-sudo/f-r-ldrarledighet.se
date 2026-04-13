@@ -116,7 +116,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
     for (const step of fkSteps) {
       items.push({ id: step.key, label: `${step.parentName}: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}`, type: "period", parentId: step.parentId });
     }
-    items.push({ id: "warnings", label: "Läs igenom viktigt att tänka på", type: "action" });
     return items;
   }, [fkSteps, hasP2]);
 
