@@ -2209,30 +2209,91 @@ const PlanBuilder = () => {
       </AlertDialog>
 
       {/* Share Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+      <Dialog open={shareDialogOpen} onOpenChange={(open) => {
+        setShareDialogOpen(open);
+        if (!open) { setShareStep('main'); setShareRecipient(''); }
+      }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Dela din plan</DialogTitle>
-            <DialogDescription>Kopiera länken och skicka den till din partner.</DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2">
-            <Input readOnly value={shareUrl} className="text-xs" onClick={(e) => (e.target as HTMLInputElement).select()} />
-            <Button variant="outline" size="icon" className="shrink-0" onClick={copyShareUrl}>
-              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button className="flex-1 gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
-              <Copy className="h-4 w-4" />Kopiera länk
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={copyForEmail}>
-              <Mail className="h-4 w-4" />Kopiera för e-post
-            </Button>
-            <Button variant="outline" className="flex-1 gap-2" onClick={copyForSms}>
-              <MessageSquare className="h-4 w-4" />Kopiera för SMS
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground text-center">Alla med länken kan se din plan.</p>
+          {shareStep === 'main' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Dela din plan</DialogTitle>
+                <DialogDescription>Skicka länken till din partner.</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={shareUrl} className="text-xs" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                <Button variant="outline" size="icon" className="shrink-0" onClick={copyShareUrl}>
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button className="gap-2" onClick={() => { copyShareUrl(); setShareDialogOpen(false); }}>
+                  <Copy className="h-4 w-4" />Kopiera länk
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => setShareStep('email')}>
+                  <Mail className="h-4 w-4" />Skicka via e-post
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => setShareStep('sms')}>
+                  <MessageSquare className="h-4 w-4" />Skicka via SMS
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">Alla med länken kan se din plan.</p>
+            </>
+          )}
+          {shareStep === 'email' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Skicka via e-post</DialogTitle>
+                <DialogDescription>Ange mottagarens e-postadress.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <Label htmlFor="share-email">E-postadress</Label>
+                  <Input
+                    id="share-email"
+                    type="email"
+                    placeholder="namn@example.com"
+                    value={shareRecipient}
+                    onChange={(e) => setShareRecipient(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <Button className="gap-2" disabled={!shareRecipient.includes('@')} onClick={sendViaEmail}>
+                  <Mail className="h-4 w-4" />Skicka
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShareStep('main'); setShareRecipient(''); }}>
+                  ← Tillbaka
+                </Button>
+              </div>
+            </>
+          )}
+          {shareStep === 'sms' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Skicka via SMS</DialogTitle>
+                <DialogDescription>Ange mottagarens telefonnummer.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <Label htmlFor="share-phone">Telefonnummer</Label>
+                  <Input
+                    id="share-phone"
+                    type="tel"
+                    placeholder="07X-XXX XX XX"
+                    value={shareRecipient}
+                    onChange={(e) => setShareRecipient(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <Button className="gap-2" disabled={shareRecipient.length < 5} onClick={sendViaSms}>
+                  <MessageSquare className="h-4 w-4" />Skicka
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShareStep('main'); setShareRecipient(''); }}>
+                  ← Tillbaka
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
       <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
