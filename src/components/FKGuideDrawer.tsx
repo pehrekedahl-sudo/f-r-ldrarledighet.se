@@ -9,7 +9,7 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Copy } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Block = {
@@ -92,11 +92,6 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
   const printRef = useRef<HTMLDivElement>(null);
   const fkSteps = useMemo(() => buildFKSteps(blocks, parents), [blocks, parents]);
 
-  const copyPeriod = (step: FKStep) => {
-    const text = `Förälder: ${step.parentName}\nPeriod: ${formatDate(step.startDate)} – ${formatDate(step.endDate)}\nUttag: ${step.daysPerWeek} dagar/vecka · ${step.level}`;
-    navigator.clipboard.writeText(text);
-    toast({ description: "Period kopierad" });
-  };
 
   const handlePrint = () => {
     const content = printRef.current;
