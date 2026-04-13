@@ -1,40 +1,39 @@
 
 
-## Plan: E-post och SMS-delning med mottagarinmatning
+## Plan: Fixa blockerad e-post (mailto i iframe)
 
 ### Problem
-Knapparna "Kopiera för e-post" och "Kopiera för SMS" kopierar bara text till urklipp — ingen skillnad mot "Kopiera länk". Användaren förväntar sig att kunna mata in en e-postadress eller ett telefonnummer och att det sedan skickas/öppnas med färdig text.
+`window.open("mailto:...", "_blank")` blockeras av webbläsaren i iframe/preview-miljön (skärmbilden visar "mail.google.com har blockerats / ERR_BLOCKED_BY_RESPONSE"). SMS fungerar redan.
 
 ### Lösning
+Byt till `window.top?.location.href` för att bryta ut ur iframe-kontexten. Detta är samma teknik som redan används för Stripe Checkout i projektet. Om `window.top` inte är tillgängligt (cross-origin), falla tillbaka på att kopiera den färdiga e-posttexten till urklipp med en toast.
 
-Ersätt de tre knapparna med ett flöde i två steg inne i samma dialog:
+### Teknisk ändring
 
-**Steg 1 (nuvarande vy):** Visa kort delningslänk + tre knappar:
-- **Kopiera länk** — som idag
-- **Skicka via e-post** — tar användaren till steg 2a
-- **Skicka via SMS** — tar användaren till steg 2b
+**`src/pages/PlanBuilder.tsx` — `sendViaEmail`-funktionen (rad 536-543):**
 
-**Steg 2a (E-post):**
-- Visa ett inputfält för mottagarens e-postadress
-- En "Skicka"-knapp som öppnar `mailto:<inmatad-email>?subject=...&body=...` via `window.open` (alternativt `window.location.href`)
-- Brödtexten är kort och innehåller den korta delningslänken (som nu ryms i mailto)
-- Tillbaka-knapp för att gå tillbaka till steg 1
+```typescript
+const sendViaEmail = useCallback(() => {
+  const subject = encodeURIComponent("Vår föräldraledighetsplan");
+  const body = encodeURIComponent(`Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`);
+  const mailtoUrl = `mailto:${shareRecipient}?subject=${subject}&body=${body}`;
+  try {
+    if (window.top) {
+      window.top.location.href = mailtoUrl;
+    } else {
+      window.location.href = mailtoUrl;
+    }
+  } catch {
+    // Cross-origin — kan inte nå window.top, kopiera istället
+    const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
+    navigator.clipboard.writeText(text).catch(() => {});
+    toast({ description: "Kunde inte öppna e-postklienten. Texten har kopierats — klistra in den i ett mail!" });
+  }
+  setShareDialogOpen(false);
+  setShareStep('main');
+  setShareRecipient('');
+}, [shareUrl, shareRecipient, toast]);
+```
 
-**Steg 2b (SMS):**
-- Visa ett inputfält för telefonnummer
-- En "Skicka"-knapp som öppnar `sms:<nummer>?body=...` (med iOS-detection för `&body=`)
-- Brödtexten är kort: "Kolla in vår föräldraledighetsplan: [kort länk]"
-- Tillbaka-knapp
-
-Eftersom den nya slug-baserade delningslänken är kort (~60 tecken) ryms den fint i både mailto och sms-URI:er utan att bryta.
-
-### Tekniska ändringar
-
-**`src/pages/PlanBuilder.tsx`:**
-1. Lägg till state `shareStep: 'main' | 'email' | 'sms'` och `shareRecipient: string`
-2. Byt ut dialogen till att visa olika innehåll baserat på `shareStep`
-3. E-post: `window.open(\`mailto:${email}?subject=...&body=...\`, "_blank")`
-4. SMS: `window.open(\`sms:${number}?body=...\`, "_blank")` med iOS-anpassning
-5. Återställ `shareStep` till `'main'` när dialogen stängs
-6. Ta bort `copyForEmail` och `copyForSms` callbacks
+En enda ändring i en funktion — resten av dialogen och SMS-flödet behålls som det är.
 
