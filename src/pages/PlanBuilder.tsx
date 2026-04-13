@@ -2156,7 +2156,10 @@ const PlanBuilder = () => {
               <Copy className="h-4 w-4" />Kopiera länk
             </Button>
             <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
-              <Mail className="h-4 w-4" />Skicka via e-post
+              <Mail className="h-4 w-4" />E-post
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
+              <MessageSquare className="h-4 w-4" />SMS
             </Button>
           </div>
         </DialogContent>
