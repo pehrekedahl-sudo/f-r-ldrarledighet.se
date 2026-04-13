@@ -460,7 +460,7 @@ const SaveDaysDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
           <SheetTitle>Sparade dagar</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-6 py-4 overflow-y-auto">
+        <div className="flex-1 space-y-6 py-4 px-1 overflow-y-auto">
           {/* Manual edits note */}
           {hasManualEdits && (
             <div className="border border-border rounded-lg p-3 bg-muted/30 text-xs text-muted-foreground">
