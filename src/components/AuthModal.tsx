@@ -37,6 +37,7 @@ export default function AuthModal({ open, onOpenChange }: AuthModalProps) {
     if (error) {
       toast({ variant: "destructive", title: "Inloggning misslyckades", description: error.message });
     } else {
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
       toast({ title: "Inloggad!" });
       reset();
       onOpenChange(false);
