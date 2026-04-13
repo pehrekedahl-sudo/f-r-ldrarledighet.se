@@ -82,78 +82,103 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Timeline mockup */}
+      {/* Timeline mockup – styled to match the real PlanTimeline */}
       <section className="max-w-7xl mx-auto px-6 pb-16">
-        <div className="rounded-xl border-2 border-border bg-card shadow-sm p-6 space-y-4 max-w-3xl mx-auto">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            Så kan en plan se ut
-          </p>
-          {/* Month labels */}
-          <div className="flex gap-0">
-            {timelineMonths.map((m) => (
-              <div key={m} className="flex-1 text-center text-sm text-muted-foreground">
-                {m}
+        <div className="rounded-xl border border-border bg-white shadow-sm max-w-3xl mx-auto overflow-hidden">
+          {/* Header */}
+          <div className="px-5 pt-4 pb-2">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Så kan en plan se ut
+            </p>
+          </div>
+
+          <div className="flex w-full">
+            {/* Label column */}
+            <div className="flex-shrink-0 bg-muted/20" style={{ width: 100 }}>
+              {/* Month header spacer */}
+              <div className="h-8" />
+              {/* F1 label */}
+              <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
+                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#4A9B8E]" />
+                <span className="text-xs font-semibold text-[#4A9B8E]">Förälder 1</span>
               </div>
-            ))}
-          </div>
-          {/* Parent 1 bar */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-8 shrink-0">F1</span>
-            <div className="flex-1 h-7 rounded-md bg-muted relative overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 rounded-md"
-                style={{
-                  width: "58%",
-                  background: "hsl(172, 37%, 44%)",
-                }}
-              />
-              <div
-                className="absolute inset-y-0 rounded-md opacity-50"
-                style={{
-                  left: "58%",
-                  width: "17%",
-                  background: "hsl(172, 37%, 44%)",
-                }}
-              />
+              {/* Overlap label */}
+              <div className="flex items-center gap-2 px-3" style={{ height: 40 }}>
+                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#2D7A6F]" />
+                <span className="text-xs font-semibold text-[#2D7A6F]">Dubbeldagar</span>
+              </div>
+              {/* F2 label */}
+              <div className="flex items-center gap-2 px-3" style={{ height: 52 }}>
+                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
+                <span className="text-xs font-semibold text-[#E8735A]">Förälder 2</span>
+              </div>
+            </div>
+
+            {/* Timeline area */}
+            <div className="flex-1 relative" style={{ minWidth: 0 }}>
+              {/* Month labels header */}
+              <div className="relative h-8 border-b border-border/60">
+                {timelineMonths.map((m, i) => (
+                  <div
+                    key={m}
+                    className="absolute top-0 bottom-0"
+                    style={{ left: `${(i / 12) * 100}%` }}
+                  >
+                    <div className="absolute top-4 bottom-0 w-px bg-border/60" />
+                    <span className="absolute top-3.5 text-[9px] text-muted-foreground/80 whitespace-nowrap" style={{ left: 2 }}>
+                      {m.toLowerCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid lines */}
+              <div className="relative">
+                {timelineMonths.map((m, i) =>
+                  i > 0 ? (
+                    <div
+                      key={`line-${i}`}
+                      className="absolute top-0 w-px bg-border/20 z-0"
+                      style={{ left: `${(i / 12) * 100}%`, height: 144 }}
+                    />
+                  ) : null
+                )}
+
+                {/* F1 row */}
+                <div className="relative" style={{ height: 52 }}>
+                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]"
+                    style={{ left: "4%", width: "54%" }}
+                  />
+                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#4A9B8E]/50"
+                    style={{ left: "67%", width: "16%" }}
+                  />
+                </div>
+
+                {/* Overlap row */}
+                <div className="relative" style={{ height: 40 }}>
+                  <div className="absolute top-1.5 bottom-1.5 rounded-xl shadow-md bg-[#2D7A6F]"
+                    style={{ left: "54%", width: "13%" }}
+                  />
+                </div>
+
+                {/* F2 row */}
+                <div className="relative" style={{ height: 52 }}>
+                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/40"
+                    style={{ left: "17%", width: "17%" }}
+                  />
+                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]"
+                    style={{ left: "34%", width: "33%" }}
+                  />
+                  <div className="absolute top-2 bottom-2 rounded-xl shadow-md bg-[#E8735A]/50"
+                    style={{ left: "75%", width: "20%" }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          {/* Parent 2 bar */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-8 shrink-0">F2</span>
-            <div className="flex-1 h-7 rounded-md bg-muted relative overflow-hidden">
-              <div
-                className="absolute inset-y-0 rounded-md"
-                style={{
-                  left: "25%",
-                  width: "42%",
-                  background: "hsl(14, 60%, 60%)",
-                }}
-              />
-              <div
-                className="absolute inset-y-0 rounded-md opacity-50"
-                style={{
-                  left: "67%",
-                  width: "25%",
-                  background: "hsl(14, 60%, 60%)",
-                }}
-              />
-            </div>
-          </div>
-          {/* Legend */}
-          <div className="flex items-center gap-4 pt-1">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ background: "hsl(172, 37%, 44%)" }} />
-              <span className="text-[10px] text-muted-foreground">Förälder 1</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ background: "hsl(14, 60%, 60%)" }} />
-              <span className="text-[10px] text-muted-foreground">Förälder 2</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-muted border border-border" />
-              <span className="text-[10px] text-muted-foreground">Ledig utan ersättning</span>
-            </div>
-          </div>
+
+          {/* Bottom padding */}
+          <div className="h-3" />
         </div>
       </section>
 
