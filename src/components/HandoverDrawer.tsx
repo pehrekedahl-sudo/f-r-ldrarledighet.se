@@ -226,6 +226,7 @@ const HandoverDrawer = ({ open, onOpenChange, blocks, parents, constants, transf
                 <Calendar
                   mode="single"
                   weekStartsOn={1}
+                  defaultMonth={calendarSelected}
                   selected={calendarSelected}
                   onSelect={(d) => {
                     if (d) {
