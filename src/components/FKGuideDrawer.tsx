@@ -312,51 +312,39 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[92vh] max-w-4xl mx-auto">
-        <DrawerHeader className="text-left space-y-3">
-          <DrawerTitle className="text-xl" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
-            Anmäl till Försäkringskassan
-          </DrawerTitle>
-          <DrawerDescription>
-            Bocka av varje steg allt&nbsp;eftersom du anmäler på Mina sidor.
-          </DrawerDescription>
+        <DrawerHeader className="text-left space-y-2 pb-2">
+          <div className="flex items-baseline justify-between gap-4">
+            <DrawerTitle className="text-lg" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
+              Anmäl till Försäkringskassan
+            </DrawerTitle>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{doneCount}/{totalCount} klara</span>
+          </div>
 
-          {/* Diff info banner */}
+          <Progress value={progressPct} className="h-1.5" />
+
+          {/* Diff info banner + toggle in one compact row */}
           {hasDiff && (
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
-              <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold">Planen har ändrats sedan senaste registreringen</p>
-                <p className="text-xs mt-0.5 text-amber-700">{changedCount} {changedCount === 1 ? "ändring" : "ändringar"} att hantera hos Försäkringskassan.</p>
+            <div className="flex items-center gap-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
+              <Info className="h-4 w-4 shrink-0" />
+              <p className="flex-1 text-xs">
+                <span className="font-semibold">Planen har ändrats</span> – {changedCount} {changedCount === 1 ? "ändring" : "ändringar"} att hantera.
+              </p>
+              <div className="flex gap-0.5 bg-amber-100 rounded-md p-0.5 shrink-0">
+                <button
+                  className={`text-[11px] font-medium py-1 px-2.5 rounded transition-colors ${viewMode === "changes" ? "bg-white shadow-sm text-foreground" : "text-amber-700 hover:text-foreground"}`}
+                  onClick={() => setViewMode("changes")}
+                >
+                  Ändringar
+                </button>
+                <button
+                  className={`text-[11px] font-medium py-1 px-2.5 rounded transition-colors ${viewMode === "all" ? "bg-white shadow-sm text-foreground" : "text-amber-700 hover:text-foreground"}`}
+                  onClick={() => setViewMode("all")}
+                >
+                  Alla
+                </button>
               </div>
             </div>
           )}
-
-          {/* View toggle */}
-          {hasDiff && (
-            <div className="flex gap-1 bg-muted rounded-lg p-0.5">
-              <button
-                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${viewMode === "changes" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => setViewMode("changes")}
-              >
-                Visa ändringar ({changedCount})
-              </button>
-              <button
-                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${viewMode === "all" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => setViewMode("all")}
-              >
-                Visa alla
-              </button>
-            </div>
-          )}
-
-          {/* Progress bar */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{doneCount} av {totalCount} klara</span>
-              <span>{progressPct} %</span>
-            </div>
-            <Progress value={progressPct} className="h-2" />
-          </div>
         </DrawerHeader>
 
         <div className="overflow-y-auto px-4 pb-2 flex-1">
