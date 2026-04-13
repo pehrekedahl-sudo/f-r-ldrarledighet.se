@@ -293,19 +293,25 @@ const PlanTimeline = ({ blocks, parents, unfulfilledDaysTotal, todayDate, onBloc
         {/* Fixed label column */}
         <div className="flex-shrink-0 bg-muted/20" style={{ width: LABEL_WIDTH }}>
           <div className="h-8" />
-          {parentRows.map((row) => {
-            const isP1 = row.id === "p1";
-            return (
-              <div key={row.id} className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
-                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${isP1 ? "bg-[#4A9B8E]" : "bg-[#E8735A]"}`} />
-                <span className={`text-xs font-semibold truncate ${isP1 ? "text-[#4A9B8E]" : "text-[#E8735A]"}`}>{row.name}</span>
-              </div>
-            );
-          })}
+          {/* Parent 1 label */}
+          {parentRows[0] && (
+            <div className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#4A9B8E]" />
+              <span className="text-xs font-semibold truncate text-[#4A9B8E]">{parentRows[0].name}</span>
+            </div>
+          )}
+          {/* Overlap label – between parents */}
           {hasOverlapRow && (
             <div className="flex items-center gap-2 px-3" style={{ height: overlapRowHeight }}>
              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#2D7A6F]" />
               <span className="text-xs font-semibold text-[#2D7A6F] truncate">Dubbeldagar</span>
+            </div>
+          )}
+          {/* Parent 2 label */}
+          {parentRows[1] && (
+            <div className="flex items-center gap-2 px-3" style={{ height: rowHeight }}>
+              <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#E8735A]" />
+              <span className="text-xs font-semibold truncate text-[#E8735A]">{parentRows[1].name}</span>
             </div>
           )}
           {unfulfilledPct !== null && <div className="h-6" />}
