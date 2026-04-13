@@ -5,7 +5,7 @@ import { useHasPurchased } from "@/hooks/useHasPurchased";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { addMonths, addDays as addDaysUtil, compareDates, isoWeekdayIndex, diffDaysInclusive, toLocalDate, todayISO } from "@/utils/dateOnly";
-import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
+import { ChevronDown, CalendarPlus, Users, CalendarSync, PiggyBank, ArrowLeftRight, UserPlus, ClipboardList, Info, Share2, Copy, Mail, MessageSquare, Check, Wallet, AlertTriangle, HelpCircle, Lock, ArrowDown } from "lucide-react";
 import PlanTutorial, { usePlanTutorial } from "@/components/PlanTutorial";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -480,6 +480,17 @@ const PlanBuilder = () => {
       window.location.href = `mailto:?subject=${subject}&body=${shortBody}`;
     } else {
       window.location.href = fullMailto;
+    }
+  }, [shareUrl, toast]);
+
+  const smsShareUrl = useCallback(() => {
+    const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
+    if (body.length > 1600) {
+      navigator.clipboard.writeText(shareUrl);
+      toast({ description: "Länken har kopierats till urklipp – klistra in den i SMS:et!" });
+      window.location.href = `sms:?body=${encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.")}`;
+    } else {
+      window.location.href = `sms:?body=${body}`;
     }
   }, [shareUrl, toast]);
 
@@ -2156,7 +2167,10 @@ const PlanBuilder = () => {
               <Copy className="h-4 w-4" />Kopiera länk
             </Button>
             <Button variant="outline" className="flex-1 gap-2" onClick={emailShareUrl}>
-              <Mail className="h-4 w-4" />Skicka via e-post
+              <Mail className="h-4 w-4" />E-post
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={smsShareUrl}>
+              <MessageSquare className="h-4 w-4" />SMS
             </Button>
           </div>
         </DialogContent>
