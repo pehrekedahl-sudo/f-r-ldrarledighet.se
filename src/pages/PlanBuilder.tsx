@@ -534,20 +534,29 @@ const PlanBuilder = () => {
   }, [shareUrl, toast]);
 
   const sendViaEmail = useCallback(() => {
+    const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
     const subject = encodeURIComponent("Vår föräldraledighetsplan");
-    const body = encodeURIComponent(`Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`);
+    const body = encodeURIComponent(text);
     const mailtoUrl = `mailto:${shareRecipient}?subject=${subject}&body=${body}`;
+
     try {
-      if (window.top) {
-        window.top.location.href = mailtoUrl;
-      } else {
+      if (window.top === window.self) {
         window.location.href = mailtoUrl;
+      } else {
+        const link = document.createElement("a");
+        link.href = mailtoUrl;
+        link.target = "_top";
+        link.rel = "noopener noreferrer";
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
       }
     } catch {
-      const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
       navigator.clipboard.writeText(text).catch(() => {});
       toast({ description: "Kunde inte öppna e-postklienten. Texten har kopierats — klistra in den i ett mail!" });
     }
+
     setShareDialogOpen(false);
     setShareStep('main');
     setShareRecipient('');
