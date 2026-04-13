@@ -107,7 +107,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
       <!DOCTYPE html>
       <html>
       <head>
-        <title>FK-guide – Föräldrapenning</title>
+        <title>Försäkringskassan-guide – Föräldrapenning</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; color: #1a1a1a; }
@@ -145,7 +145,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
       <DrawerContent className="max-h-[92vh] max-w-2xl mx-auto">
         <DrawerHeader className="text-left">
           <DrawerTitle className="text-xl" style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}>
-            Så här anmäler du till FK – steg för steg
+            Så här anmäler du till Försäkringskassan – steg för steg
           </DrawerTitle>
           <DrawerDescription>
             Ingen API-koppling finns – du anmäler manuellt på Mina sidor. Vi har förberett all information åt dig.
@@ -155,7 +155,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
         <div className="overflow-y-auto px-4 pb-2 flex-1">
           <div ref={printRef} className="space-y-3">
             {/* Hidden print title */}
-            <h1 style={{ display: "none" }}>FK-guide – Föräldrapenning</h1>
+            <h1 style={{ display: "none" }}>Försäkringskassan-guide – Föräldrapenning</h1>
             <p className="subtitle" style={{ display: "none" }}>Anmälningar att registrera på forsakringskassan.se</p>
 
             {/* STEP 1: Login */}
@@ -175,7 +175,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                   onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning", "_blank")}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Öppna FK →
+                  Öppna Försäkringskassan →
                 </Button>
               </div>
             </div>
@@ -188,7 +188,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                   <span className="step-title font-bold text-sm text-foreground">Anmäl tillfällig föräldrapenning (10 dagar)</span>
                 </div>
                 <p className="text-sm text-[#2D3748] pl-10">
-                  {p2Name} har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse. Dessa dagar ligger <strong>utanför</strong> 480-dagarsbudgeten och måste tas ut inom 60 dagar från födseln. De anmäls separat hos FK under "Tillfällig föräldrapenning".
+                  {p2Name} har rätt till 10 dagars tillfällig föräldrapenning i samband med barnets födelse. Dessa dagar ligger <strong>utanför</strong> 480-dagarsbudgeten och måste tas ut inom 60 dagar från födseln. De anmäls separat hos Försäkringskassan under "Tillfällig föräldrapenning".
                 </p>
                 <div className="pl-10 no-print">
                   <Button
@@ -198,7 +198,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                     onClick={() => window.open("https://www.forsakringskassan.se/privatperson/foralder/tillfällig-föräldrapenning", "_blank")}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Läs mer hos FK →
+                    Läs mer hos Försäkringskassan →
                   </Button>
                 </div>
               </div>
@@ -234,7 +234,7 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
                     {step.isOverlap && (
                       <div className="mt-2 rounded-md bg-white/70 border border-[#E8B89A] p-2.5 text-xs text-[#2D3748] space-y-1">
                         <p className="font-semibold">🔄 Dubbeldag – båda föräldrarna anmäler samma period var för sig</p>
-                        <p>Dubbeldagar anmäls som två separata perioder på Mina sidor – en per förälder. Varje förälder loggar in på sitt eget konto och anmäler perioden med samma startdatum, slutdatum och uttag. Det ser ut som överlappande perioder, men det är korrekt – FK kopplar ihop dem automatiskt.</p>
+                        <p>Dubbeldagar anmäls som två separata perioder på Mina sidor – en per förälder. Varje förälder loggar in på sitt eget konto och anmäler perioden med samma startdatum, slutdatum och uttag. Det ser ut som överlappande perioder, men det är korrekt – Försäkringskassan kopplar ihop dem automatiskt.</p>
                       </div>
                     )}
                     <div className="mt-2 no-print">

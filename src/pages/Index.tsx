@@ -39,7 +39,7 @@ const Index = () => {
           Planera er föräldraledighet utan&nbsp;Excel‑kaos
         </h1>
         <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-          480 dagar. Två föräldrar. SGI-tak, lägstanivådagar, reserverade dagar, 
+          480 dagar. SGI-tak, lägstanivådagar, reserverade dagar, 
           fyraårsregel och en ansökan till arbetsgivaren som helst ska in två månader innan. 
           Ingen normal människa håller koll på allt det där — så vi byggde ett verktyg som gör det åt er.
         </p>

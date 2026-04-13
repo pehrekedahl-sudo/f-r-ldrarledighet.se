@@ -343,7 +343,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
               <div className="space-y-2">
                 <Label className="text-base">Förälder 1</Label>
                 <Input className="text-lg h-12" placeholder="Förnamn (t.ex. du som fyller i detta)" value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} autoFocus />
-                <p className="text-sm text-muted-foreground">Förälder 1 planerar sina dagar först i nästa steg</p>
+                <p className="text-sm text-muted-foreground">Förälder 1 är den som börjar föräldraledigheten</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-base">Förälder 2</Label>
@@ -425,7 +425,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 <details className="text-sm text-muted-foreground mt-1">
                   <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
-                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos FK i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
+                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos Försäkringskassan i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
                   <a href="https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på Försäkringskassan →</a>
                 </details>
               </div>
@@ -438,7 +438,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 </div>
                 <details className="text-sm text-muted-foreground mt-1">
                   <summary className="cursor-pointer hover:text-foreground transition-colors">Vad innebär detta?</summary>
-                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos FK i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
+                  <p className="mt-2 pl-1 leading-relaxed">För att få föräldrapenning på sjukpenningnivå (~80 % av lönen, upp till SGI-taket) behöver du ha haft en registrerad inkomst hos Försäkringskassan i minst 240 dagar i rad innan barnet föds. Har du det klarar du kravet. Saknar du det får du istället lägstanivå: 180 kr/dag. De flesta som jobbat heltid i över ett år uppfyller kravet automatiskt.</p>
                   <a href="https://www.forsakringskassan.se/privatperson/foralder/foraldrapenning" target="_blank" rel="noopener noreferrer" className="inline-block mt-1 pl-1 text-primary hover:underline">Läs mer på Försäkringskassan →</a>
                 </details>
               </div>
@@ -533,7 +533,7 @@ const OnboardingWizard = ({ onComplete }: Props) => {
                 <p className="font-medium">Tänk på:</p>
                 <ul className="list-disc pl-4 space-y-1">
                   <li>Det här är bara ett startförslag – du kan justera startdatum, slut­datum och överlapp direkt i Min Plan efteråt.</li>
-                  <li>FK räknar i föräldradagar (måndag–fredag), inte kalenderdagar. 6 månader heltid ≈ 130 dagar.</li>
+                  <li>Försäkringskassan räknar i föräldradagar (måndag–fredag), inte kalenderdagar. 6 månader heltid ≈ 130 dagar.</li>
                   <li>Du kan ta ut föräldrapenning ända tills barnet fyller 12 år, men de flesta tar ut det mesta under de första 2 åren.</li>
                 </ul>
                 <Link to="/foraldraledighet-101" className="inline-block text-primary hover:underline text-sm">Lär dig mer om hur dagar fungerar →</Link>
@@ -666,8 +666,8 @@ const OnboardingWizard = ({ onComplete }: Props) => {
             <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm space-y-1.5">
               {hasIncome && (
                 <div className="space-y-0.5">
-                  <p className="font-medium">{parent1Name || "Förälder 1"}: ~{Math.round(computeBlockMonthlyBenefit(inc1Num, daysPerWeek1)).toLocaleString("sv-SE")} kr/mån från FK</p>
-                  <p className="font-medium">{parent2Name || "Förälder 2"}: ~{Math.round(computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)).toLocaleString("sv-SE")} kr/mån från FK</p>
+                  <p className="font-medium">{parent1Name || "Förälder 1"}: ~{Math.round(computeBlockMonthlyBenefit(inc1Num, daysPerWeek1)).toLocaleString("sv-SE")} kr/mån från Försäkringskassan</p>
+                  <p className="font-medium">{parent2Name || "Förälder 2"}: ~{Math.round(computeBlockMonthlyBenefit(inc2Num, daysPerWeek2)).toLocaleString("sv-SE")} kr/mån från Försäkringskassan</p>
                 </div>
               )}
               <p className="text-muted-foreground text-center">
