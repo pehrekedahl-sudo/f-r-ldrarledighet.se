@@ -533,17 +533,24 @@ const PlanBuilder = () => {
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl, toast]);
 
-  const copyForEmail = useCallback(() => {
-    const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
-    navigator.clipboard.writeText(text).catch(() => {});
-    toast({ description: "Text kopierad – klistra in i ett e-postmeddelande!" });
-  }, [shareUrl, toast]);
+  const sendViaEmail = useCallback(() => {
+    const subject = encodeURIComponent("Vår föräldraledighetsplan");
+    const body = encodeURIComponent(`Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`);
+    window.open(`mailto:${shareRecipient}?subject=${subject}&body=${body}`, "_blank");
+    setShareDialogOpen(false);
+    setShareStep('main');
+    setShareRecipient('');
+  }, [shareUrl, shareRecipient]);
 
-  const copyForSms = useCallback(() => {
-    const text = `Kolla in vår föräldraledighetsplan: ${shareUrl}`;
-    navigator.clipboard.writeText(text).catch(() => {});
-    toast({ description: "Text kopierad – klistra in i ett SMS!" });
-  }, [shareUrl, toast]);
+  const sendViaSms = useCallback(() => {
+    const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const sep = isIOS ? "&" : "?";
+    window.open(`sms:${shareRecipient}${sep}body=${body}`, "_blank");
+    setShareDialogOpen(false);
+    setShareStep('main');
+    setShareRecipient('');
+  }, [shareUrl, shareRecipient]);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
   const addDoubleDays = () => {
