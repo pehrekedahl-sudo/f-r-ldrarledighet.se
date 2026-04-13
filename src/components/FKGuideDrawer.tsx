@@ -258,34 +258,121 @@ export default function FKGuideDrawer({ open, onOpenChange, blocks, parents }: F
       const periods = pSteps.length;
       const startD = pSteps.length ? pSteps[0].startDate : "–";
       const endD = pSteps.length ? pSteps[pSteps.length - 1].endDate : "–";
-      return `<tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:600">${p.name}</td><td style="padding:6px 12px;border:1px solid #ddd">${periods} perioder</td><td style="padding:6px 12px;border:1px solid #ddd">${startD} – ${endD}</td></tr>`;
+      return `<tr><td>${p.name}</td><td>${periods} perioder</td><td>${startD} – ${endD}</td></tr>`;
     }).join("");
 
-    printWindow.document.write(`
-      <!DOCTYPE html><html><head>
-        <title>Försäkringskassan-guide – Föräldrapenning</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; color: #1a1a1a; }
-          h1 { font-size: 20px; margin-bottom: 4px; }
-          .subtitle { font-size: 13px; color: #666; margin-bottom: 16px; }
-          table { border-collapse: collapse; margin-bottom: 24px; width: 100%; }
-          th { text-align: left; padding: 6px 12px; border: 1px solid #ddd; background: #f5f5f5; font-size: 13px; }
-          .checklist-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid #eee; }
-          .checkbox-print { width: 16px; height: 16px; border: 2px solid #999; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
-          .parent-header { font-weight: 700; font-size: 15px; margin-top: 20px; margin-bottom: 8px; padding-left: 4px; }
-          .parent-header-p1 { border-left: 3px solid #4A9B8E; padding-left: 8px; }
-          .parent-header-p2 { border-left: 3px solid #E8735A; padding-left: 8px; }
-          .period-detail { color: #555; font-family: monospace; font-size: 12px; }
-          @media print { body { padding: 16px; } }
-        </style>
-      </head><body>
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <title>Försäkringskassan-guide – Föräldrapenning</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'DM Sans', system-ui, sans-serif; padding: 32px; color: #1a1a1a; font-size: 13px; }
+
+        /* Summary table */
+        .summary { margin-bottom: 24px; }
+        .summary h1 { font-size: 18px; margin-bottom: 2px; }
+        .summary p { font-size: 12px; color: #666; margin-bottom: 12px; }
+        .summary table { border-collapse: collapse; width: 100%; }
+        .summary th, .summary td { text-align: left; padding: 6px 12px; border: 1px solid #ddd; font-size: 12px; }
+        .summary th { background: #f5f5f5; font-weight: 600; }
+        .summary td:first-child { font-weight: 600; }
+
+        /* Hide interactive elements */
+        .no-print, button, [data-state] { display: none !important; }
+
+        /* Show print checkboxes */
+        .checkbox-print { display: block !important; width: 14px; height: 14px; border: 2px solid #999; border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+
+        /* Step cards */
+        .step-card { border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; page-break-inside: avoid; }
+
+        /* Card backgrounds */
+        .bg-\\[\\#F5EDD8\\] { background: #F5EDD8; }
+        .bg-\\[\\#F5EDD8\\]\\/60 { background: rgba(245, 237, 216, 0.6); }
+        .bg-\\[\\#E8F5E9\\] { background: #E8F5E9; }
+        .bg-red-50 { background: #fef2f2; }
+
+        /* Flexbox */
+        .flex { display: flex; }
+        .flex-1 { flex: 1; }
+        .items-start { align-items: flex-start; }
+        .items-center { align-items: center; }
+        .gap-1\\.5 { gap: 6px; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+        .flex-wrap { flex-wrap: wrap; }
+
+        /* Spacing */
+        .space-y-1 > * + * { margin-top: 4px; }
+        .space-y-2 > * + * { margin-top: 8px; }
+        .space-y-3 > * + * { margin-top: 12px; }
+        .pt-1 { padding-top: 4px; }
+        .pt-2 { padding-top: 8px; }
+        .mt-1 { margin-top: 4px; }
+        .p-2\\.5 { padding: 10px; }
+        .px-3 { padding-left: 12px; padding-right: 12px; }
+        .py-2 { padding-top: 8px; padding-bottom: 8px; }
+        .px-1\\.5 { padding-left: 6px; padding-right: 6px; }
+        .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
+
+        /* Typography */
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .font-medium { font-weight: 500; }
+        .text-xs { font-size: 11px; }
+        .text-sm { font-size: 13px; }
+        .text-\\[10px\\] { font-size: 10px; }
+
+        /* Colors */
+        .text-foreground { color: #1a1a1a; }
+        .text-muted-foreground { color: #717985; }
+        .text-\\[\\#2D3748\\] { color: #2D3748; }
+        .text-amber-700 { color: #b45309; }
+        .text-red-700 { color: #b91c1c; }
+        .text-white { color: #fff; }
+        .text-border { color: #ddd; }
+
+        /* Badges */
+        .bg-emerald-600 { background: #059669; }
+        .bg-amber-500 { background: #f59e0b; }
+        .bg-red-500 { background: #ef4444; }
+        .rounded { border-radius: 4px; }
+
+        /* Detail box */
+        .rounded-lg { border-radius: 8px; }
+        .rounded-md { border-radius: 6px; }
+        .border { border: 1px solid #e5e7eb; }
+        .border-border { border-color: #e5e7eb; }
+        .border-\\[\\#E8B89A\\] { border-color: #E8B89A; }
+        .border-l-\\[3px\\] { border-left-width: 3px; }
+        .bg-white { background: #fff; }
+        .bg-white\\/70 { background: rgba(255,255,255,0.7); }
+
+        /* Dot */
+        .w-3 { width: 12px; }
+        .h-3 { height: 12px; }
+        .rounded-full { border-radius: 50%; }
+
+        /* Strikethrough */
+        .line-through { text-decoration: line-through; }
+        .opacity-75 { opacity: 0.75; }
+        .opacity-85 { opacity: 0.85; }
+        .shrink-0 { flex-shrink: 0; }
+
+        @media print {
+          body { padding: 16px; }
+          .step-card { break-inside: avoid; }
+        }
+      </style>
+    </head><body>
+      <div class="summary">
         <h1>Försäkringskassan-guide – Föräldrapenning</h1>
-        <p class="subtitle">Checklista för anmälan på forsakringskassan.se</p>
+        <p>Checklista för anmälan på forsakringskassan.se</p>
         <table><thead><tr><th>Förälder</th><th>Perioder</th><th>Tidsram</th></tr></thead><tbody>${summaryRows}</tbody></table>
-        ${content.innerHTML}
-      </body></html>
-    `);
+      </div>
+      ${content.innerHTML}
+    </body></html>`);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 300);
