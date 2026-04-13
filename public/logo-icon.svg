@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 40" fill="none">
-  <rect x="4" y="2" width="32" height="14" rx="7" fill="#4A9B7F"/>
-  <rect x="16" y="22" width="32" height="14" rx="7" fill="#C8614A"/>
-  <rect x="16" y="2" width="20" height="14" rx="7" fill="#8B3A25" opacity="0.20"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32" fill="none">
+  <rect x="0" y="0" width="52" height="14" rx="7" fill="#4A9B7F"/>
+  <rect x="12" y="18" width="52" height="14" rx="7" fill="#C8614A"/>
+  <clipPath id="c"><rect x="0" y="0" width="52" height="14" rx="7"/></clipPath>
+  <rect x="12" y="0" width="36" height="14" fill="#8B3A25" opacity="0.20" clip-path="url(#c)"/>
 </svg>
