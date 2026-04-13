@@ -1,24 +1,38 @@
 
+Plan: gör delningen kort, begriplig och stabil
 
-## Plan: Fixa e-post- och SMS-delning
+Problemet nu:
+- `mailto:`/`sms:` beter sig dåligt i preview/iframe, därför får du blockerad Gmail-flik.
+- Nuvarande `?plan=<base64>` gör länken för lång och ful, så SMS-fallbacken tappar själva länken.
+- “Dela via app…” är otydlig och ska bort.
 
-### Problem
-1. **E-post**: `window.location.href = "mailto:..."` navigerar bort från appen i preview-miljön, och Gmail avvisar anslutningen (skärmbilden visar "mail.google.com avvisade anslutningen").
-2. **SMS**: URL:en är alltid för lång, så fallback-texten visas utan den faktiska länken — användaren får bara "Länken har kopierats till urklipp" men urklipp fungerar inte alltid pålitligt.
+Det jag vill bygga:
+1. Byta från Base64-delning i URL till en kort delningslänk via backend, t.ex. `.../plan-builder?share=abc123xyz`.
+2. Ta bort knappen “Dela via app…”.
+3. Göra delningsdialogen copy-first:
+   - `Kopiera länk` som primär knapp
+   - `Kopiera för e-post`
+   - `Kopiera för SMS`
+   Dessa kopierar färdig text med den korta länken i stället för att försöka öppna Gmail/Messages direkt.
+4. Låta `PlanBuilder` läsa `share`-parametern från backend, men behålla stöd för gamla `plan=`-länkar så tidigare delningar fortsätter fungera.
+5. Visa en tydlig rad i dialogen om att alla med länken kan se den delade planen.
 
-### Lösning
+Tekniska detaljer:
+- Ny separat tabell för delningar, inte i `saved_plans`, så privata sparade planer inte behöver öppnas publikt.
+- Tabellen innehåller ungefär: `owner_user_id`, `share_slug`, `plan_data`, `is_active`, timestamps.
+- Ägaren får skapa/uppdatera sin egen delningspost via RLS.
+- Publik läsning sker via en liten säker backendfunktion som hämtar exakt en plan via slug, så vi inte öppnar upp listning av alla delade planer.
+- `sharePlan()` i `src/pages/PlanBuilder.tsx` blir asynkron och skapar/uppdaterar en snapshot i backend i stället för att skriva Base64 till adressfältet.
+- Nuvarande `setSearchParams({ plan: ... })` tas bort så URL:en inte blir förstörd bara för att man öppnar delningsdialogen.
+- Delningslänken byggs mot den publika app-URL:en när appen körs i preview, så man inte råkar skicka en editor-/preview-länk.
 
-Byt strategi helt — använd **Web Share API** som primär delningsmetod (fungerar nativt på mobil med e-post, SMS, WhatsApp etc.), med `window.open(mailto, "_blank")` som fallback på desktop.
+Berörda delar:
+- `src/pages/PlanBuilder.tsx` — ny share-flow, ny dialog-UI, laddning av `share`-param, bort med “Dela via app…”
+- ny migration för delningstabell + policies + säker läsfunktion
+- ev. liten helper för publik base URL
 
-### Tekniska ändringar
-
-**`src/pages/PlanBuilder.tsx`**:
-
-1. **Lägg till en primär "Dela"-knapp** som använder `navigator.share()` om tillgängligt (mobil). Delar `shareUrl` som URL + titel.
-
-2. **E-post-fallback**: Byt `window.location.href` → `window.open(mailtoUrl, "_blank")` så appen inte navigeras bort. Behåll clipboard-fallback för långa URL:er.
-
-3. **SMS-fallback**: Samma fix — `window.open(smsUrl, "_blank")`. Hantera plattformsskillnader i SMS-URI (`sms:?body=` för Android, `sms:&body=` för iOS).
-
-4. **UI**: Visa "Dela" (native share) som primärknapp om `navigator.share` finns. Visa E-post/SMS som sekundära alternativ.
-
+Förväntat resultat:
+- inga blockerade Gmail-flikar
+- inga SMS som bara säger att länken är kopierad
+- kortare och begripligare länk
+- enklare och tydligare delningsdialog
