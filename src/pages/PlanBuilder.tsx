@@ -447,72 +447,67 @@ const PlanBuilder = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
-  const sharePlan = useCallback(() => {
-    const payload = { blocks, transfer, dueDate, months1, months2, parents };
-    const encoded = btoa(JSON.stringify(payload));
-    setSearchParams({ plan: encoded }, { replace: true });
-    const url = `${window.location.origin}${window.location.pathname}?plan=${encoded}`;
-    setShareUrl(url);
+  const PUBLISHED_ORIGIN = "https://planeraforaldraledighet.lovable.app";
+
+  const sharePlan = useCallback(async () => {
+    setShareLoading(true);
     setCopied(false);
-    setShareDialogOpen(true);
-  }, [blocks, transfer, dueDate, months1, months2, parents, setSearchParams]);
+    try {
+      const payload = { blocks, transfer, dueDate, months1, months2, parents };
+      // Generate a short slug
+      const slug = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+
+      // Check if user already has a shared plan, update it
+      const { data: existing } = await supabase
+        .from("shared_plans")
+        .select("id, share_slug")
+        .eq("owner_user_id", user!.id)
+        .limit(1)
+        .maybeSingle();
+
+      let finalSlug = slug;
+      if (existing) {
+        finalSlug = existing.share_slug;
+        await supabase
+          .from("shared_plans")
+          .update({ plan_data: payload as any, is_active: true })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("shared_plans")
+          .insert({ owner_user_id: user!.id, share_slug: slug, plan_data: payload as any });
+      }
+
+      const url = `${PUBLISHED_ORIGIN}/plan-builder?share=${finalSlug}`;
+      setShareUrl(url);
+      setShareDialogOpen(true);
+    } catch (err) {
+      console.error("Share error", err);
+      toast({ title: "Fel", description: "Kunde inte skapa delningslänk.", variant: "destructive" });
+    } finally {
+      setShareLoading(false);
+    }
+  }, [blocks, transfer, dueDate, months1, months2, parents, user, toast]);
 
   const copyShareUrl = useCallback(() => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(shareUrl).catch(() => {});
     setCopied(true);
     toast({ description: "Länk kopierad!" });
     setTimeout(() => setCopied(false), 2000);
   }, [shareUrl, toast]);
 
-  const nativeShare = useCallback(async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Min föräldraledighetsplan",
-          text: "Kolla in vår föräldraledighetsplan!",
-          url: shareUrl,
-        });
-        return;
-      } catch (e) {
-        // User cancelled or share failed — fall through
-      }
-    }
-    copyShareUrl();
-  }, [shareUrl, copyShareUrl]);
-
-  const emailShareUrl = useCallback(() => {
-    const subject = encodeURIComponent("Min föräldraledighetsplan");
-    const mailtoLimit = 1800;
-    const fullBody = encodeURIComponent(`Kolla in vår plan:\n${shareUrl}`);
-    const fullMailto = `mailto:?subject=${subject}&body=${fullBody}`;
-
-    if (fullMailto.length > mailtoLimit) {
-      navigator.clipboard.writeText(shareUrl).catch(() => {});
-      const shortBody = encodeURIComponent(
-        "Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den här."
-      );
-      toast({ description: "Länken är för lång för e-post – den har kopierats till urklipp. Klistra in den i mailet!" });
-      window.open(`mailto:?subject=${subject}&body=${shortBody}`, "_blank");
-    } else {
-      window.open(fullMailto, "_blank");
-    }
+  const copyForEmail = useCallback(() => {
+    const text = `Hej!\n\nKolla in vår föräldraledighetsplan:\n${shareUrl}\n\nMvh`;
+    navigator.clipboard.writeText(text).catch(() => {});
+    toast({ description: "Text kopierad – klistra in i ett e-postmeddelande!" });
   }, [shareUrl, toast]);
 
-  const smsShareUrl = useCallback(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const separator = isIOS ? "&" : "?";
-    const body = encodeURIComponent(`Kolla in vår föräldraledighetsplan: ${shareUrl}`);
-    const fullSms = `sms:${separator}body=${body}`;
-
-    if (fullSms.length > 1600) {
-      navigator.clipboard.writeText(shareUrl).catch(() => {});
-      toast({ description: "Länken har kopierats till urklipp – klistra in den i SMS:et!" });
-      const shortBody = encodeURIComponent("Kolla in vår föräldraledighetsplan! Länken har kopierats till urklipp – klistra in den i meddelandet.");
-      window.open(`sms:${separator}body=${shortBody}`, "_blank");
-    } else {
-      window.open(fullSms, "_blank");
-    }
+  const copyForSms = useCallback(() => {
+    const text = `Kolla in vår föräldraledighetsplan: ${shareUrl}`;
+    navigator.clipboard.writeText(text).catch(() => {});
+    toast({ description: "Text kopierad – klistra in i ett SMS!" });
   }, [shareUrl, toast]);
 
   const addBlock = () => setBlocks((prev) => [...prev, makeBlock()]);
