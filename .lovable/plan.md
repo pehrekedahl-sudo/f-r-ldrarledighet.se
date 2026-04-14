@@ -1,26 +1,27 @@
 
 
-## Problem
+## Beta-signalering på landningssidan och i plan-buildern
 
-När kupongkoden **GRATIS100** (100 % rabatt) används blir checkout-summan 0 kr. Stripe skapar då inget `payment_intent`, så `session.payment_intent` är `null`. Webhookens insert misslyckas eftersom kolumnen `stripe_payment_id` har `NOT NULL`-constraint. Användaren får aldrig en rad i `purchases` och låses därför ute.
+### Approach
+Två subtila, tech-iga beta-badges:
 
-**LANSERING50** fungerar redan — användaren betalar ett reducerat belopp, `payment_intent` finns, och raden skapas korrekt.
+1. **Landningssidan (Index.tsx)** — En liten `BETA`-badge i hero-sektionen, placerad direkt under rubriken eller bredvid undertexten. Stilmässigt: en pill/badge med monospace-font, tunn border, halvtransparent bakgrund — typ `font-mono text-[10px] uppercase tracking-widest border rounded-full px-2 py-0.5` i en dämpad accentfärg.
 
-## Lösning
+2. **Plan-buildern (PlanBuilder.tsx)** — Samma badge-stil, placerad i sidans header-area (t.ex. bredvid "Min Plan"-titeln eller i toolbar-raden). Eventuellt med en kort tooltip som förklarar att verktyget är i beta.
 
-En ändring i **`supabase/functions/stripe-webhook/index.ts`** (rad 42):
-
-Byt:
-```typescript
-stripe_payment_id: session.payment_intent as string,
+### Visuell stil
+```text
+┌──────────────────────┐
+│  β  BETA             │  ← pill-badge, monospace
+└──────────────────────┘
 ```
-till:
-```typescript
-stripe_payment_id: (session.payment_intent as string) || session.id,
-```
+- Monospace-font, versaler, extra letter-spacing
+- Halvtransparent primärfärg som bakgrund (`bg-primary/10 text-primary border-primary/20`)
+- Liten storlek, icke-störande
 
-`session.id` (t.ex. `cs_live_...`) är alltid tillgängligt och unikt — det fungerar som fallback-identifierare när ingen betalning sker.
+### Filer att ändra
+- **`src/pages/Index.tsx`** — Lägg till beta-badge i hero-sektionen, under `<h1>`
+- **`src/pages/PlanBuilder.tsx`** — Lägg till beta-badge i header/toolbar-området
 
-### Fil att ändra
-`supabase/functions/stripe-webhook/index.ts` — en rad.
+Totalt ca 5-10 rader per fil.
 
