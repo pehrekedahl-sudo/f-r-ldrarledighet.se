@@ -426,11 +426,18 @@ const PlanBuilder = () => {
       return;
     }
 
-    // Not logged in → show gate (login / create new)
+    // Not logged in → try localStorage first, only show gate if no plan found
     if (!user) {
+      const restoredLocal = loadFromAnySource();
+      if (restoredLocal) {
+        console.log("[PlanBuilder] redirect decision", {
+          decision: "restored-from-local-no-auth",
+        });
+        return;
+      }
       console.log("[PlanBuilder] redirect decision", {
         decision: "show-auth-gate",
-        reason: "no authenticated user",
+        reason: "no authenticated user and no local plan",
       });
       setNoSavedPlan(true);
       return;
