@@ -1,27 +1,27 @@
 
 
-## Plan: Förbättra konvertering från startsidan till wizarden
+## Fix: Ny användare fastnar i gate-vy efter wizard
 
-Enbart ändringar i `src/pages/Index.tsx`.
+### Problem
+I `PlanBuilder.tsx` rad 429-436 visas gate-vyn ("Logga in / Skapa ny plan") för **alla** ej inloggade användare, utan att först kontrollera om det finns en plan i localStorage. En användare som precis fyllt i wizarden har sin plan sparad i localStorage men möts ändå av gaten.
 
-### Ändringar
+### Lösning
+Ändra logiken (rad 429-447) så att `loadFromAnySource()` körs **före** gate-beslutet för ej inloggade användare:
 
-**A. Skarpare hero-copy**
-- Undertext: korta ner, fokusera på utfall — *"Svara på fem frågor — få en komplett plan med datum, belopp och hur ni maximerar era dagar."*
-- CTA-knapp: **"Skapa er plan — tar 5 min"**
-- Liten text under: *"Gratis. Inget konto krävs."*
+```
+// Inte inloggad — försök ladda från localStorage först
+if (!user) {
+  const restored = loadFromAnySource();
+  if (!restored) {
+    // Ingen plan i localStorage → visa gate
+    setNoSavedPlan(true);
+  }
+  return;
+}
+```
 
-**B. Tidslinje-mockupen blir klickbar**
-- Wrappa i `<Link to="/wizard">` med hover-effekt (`group-hover:shadow-lg`)
-- Rubrik: **"Så kan er plan se ut — klicka för att börja"**
+Om planen finns i localStorage laddas den direkt. Gate-vyn visas bara om det verkligen saknas en plan — d.v.s. användaren navigerat direkt till `/plan-builder` utan att gå via wizarden.
 
-**C. Testimonial-citat**
-- Ersätt social proof-raden med ett citat, t.ex.:
-  > *"Vi hade ingen aning om hur vi skulle fördela dagarna. På fem minuter hade vi en plan som funkade för oss båda."* — Lisa & Erik
-
-**D. Sticky mobilknapp**
-- `fixed bottom-0` CTA på mobil (`md:hidden`): "Skapa er plan — tar 5 min"
-
-**E. Ta bort redundant CTA-sektion ("Redo att planera?")**
-- Ersätts av klickbar tidslinje + sticky-knapp
+### Fil att ändra
+`src/pages/PlanBuilder.tsx` — ca 10 rader i redirect-effekten.
 
