@@ -39,7 +39,7 @@ serve(async (req) => {
 
     const { error } = await supabaseAdmin.from("purchases").insert({
       user_id: userId,
-      stripe_payment_id: session.payment_intent as string,
+      stripe_payment_id: (session.payment_intent as string) || session.id,
       price_id: "price_1TLTo0ELaDuVlblyEEYi1mv1",
     });
 
