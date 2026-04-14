@@ -491,7 +491,7 @@ const PlanBuilder = () => {
   const [shareStep, setShareStep] = useState<'main' | 'email' | 'sms'>('main');
   const [shareRecipient, setShareRecipient] = useState("");
 
-  const PUBLISHED_ORIGIN = "https://planeraforaldraledighet.lovable.app";
+  const PUBLISHED_ORIGIN = "https://planeraforaldraledighet.se";
 
   const sharePlan = useCallback(async () => {
     setShareLoading(true);
