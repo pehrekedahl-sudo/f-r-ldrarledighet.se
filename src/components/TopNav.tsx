@@ -30,7 +30,7 @@ const TopNav = () => {
           <div className="flex flex-col" style={{ gap: 0, lineHeight: 1.15 }}>
             <div className="flex items-baseline gap-1.5">
               <span style={{ fontSize: 16, fontWeight: 700, color: '#12201A', letterSpacing: '-0.01em' }}>Planera</span>
-              <span className="font-mono uppercase text-muted-foreground/50" style={{ fontSize: 9, letterSpacing: '0.08em' }}>beta</span>
+              <span className="font-mono uppercase rounded-full px-1.5 py-px border" style={{ fontSize: 9, letterSpacing: '0.08em', lineHeight: '16px', color: '#4A9B8E', borderColor: 'rgba(74,155,142,0.25)', backgroundColor: 'rgba(74,155,142,0.08)' }}>beta</span>
             </div>
             <span style={{ fontSize: 16, fontWeight: 300, color: '#9BA8A2', letterSpacing: '-0.01em' }}>föräldraledighet</span>
           </div>
