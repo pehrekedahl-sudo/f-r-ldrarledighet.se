@@ -1,27 +1,26 @@
 
 
-## Fix: Ny användare fastnar i gate-vy efter wizard
+## Problem
 
-### Problem
-I `PlanBuilder.tsx` rad 429-436 visas gate-vyn ("Logga in / Skapa ny plan") för **alla** ej inloggade användare, utan att först kontrollera om det finns en plan i localStorage. En användare som precis fyllt i wizarden har sin plan sparad i localStorage men möts ändå av gaten.
+När kupongkoden **GRATIS100** (100 % rabatt) används blir checkout-summan 0 kr. Stripe skapar då inget `payment_intent`, så `session.payment_intent` är `null`. Webhookens insert misslyckas eftersom kolumnen `stripe_payment_id` har `NOT NULL`-constraint. Användaren får aldrig en rad i `purchases` och låses därför ute.
 
-### Lösning
-Ändra logiken (rad 429-447) så att `loadFromAnySource()` körs **före** gate-beslutet för ej inloggade användare:
+**LANSERING50** fungerar redan — användaren betalar ett reducerat belopp, `payment_intent` finns, och raden skapas korrekt.
 
+## Lösning
+
+En ändring i **`supabase/functions/stripe-webhook/index.ts`** (rad 42):
+
+Byt:
+```typescript
+stripe_payment_id: session.payment_intent as string,
 ```
-// Inte inloggad — försök ladda från localStorage först
-if (!user) {
-  const restored = loadFromAnySource();
-  if (!restored) {
-    // Ingen plan i localStorage → visa gate
-    setNoSavedPlan(true);
-  }
-  return;
-}
+till:
+```typescript
+stripe_payment_id: (session.payment_intent as string) || session.id,
 ```
 
-Om planen finns i localStorage laddas den direkt. Gate-vyn visas bara om det verkligen saknas en plan — d.v.s. användaren navigerat direkt till `/plan-builder` utan att gå via wizarden.
+`session.id` (t.ex. `cs_live_...`) är alltid tillgängligt och unikt — det fungerar som fallback-identifierare när ingen betalning sker.
 
 ### Fil att ändra
-`src/pages/PlanBuilder.tsx` — ca 10 rader i redirect-effekten.
+`supabase/functions/stripe-webhook/index.ts` — en rad.
 
