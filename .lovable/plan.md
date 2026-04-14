@@ -1,26 +1,23 @@
 
 
-## Problem
+## Lägg till subtil färg på beta-badge i TopNav
 
-När kupongkoden **GRATIS100** (100 % rabatt) används blir checkout-summan 0 kr. Stripe skapar då inget `payment_intent`, så `session.payment_intent` är `null`. Webhookens insert misslyckas eftersom kolumnen `stripe_payment_id` har `NOT NULL`-constraint. Användaren får aldrig en rad i `purchases` och låses därför ute.
+Ändra beta-badgens styling i `src/components/TopNav.tsx` så att den får en svag jade-grön bakgrund och border som knyter an till varumärkets färgpalett, vilket skiljer den visuellt från logotyp-texten.
 
-**LANSERING50** fungerar redan — användaren betalar ett reducerat belopp, `payment_intent` finns, och raden skapas korrekt.
+### Ändring
 
-## Lösning
+I `src/components/TopNav.tsx`, uppdatera beta-spanens klasser:
 
-En ändring i **`supabase/functions/stripe-webhook/index.ts`** (rad 42):
-
-Byt:
-```typescript
-stripe_payment_id: session.payment_intent as string,
+Från:
 ```
-till:
-```typescript
-stripe_payment_id: (session.payment_intent as string) || session.id,
+font-mono uppercase text-muted-foreground/50 border border-muted-foreground/20 rounded-full px-1.5 py-px
 ```
 
-`session.id` (t.ex. `cs_live_...`) är alltid tillgängligt och unikt — det fungerar som fallback-identifierare när ingen betalning sker.
+Till:
+```
+font-mono uppercase rounded-full px-1.5 py-px border
+```
+med inline style-färger som matchar jade-tonen: `color: #4A9B8E` (ca 50% opacity), `borderColor: rgba(74,155,142,0.25)`, `backgroundColor: rgba(74,155,142,0.08)`.
 
-### Fil att ändra
-`supabase/functions/stripe-webhook/index.ts` — en rad.
+**Fil:** `src/components/TopNav.tsx` — en rad.
 
