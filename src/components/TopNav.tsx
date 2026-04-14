@@ -27,12 +27,13 @@ const TopNav = () => {
       <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo-icon.svg" alt="" className="h-7 w-auto" />
-          <div className="flex flex-col" style={{ gap: 0, lineHeight: 1.15 }}>
-            <div className="flex items-baseline gap-1.5">
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#12201A', letterSpacing: '-0.01em' }}>Planera</span>
-              <span className="font-mono uppercase text-muted-foreground/50" style={{ fontSize: 9, letterSpacing: '0.08em' }}>beta</span>
-            </div>
+          <div className="relative flex flex-col" style={{ gap: 0, lineHeight: 1.15 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#12201A', letterSpacing: '-0.01em' }}>Planera</span>
             <span style={{ fontSize: 16, fontWeight: 300, color: '#9BA8A2', letterSpacing: '-0.01em' }}>föräldraledighet</span>
+            <span
+              className="absolute font-mono uppercase text-primary/30 select-none pointer-events-none"
+              style={{ fontSize: 8, letterSpacing: '0.12em', top: 1, right: -28 }}
+            >beta</span>
           </div>
         </Link>
 
