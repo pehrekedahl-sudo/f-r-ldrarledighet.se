@@ -32,7 +32,7 @@ const TopNav = () => {
             <span style={{ fontSize: 16, fontWeight: 300, color: '#9BA8A2', letterSpacing: '-0.01em' }}>föräldraledighet</span>
             <span
               className="absolute font-mono uppercase text-primary/30 select-none pointer-events-none"
-              style={{ fontSize: 8, letterSpacing: '0.12em', top: 1, right: -28 }}
+              style={{ fontSize: 8, letterSpacing: '0.12em', top: 13, right: -28 }}
             >beta</span>
           </div>
         </Link>
