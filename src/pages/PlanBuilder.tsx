@@ -1399,7 +1399,10 @@ const PlanBuilder = () => {
             <section id="plan-hero" className="rounded-xl border-2 border-border bg-gradient-to-r from-[#edf7f5]/80 to-[#fdf0ec]/80 shadow-sm px-4 py-4 sm:px-6 sm:py-5 mt-4 space-y-3">
               {/* Row 1: Title + help */}
               <div className="flex items-center justify-between gap-3">
-                <h1 className="text-base font-semibold text-foreground truncate min-w-0">{planTitle}</h1>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-base font-semibold text-foreground truncate min-w-0">{planTitle}</h1>
+                  <span className="font-mono text-[9px] uppercase tracking-widest border rounded-full px-2 py-0.5 bg-primary/10 border-primary/20 text-primary flex-shrink-0" title="Verktyget är i tidig betaversion">β beta</span>
+                </div>
                 <Button variant="ghost" size="sm" className="text-xs h-7 w-7 p-0 text-muted-foreground flex-shrink-0" onClick={() => setShowTutorial(true)} title="Visa guide"><HelpCircle className="h-3.5 w-3.5" /></Button>
               </div>
 

@@ -32,12 +32,17 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-[hsl(172,30%,96%)]/60 via-background to-[hsl(14,60%,96%)]/60">
       {/* Hero */}
       <section className="max-w-7xl mx-auto px-6 pt-16 pb-10 text-center space-y-5">
-        <h1
-          className="text-4xl md:text-5xl font-normal leading-tight text-foreground"
-          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
-        >
-          Planera er föräldraledighet utan&nbsp;Excel‑kaos
-        </h1>
+        <div className="flex flex-col items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest border rounded-full px-2.5 py-0.5 bg-primary/10 border-primary/20 text-primary">
+            β beta
+          </span>
+          <h1
+            className="text-4xl md:text-5xl font-normal leading-tight text-foreground"
+            style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+          >
+            Planera er föräldraledighet utan&nbsp;Excel‑kaos
+          </h1>
+        </div>
         <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
           Svara på fem frågor — få en komplett plan med datum, belopp och hur ni maximerar era dagar.
         </p>
