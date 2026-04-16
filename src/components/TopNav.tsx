@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
 import { useUser } from "@/hooks/useUser";
 import { useHasPurchased } from "@/hooks/useHasPurchased";
 import { supabase } from "@/integrations/supabase/client";
+import FeedbackDrawer from "@/components/FeedbackDrawer";
 
 const links = [
   { to: "/", label: "Start" },
@@ -14,6 +15,7 @@ const links = [
 
 const TopNav = () => {
   const [open, setOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { user, loading: userLoading } = useUser();
   const { hasPurchased } = useHasPurchased(user, userLoading);
 
@@ -49,6 +51,12 @@ const TopNav = () => {
               {l.label}
             </NavLink>
           ))}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="text-base text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Feedback
+          </button>
           {user && hasPurchased && (
             <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border">
               <span className="text-sm text-muted-foreground truncate max-w-[160px]">
@@ -90,6 +98,16 @@ const TopNav = () => {
               {l.label}
             </NavLink>
           ))}
+          <button
+            onClick={() => {
+              setOpen(false);
+              setFeedbackOpen(true);
+            }}
+            className="flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors py-1"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+            Feedback
+          </button>
           {user && hasPurchased && (
             <div className="pt-2 mt-2 border-t border-border space-y-2">
               <span className="block text-sm text-muted-foreground truncate">
@@ -106,6 +124,7 @@ const TopNav = () => {
           )}
         </nav>
       )}
+      <FeedbackDrawer open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </header>
   );
 };
