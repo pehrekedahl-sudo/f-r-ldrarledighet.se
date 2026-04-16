@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Lock, Calendar, Users, ChevronDown, Quote } from "lucide-react";
+import { Lock, Calendar, Users, ChevronDown } from "lucide-react";
 
 const stats = [
   {
@@ -52,17 +52,6 @@ const Index = () => {
           >
             Hur funkar föräldradagar egentligen? →
           </Link>
-        </div>
-      </section>
-
-      {/* Testimonial */}
-      <section className="max-w-3xl mx-auto px-6 pb-10">
-        <div className="flex flex-col items-center text-center gap-2">
-          <Quote className="w-5 h-5 text-primary/40" />
-          <blockquote className="text-sm md:text-base italic text-muted-foreground max-w-md leading-relaxed">
-            "Vi hade ingen aning om hur vi skulle fördela dagarna. På fem minuter hade vi en plan som funkade för oss båda."
-          </blockquote>
-          <cite className="text-xs text-muted-foreground/70 not-italic">— Lisa & Erik</cite>
         </div>
       </section>
 
