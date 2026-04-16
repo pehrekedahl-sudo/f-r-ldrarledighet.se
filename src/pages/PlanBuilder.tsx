@@ -51,6 +51,7 @@ import DoubleDaysDrawer, { type CompensationMode } from "@/components/DoubleDays
 import { adjustToTarget, calcRemaining, getTransfers } from "@/components/SaveDaysDrawer";
 import TransferDaysDrawer from "@/components/TransferDaysDrawer";
 import FKGuideDrawer from "@/components/FKGuideDrawer";
+import FeedbackDrawer from "@/components/FeedbackDrawer";
 
 import {
   Select,
