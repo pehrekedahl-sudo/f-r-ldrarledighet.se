@@ -1797,20 +1797,29 @@ const PlanBuilder = () => {
                                     {parentBlocks.map((b, i) => {
                                       const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
                                       const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                                      const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5);
+                                      const coverage = blockTopUpCoverage(b);
+                                      const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5) * coverage;
                                       const totalMonthly = fkMonthly + topUpScaled;
+                                      const showFullMarker = isEnabled && effectiveTopUp > 0 && coverage >= 1;
+                                      const showPartialMarker = isEnabled && effectiveTopUp > 0 && coverage > 0 && coverage < 1;
                                       return (
                                         <div key={b.id} className="flex items-start gap-2 text-xs">
                                           <div className="flex flex-col items-center mt-1">
                                             <div className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
                                             {i < parentBlocks.length - 1 && <div className="w-px h-4 bg-border" />}
                                           </div>
-                                          <div className="flex-1 flex items-baseline justify-between">
+                                          <div className="flex-1 flex items-baseline justify-between gap-2">
                                             <span className="text-muted-foreground text-[11px]">
                                               {fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v
                                             </span>
-                                            <span className="font-medium text-foreground tabular-nums text-[11px]">
+                                            <span className="font-medium text-foreground tabular-nums text-[11px] flex items-baseline gap-1">
                                               {Math.round(totalMonthly).toLocaleString("sv-SE")} kr
+                                              {showFullMarker && (
+                                                <span className="text-[10px] font-normal text-muted-foreground/70">+ tillägg</span>
+                                              )}
+                                              {showPartialMarker && (
+                                                <span className="text-[10px] font-normal text-muted-foreground/70">+ tillägg (delvis)</span>
+                                              )}
                                             </span>
                                           </div>
                                         </div>
