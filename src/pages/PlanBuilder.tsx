@@ -1730,19 +1730,6 @@ const PlanBuilder = () => {
                             : (parent?.topUpMonthly ?? 0))
                           : 0;
 
-                        let totalWeightedBenefit = 0;
-                        let totalDays = 0;
-                        parentBlocks.forEach(b => {
-                          const days = Math.max(1, diffDaysInclusive(b.startDate, b.endDate));
-                          const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
-                          const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                          const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5);
-                          totalWeightedBenefit += (fkMonthly + topUpScaled) * days;
-                          totalDays += days;
-                        });
-                        const avgMonthly = totalDays > 0 ? Math.round(totalWeightedBenefit / totalDays) : 0;
-                        const coveragePercent = monthlyIncome > 0 ? Math.min(100, Math.round((avgMonthly / monthlyIncome) * 100)) : 0;
-
                         const periodStart = parentBlocks.length > 0 ? parentBlocks[0].startDate : "";
                         const periodEnd = parentBlocks.length > 0 ? parentBlocks[parentBlocks.length - 1].endDate : "";
                         const totalPeriodMonths = periodStart && periodEnd
@@ -1750,6 +1737,33 @@ const PlanBuilder = () => {
                           : 0;
                         const tuMonths = topUpMonths[s.parentId] ?? 3;
                         const topUpEndDate = periodStart ? addMonths(periodStart, tuMonths) : "";
+
+                        // Compute per-block top-up coverage (fraction of block days within top-up window)
+                        const blockTopUpCoverage = (b: typeof parentBlocks[number]): number => {
+                          if (!isEnabled || !topUpEndDate) return 0;
+                          // Window is [periodStart, topUpEndDate) — exclusive end
+                          if (b.startDate >= topUpEndDate) return 0;
+                          if (b.endDate < topUpEndDate) return 1;
+                          // Partial overlap: days from b.startDate through day before topUpEndDate
+                          const lastCoveredDay = addDaysUtil(topUpEndDate, -1);
+                          const coveredDays = diffDaysInclusive(b.startDate, lastCoveredDay);
+                          const totalBlockDays = Math.max(1, diffDaysInclusive(b.startDate, b.endDate));
+                          return Math.max(0, Math.min(1, coveredDays / totalBlockDays));
+                        };
+
+                        let totalWeightedBenefit = 0;
+                        let totalDays = 0;
+                        parentBlocks.forEach(b => {
+                          const days = Math.max(1, diffDaysInclusive(b.startDate, b.endDate));
+                          const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
+                          const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
+                          const coverage = blockTopUpCoverage(b);
+                          const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5) * coverage;
+                          totalWeightedBenefit += (fkMonthly + topUpScaled) * days;
+                          totalDays += days;
+                        });
+                        const avgMonthly = totalDays > 0 ? Math.round(totalWeightedBenefit / totalDays) : 0;
+                        const coveragePercent = monthlyIncome > 0 ? Math.min(100, Math.round((avgMonthly / monthlyIncome) * 100)) : 0;
 
                         return (
                           <div key={s.parentId} className={`border-l-4 ${colors.border}`}>
@@ -1783,20 +1797,29 @@ const PlanBuilder = () => {
                                     {parentBlocks.map((b, i) => {
                                       const monthlyFull = computeBlockMonthlyBenefit(monthlyIncome, 5);
                                       const fkMonthly = monthlyFull * (b.daysPerWeek / 5);
-                                      const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5);
+                                      const coverage = blockTopUpCoverage(b);
+                                      const topUpScaled = effectiveTopUp * Math.min(1, b.daysPerWeek / 5) * coverage;
                                       const totalMonthly = fkMonthly + topUpScaled;
+                                      const showFullMarker = isEnabled && effectiveTopUp > 0 && coverage >= 1;
+                                      const showPartialMarker = isEnabled && effectiveTopUp > 0 && coverage > 0 && coverage < 1;
                                       return (
                                         <div key={b.id} className="flex items-start gap-2 text-xs">
                                           <div className="flex flex-col items-center mt-1">
                                             <div className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
                                             {i < parentBlocks.length - 1 && <div className="w-px h-4 bg-border" />}
                                           </div>
-                                          <div className="flex-1 flex items-baseline justify-between">
+                                          <div className="flex-1 flex items-baseline justify-between gap-2">
                                             <span className="text-muted-foreground text-[11px]">
                                               {fmtPeriod(b.startDate, b.endDate)} · {b.daysPerWeek} d/v
                                             </span>
-                                            <span className="font-medium text-foreground tabular-nums text-[11px]">
+                                            <span className="font-medium text-foreground tabular-nums text-[11px] flex items-baseline gap-1">
                                               {Math.round(totalMonthly).toLocaleString("sv-SE")} kr
+                                              {showFullMarker && (
+                                                <span className="text-[10px] font-normal text-muted-foreground/70">+ tillägg</span>
+                                              )}
+                                              {showPartialMarker && (
+                                                <span className="text-[10px] font-normal text-muted-foreground/70">+ tillägg (delvis)</span>
+                                              )}
                                             </span>
                                           </div>
                                         </div>
