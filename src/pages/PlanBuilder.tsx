@@ -2048,6 +2048,16 @@ const PlanBuilder = () => {
                 </p>
               </section>
             )}
+
+            {/* Diskret feedback-länk längst ner när planen är synlig */}
+            <div className="text-center pt-2">
+              <button
+                onClick={() => setFeedbackOpen(true)}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                Lämna feedback om verktyget
+              </button>
+            </div>
           </>
         );
       })()}
@@ -2326,6 +2336,7 @@ const PlanBuilder = () => {
       </Dialog>
       <PlanTutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      <FeedbackDrawer open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   );
 };
