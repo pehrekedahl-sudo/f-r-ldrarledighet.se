@@ -45,7 +45,7 @@ const Index = () => {
           <Button size="lg" asChild>
             <Link to="/wizard">Skapa er plan — tar 5 min</Link>
           </Button>
-          <p className="text-xs text-muted-foreground">Gratis. Inget konto krävs.</p>
+          
           <Link
             to="/foraldraledighet-101"
             className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors mt-1"
