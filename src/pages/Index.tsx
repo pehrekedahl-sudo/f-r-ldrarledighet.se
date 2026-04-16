@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Lock, Calendar, Users, ChevronDown } from "lucide-react";
+import FeedbackDrawer from "@/components/FeedbackDrawer";
 
 const stats = [
   {
@@ -28,6 +29,7 @@ const timelineMonths = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", 
 
 const Index = () => {
   const [showLimitations, setShowLimitations] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(172,30%,96%)]/60 via-background to-[hsl(14,60%,96%)]/60">
       {/* Hero */}
@@ -183,11 +185,21 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-6 text-center">
+      <footer className="border-t border-border py-6 text-center space-y-2">
         <p className="text-xs text-muted-foreground">
           Simulering — kontrollera alltid mot Försäkringskassan
         </p>
+        <p className="text-xs text-muted-foreground">
+          Har du synpunkter?{" "}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Lämna feedback
+          </button>
+        </p>
       </footer>
+      <FeedbackDrawer open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
       {/* Sticky mobile CTA */}
       <div className="fixed bottom-0 inset-x-0 p-4 bg-background/95 backdrop-blur border-t border-border md:hidden z-50">
