@@ -53,9 +53,10 @@ const TopNav = () => {
           ))}
           <button
             onClick={() => setFeedbackOpen(true)}
-            className="text-base text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors italic font-light"
+            title="Tillfällig feedback-länk under beta"
           >
-            Feedback
+            feedback?
           </button>
           {user && hasPurchased && (
             <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border">
