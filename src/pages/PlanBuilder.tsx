@@ -152,6 +152,7 @@ const PlanBuilder = () => {
   const [transferDaysOpen, setTransferDaysOpen] = useState(false);
   const [hasManualEdits, setHasManualEdits] = useState(false);
   const [fkGuideOpen, setFkGuideOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [topUpEnabled, setTopUpEnabled] = useState<Record<string, boolean>>({});
   const [topUpMode, setTopUpMode] = useState<Record<string, "amount" | "percent">>({ p1: "amount", p2: "amount" });
   const [topUpPercent, setTopUpPercent] = useState<Record<string, number>>({ p1: 10, p2: 10 });
