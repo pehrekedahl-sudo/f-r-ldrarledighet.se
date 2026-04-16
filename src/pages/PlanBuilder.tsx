@@ -1745,7 +1745,7 @@ const PlanBuilder = () => {
                           if (b.startDate >= topUpEndDate) return 0;
                           if (b.endDate < topUpEndDate) return 1;
                           // Partial overlap: days from b.startDate through day before topUpEndDate
-                          const lastCoveredDay = addDays(topUpEndDate, -1);
+                          const lastCoveredDay = addDaysUtil(topUpEndDate, -1);
                           const coveredDays = diffDaysInclusive(b.startDate, lastCoveredDay);
                           const totalBlockDays = Math.max(1, diffDaysInclusive(b.startDate, b.endDate));
                           return Math.max(0, Math.min(1, coveredDays / totalBlockDays));
