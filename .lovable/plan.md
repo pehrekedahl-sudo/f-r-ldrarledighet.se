@@ -1,46 +1,46 @@
 
 
-## Feedback-funktion: smidig men inte störig
+## Bug: Top-up scope ignored in "Ersättning per förälder"
 
-### Mål
-Låta användare dela feedback när de själva vill, utan popups, modaler vid uppstart eller störande element.
+### Problem
+När arbetsgivartillägget bara täcker en del av förälderns ledighet (t.ex. 3 mån av 12) visas tillägget ändå på **alla** perioder och i snittet. Det överskattar månadsersättningen och förvirrar användaren.
 
-### Lösning: Diskret "Feedback"-knapp + enkel drawer
+**Var i koden** (`src/pages/PlanBuilder.tsx`, ca rad 1715–1805):
+- Snittberäkning `avgMonthly` lägger till `topUpScaled` på varje block utan att kolla om blocket ligger inom top-up-fönstret.
+- Per-period-listan ("Visa N perioder") visar `fkMonthly + topUpScaled` på varje rad — även för perioder efter `topUpEndDate`.
 
-**Placering**
-- Liten "Feedback"-länk i footer på `Index` och i `TopNav` (desktop: textlänk i navraden, mobil: i hamburgermenyn). Inga sticky-knappar i hörnet, ingen automatisk popup.
-- Frivillig "Hur gick det?"-länk efter att användaren slutfört wizarden (en mjuk uppmaning vid en naturlig brytpunkt — inget tvång).
+### Lösning
 
-**Interaktion**
-- Klick öppnar en `Drawer` (samma mönster som övriga drawers i appen, t.ex. `BlockEditDrawer`) med ett kort formulär:
-  - **Typ** (radio): Förslag / Bugg / Beröm / Annat
-  - **Meddelande** (textarea, max 1000 tecken, validerat med zod)
-  - **E-post** (valfritt, för uppföljning) — förifylls om användaren är inloggad
-  - "Skicka"-knapp + diskret tack-bekräftelse via toast
+**1. Beräkna top-up-fönster per block (proportionellt)**
 
-**Lagring**
-- Ny tabell `feedback` i Lovable Cloud:
-  - `id`, `created_at`, `user_id` (nullable), `email` (nullable), `type`, `message`, `route` (varifrån feedbacken skickades), `user_agent`
-- RLS:
-  - INSERT: tillåtet för alla (även anonyma) — feedback ska vara enkelt att lämna
-  - SELECT/UPDATE/DELETE: endast admin-roll (förbereder för framtida adminvy; ingen byggs nu)
+Top-up gäller från `periodStart` (förälderns första block) i `tuMonths` månader → `topUpEndDate = addMonths(periodStart, tuMonths)`.
 
-**Validering**
-- Klientvalidering med zod (`type` enum, `message` 1–1000 tecken trim, `email` valfri men måste vara giltig om ifylld).
+För varje block, räkna ut hur många dagar av blocket som faktiskt ligger inom `[periodStart, topUpEndDate)`:
+- Helt inom fönstret → full top-up
+- Helt utanför → 0 top-up  
+- Delvis (top-up tar slut mitt i blocket) → top-up viktas med (täckta dagar / blockets dagar)
 
-### Filer som skapas/ändras
-- **Ny**: `src/components/FeedbackDrawer.tsx` — drawer + formulär + zod-schema + insert till Supabase
-- **Ny**: migration som skapar `feedback`-tabellen + RLS + (förbered) `has_role`-funktion om den inte redan finns
-- **Ändrad**: `src/components/TopNav.tsx` — lägg till "Feedback"-länk (desktop + mobil) som öppnar drawern
-- **Ändrad**: `src/pages/Index.tsx` — lägg till "Feedback"-länk i footern
-- **Ändrad**: `src/pages/PlanBuilder.tsx` — diskret "Lämna feedback"-länk längst ner (efter att planen är klar)
+**2. Uppdatera snittberäkningen**
 
-### Designprinciper som följs
-- Inga popups, modals vid sidladdning eller "intercept"-rutor
-- Samma drawer-mönster, typografi och knappstilar som resten av appen
-- Anonym feedback tillåten — sänker tröskeln
+Använd det viktade top-up-beloppet per block i `totalWeightedBenefit`-summan istället för att alltid lägga på fullt `effectiveTopUp`.
 
-### Vad jag INTE bygger nu
-- Adminvy för att läsa feedback (kan göras direkt via Lovable Cloud-databasen tills vidare)
-- E-postnotis vid ny feedback (kan läggas till senare med edge function + Resend)
+**3. Förtydliga per-period-listan**
+
+I varje rad visas `fkMonthly + (block-anpassat tillägg)`. Lägg till en liten visuell markör per rad:
+- Period helt täckt av tillägg → liten dämpad text "+ tillägg" efter beloppet
+- Period delvis täckt → "+ tillägg (delvis)"
+- Period utan tillägg → ingen markör (bara FK-beloppet)
+
+Detta gör det tydligt vilka månader som faktiskt får påslaget.
+
+**4. Befintlig "✓ Hela perioden" / "X/Y mån"-indikator**
+
+Den finns redan (rad 1927–1931) i top-up-konfigurationen och behöver inte ändras — men nu kommer beräkningarna ovanför också vara konsekventa med den indikatorn.
+
+### Filer som ändras
+- `src/pages/PlanBuilder.tsx` — beräkningsblocket runt rad 1715–1805 (snitt + per-period-render).
+
+### Vad jag INTE ändrar
+- Top-up-konfigurations-UI (switch, kr/%, månader) — fungerar redan.
+- Simuleringsmotorn (`simulatePlan.ts`) — top-up är ett presentationslager, inte del av FK-beräkningen.
 
